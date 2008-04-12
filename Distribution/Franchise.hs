@@ -1,4 +1,5 @@
 module Distribution.Franchise ( build, Dependency(..), Buildable(..),
+                                copyright, license, version,
                                 (<:), source, package, clean )
     where
 
@@ -48,6 +49,11 @@ clean b = [] :< [] :<- const (mapM_ rm $ listOutputs b)
 listOutputs :: Buildable -> [String]
 listOutputs (_ :< [] :<- _) = [] -- things that have no input (i.e. source!) aren't output
 listOutputs (xs :< ys :<- _) = nub (xs ++ concatMap listOutputs ys)
+
+copyright, license, version :: String -> IO ()
+copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
+license x = setEnv "FRANCHISE_LICENSE" x True
+version x = setEnv "FRANCHISE_VERSION" x True
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
