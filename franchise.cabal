@@ -9,4 +9,4 @@ hidden-modules:
 hs-libraries: franchise
 import-dirs: /home/droundy/lib/franchise
 library-dirs: /home/droundy/lib/franchise
-depends: base
+depends: base, unix

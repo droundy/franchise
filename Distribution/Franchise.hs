@@ -7,6 +7,7 @@ import Data.List ( partition )
 import System.Exit ( ExitCode(..) )
 import System.Process ( runProcess, waitForProcess )
 import System.Directory ( doesFileExist )
+import System.Posix.Files ( getFileStatus, modificationTime )
 
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
@@ -43,7 +44,27 @@ buildName (d:<-_) = depName d
 
 build :: Buildable -> IO ()
 build ((x :< ds) :<- how) = do mapM_ build ds
-                               how (x :< ds)
+                               nw <- needsWork (x:<ds)
+                               when nw $ how (x :< ds)
+
+needsWork :: Dependency -> IO Bool
+needsWork ([]:<_) = return True
+needsWork ((x:_) :< ds) =
+    do fe <- doesFileExist x
+       if not fe
+         then return True
+         else do s <- getFileStatus x
+                 let mt = modificationTime s
+                     latertime y = do ye <- doesFileExist y
+                                      if not ye
+                                        then return True
+                                        else do sy <- getFileStatus y
+                                                return (modificationTime sy > mt)
+                     anyM _ [] = return False
+                     anyM f (z:zs) = do b <- f z
+                                        if b then return True
+                                             else anyM f zs
+                 anyM latertime $ concatMap buildName ds
 
 endsWith :: String -> String -> Bool
 endsWith x y = drop (length y - length x) y == x
