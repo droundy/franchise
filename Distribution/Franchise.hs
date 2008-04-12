@@ -1,5 +1,5 @@
 module Distribution.Franchise ( build, Dependency(..), Buildable(..),
-                                (<:), source )
+                                (<:), source, package )
     where
 
 import Control.Monad ( when )
@@ -35,6 +35,18 @@ x <: y | all (\z -> endsWith ".o" z || endsWith ".hi" z) x &&
 source :: String -> Buildable
 source x = ([x]:<[]) :<- (const $ do e <- doesFileExist x
                                      when (not e) $ fail $ "Source file "++x++" does not exist!")
+
+package :: String -> [String] -> Buildable
+package packageName modules = ["/home/droundy/lib/"++packageName++"/"] <:
+                              (lib:obj:source (packageName++".cabal"):mods)
+    where mods = map mod2build modules
+          mod2build m = [mp++".o",mp++".hi"] <: [source (mp++".hs")]
+              where mp = map dot2slash m
+                    dot2slash '.' = '/'
+                    dot2slash x = x
+          lib = ["lib"++packageName++".a"] <: mods
+          obj = [packageName++".o"] <: [lib]
+
 
 depName :: Dependency -> [String]
 depName (n :< _) = n
