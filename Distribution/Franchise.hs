@@ -1,5 +1,5 @@
 module Distribution.Franchise ( build, Dependency(..), Buildable(..),
-                                requireModule,
+                                requireModule, searchForModule,
                                 copyright, license, version,
                                 (<:), source, package, clean )
     where
@@ -207,6 +207,9 @@ install ([prefix]:<ds:<-h) | endsWith "/" prefix = [prefix]:<ds:<-h'
 
 requireModule :: String -> IO ()
 requireModule m = needModule m Nothing
+
+searchForModule :: String -> [String] -> IO ()
+searchForModule m ps = needModule m (Just ps)
 
 needModule :: String -> Maybe [String] -> IO ()
 needModule m Nothing = do let fn = "Try"++m++".hs"
