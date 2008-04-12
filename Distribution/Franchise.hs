@@ -15,17 +15,17 @@ import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
 
 data Dependency = DependsOn [String] [Dependency]
                   ([String] -> [Dependency] -> IO ())
-                | Original String
+
+source :: String -> Dependency
+source x = DependsOn [x] [] (\_ _ -> do e <- doesFileExist x
+                                        when (not e) $ fail $ "Source file "++x++" does not exist!")
 
 depName :: Dependency -> [String]
 depName (DependsOn n _ _) = n
-depName (Original n) = [n]
 
 -- data Target = Package InstalledPackageInfo
 
 build :: Dependency -> IO ()
-build (Original x) = do e <- doesFileExist x
-                        when (not e) $ fail $ "Source file "++x++" does not exist!"
 build (DependsOn x ds how) = do mapM_ build ds
                                 how x ds
 
