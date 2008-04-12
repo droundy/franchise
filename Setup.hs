@@ -2,12 +2,12 @@
 
 import Distribution.Franchise
 
-distributionFranchiseO = DependsOn ["Distribution/Franchise.o","Distribution/Franchise.hi"]
-                         [source "Distribution/Franchise.hs"] ghc_hs_to_o
+distributionFranchiseO = ["Distribution/Franchise.o","Distribution/Franchise.hi"]
+                         <: [source "Distribution/Franchise.hs"]
 
-lib = DependsOn ["libfranchise.a"] [distributionFranchiseO] objects_to_a
+lib = ["libfranchise.a"] <: [distributionFranchiseO]
 
-obj = DependsOn ["franchise.o"] [lib] a_to_o
+obj = ["franchise.o"] <: [lib]
 
-main = build $ DependsOn ["/home/droundy/lib/franchise"]
-                         [lib,obj,source "franchise.cabal",distributionFranchiseO] install
+main = build $ ["/home/droundy/lib/franchise/"] <:
+               [lib,obj,source "franchise.cabal",distributionFranchiseO]
