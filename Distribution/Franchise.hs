@@ -174,7 +174,7 @@ endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
 packages :: IO [String]
 packages = do x <- getEnv "FRANCHISE_PACKAGES"
-              case x of Nothing -> return ["base"]
+              case x of Nothing -> return []
                         Just y -> return $ words y
 
 ghc_hs_to_o :: Dependency -> IO ()
@@ -216,19 +216,21 @@ needModule m Nothing = do let fn = "Try"++m++".hs"
                           writeFile fn ("import "++m++"\nmain = undefined")
                           packs <- concatMap (\p -> ["-package",p]) `fmap` packages
                           e <- systemErr "ghc" (packs ++ ["-c","-hide-all-packages",fn])
+                          cleanModuleTest m
                           case e of
                             "" -> return ()
                             _ -> case catMaybes $ map findOption $ lines e of
                                    [] -> do putStrLn e
                                             fail $ "Can't use module "++m
-                                   ps -> needModule m (Just ps)
-                          removeFile fn `catch` \_ -> return ()
+                                   ps -> do -- putStrLn e -- for debugging!
+                                            needModule m (Just ps)
 needModule m (Just (p:ps)) =
     do let fn = "Try"++m++".hs"
        writeFile fn ("import "++m++"\nmain = undefined")
        otherPacks <- packages
        e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) (p:otherPacks) ++
                                            ["-c","-hide-all-packages",fn])
+       cleanModuleTest m
        case e of
          "" -> do setEnv "FRANCHISE_PACKAGES" (unwords $ p:otherPacks) True
                   putStrLn $ "Found "++ m ++" in package "++ p
@@ -240,12 +242,20 @@ needModule m (Just []) =
        otherPacks <- packages
        e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) otherPacks ++
                                            ["-c","-hide-all-packages",fn])
+       cleanModuleTest m
        case e of
          "" -> putStrLn $ "Found "++ m
          _ -> fail $ "Couldn't find module " ++ m
 
+cleanModuleTest :: String -> IO ()
+cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"]
+                           rm f = removeFile f `catch` \_ -> return ()
+                       mapM_ rm fns
+
 findOption :: String -> Maybe String
-findOption x | take (length foo) x == foo = listToMaybe $ map (takeWhile (/='-')) $
+findOption x | take (length foo) x == foo = listToMaybe $
+                                            map (takeWhile (/=',')) $
+                                            map (takeWhile (/='-')) $
                                             words $ drop (length foo) x
              where foo = "member of package "
 findOption (_:x) = findOption x
