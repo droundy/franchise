@@ -1,17 +1,18 @@
 module Distribution.Franchise ( build, Dependency(..), Buildable(..),
+                                requireModule,
                                 copyright, license, version,
                                 (<:), source, package, clean )
     where
 
 import Control.Monad ( when, mplus )
-import Data.Maybe ( catMaybes )
+import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( nub, partition, delete, (\\) )
 import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
 
-import Distribution.Franchise.Util ( system )
+import Distribution.Franchise.Util ( system, systemErr )
 
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
@@ -171,12 +172,19 @@ endsWith x y = drop (length y - length x) y == x
 endsWithOneOf :: [String] -> String -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
+packages :: IO [String]
+packages = do x <- getEnv "FRANCHISE_PACKAGES"
+              case x of Nothing -> return ["base"]
+                        Just y -> return $ words y
+
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
                       [d] -> do pn <- getPackageVersion
+                                packs <- concatMap (\p -> ["-package",p]) `fmap` packages
                                 case pn of
-                                  Just p -> system "ghc" ["-c","-package-name",p,d]
-                                  Nothing -> system "ghc" ["-c",d]
+                                  Just p -> system "ghc" $ packs ++
+                                            ["-c","-hide-all-packages","-package-name",p,d]
+                                  Nothing -> system "ghc" $ packs ++ ["-c","-hide-all-packages",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
@@ -196,3 +204,46 @@ install ([prefix]:<ds:<-h) | endsWith "/" prefix = [prefix]:<ds:<-h'
                       (cabal,others) = partition (endsWith ".cabal") $ concatMap buildName ds
                   mapM_ inst others
                   system "ghc-pkg" ("--user":"update":cabal)
+
+requireModule :: String -> IO ()
+requireModule m = needModule m Nothing
+
+needModule :: String -> Maybe [String] -> IO ()
+needModule m Nothing = do let fn = "Try"++m++".hs"
+                          writeFile fn ("import "++m++"\nmain = undefined")
+                          packs <- concatMap (\p -> ["-package",p]) `fmap` packages
+                          e <- systemErr "ghc" (packs ++ ["-c","-hide-all-packages",fn])
+                          case e of
+                            "" -> return ()
+                            _ -> case catMaybes $ map findOption $ lines e of
+                                   [] -> do putStrLn e
+                                            fail $ "Can't use module "++m
+                                   ps -> needModule m (Just ps)
+                          removeFile fn `catch` \_ -> return ()
+needModule m (Just (p:ps)) =
+    do let fn = "Try"++m++".hs"
+       writeFile fn ("import "++m++"\nmain = undefined")
+       otherPacks <- packages
+       e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) (p:otherPacks) ++
+                                           ["-c","-hide-all-packages",fn])
+       case e of
+         "" -> do setEnv "FRANCHISE_PACKAGES" (unwords $ p:otherPacks) True
+                  putStrLn $ "Found "++ m ++" in package "++ p
+         _ -> do putStrLn $ "Couldn't find " ++ m ++ " in package "++p
+                 needModule m (Just ps)
+needModule m (Just []) =
+    do let fn = "Try"++m++".hs"
+       writeFile fn ("import "++m++"\nmain = undefined")
+       otherPacks <- packages
+       e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) otherPacks ++
+                                           ["-c","-hide-all-packages",fn])
+       case e of
+         "" -> putStrLn $ "Found "++ m
+         _ -> fail $ "Couldn't find module " ++ m
+
+findOption :: String -> Maybe String
+findOption x | take (length foo) x == foo = listToMaybe $ map (takeWhile (/='-')) $
+                                            words $ drop (length foo) x
+             where foo = "member of package "
+findOption (_:x) = findOption x
+findOption [] = Nothing
