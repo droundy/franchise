@@ -209,7 +209,7 @@ requireModule :: String -> IO ()
 requireModule m = needModule m Nothing
 
 searchForModule :: String -> [String] -> IO ()
-searchForModule m ps = needModule m (Just ps)
+searchForModule m ps = needModule m (Just []) `catch` \_ -> needModule m (Just ps)
 
 needModule :: String -> Maybe [String] -> IO ()
 needModule m Nothing = do let fn = "Try"++m++".hs"
