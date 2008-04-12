@@ -1,11 +1,11 @@
 module Distribution.Franchise ( build, Dependency(..), Buildable(..),
-                                (<:), source, package )
+                                (<:), source, package, clean )
     where
 
 import Control.Monad ( when, mplus )
 import Data.Maybe ( catMaybes )
-import Data.List ( partition, delete, (\\) )
-import System.Directory ( doesFileExist )
+import Data.List ( nub, partition, delete, (\\) )
+import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
 
@@ -37,6 +37,16 @@ xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (
 source :: String -> Buildable
 source x = ([x]:<[]) :<- (const $ do e <- doesFileExist x
                                      when (not e) $ fail $ "Source file "++x++" does not exist!")
+
+clean :: Buildable -> Buildable
+clean b = [] :< [] :<- const (mapM_ rm $ listOutputs b)
+    where rm f | endsWith "/" f = return ()
+               | otherwise = do putStrLn $ "  removing " ++ f
+                                removeFile f `catch` \_ -> return ()
+
+listOutputs :: Buildable -> [String]
+listOutputs (_ :< [] :<- _) = [] -- things that have no input (i.e. source!) aren't output
+listOutputs (xs :< ys :<- _) = nub (xs ++ concatMap listOutputs ys)
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
