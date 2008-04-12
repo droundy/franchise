@@ -5,6 +5,7 @@ module Distribution.Franchise ( build, Dependency(..), Buildable(..),
 import Control.Monad ( when, mplus )
 import Data.Maybe ( catMaybes )
 import Data.List ( nub, partition, delete, (\\) )
+import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
@@ -31,7 +32,7 @@ infix 2 <:
 x <: y | all (endsWithOneOf [".o",".hi"]) x &&
          any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
              = x :< y :<- ghc_hs_to_o
-[x] <: y | endsWith "/" x = [x] :< y :<- install
+[x] <: y | endsWith "/" x = [x] :< y :<- const (return ())
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 source :: String -> Buildable
@@ -53,29 +54,30 @@ package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
        system "ghc" ("-M":"-optdep-f":"-optdep.depend":modules)
        mods <- parseDeps `fmap` readFile ".depend"
+       pre <- getPrefix
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
-       ver <- getVersion
-       lic <- getEnv "FRANCHISE_LICENSE"
-       cop <- getEnv "FRANCHISE_COPYRIGHT"
-       mai <- getEnv "FRANCHISE_MAINTAINER"
-       ema <- getEnv "EMAIL"
-       pre <- getPrefix
-       let destination = pre++"/"++packageName++"/"
-       writeFile (packageName++".cabal") $ unlines
-                     ["name: "++packageName,
-                      "version: "++ver,
-                      "license: "++maybe "OtherLicense" id lic,
-                      "copyright: "++maybe "" id cop,
-                      "maintainer: "++maybe "" id (mai `mplus` ema),
-                      "import-dirs: "++ destination,
-                      "library-dirs: "++ destination,
-                      "exposed-modules: "++unwords modules,
-                      "hidden-modules: "++unwords (concatMap modName mods \\ modules),
-                      "hs-libraries: "++packageName,
-                      "exposed: True",
-                      "depends: base, unix"]
-       return $ [destination] <: (lib:obj:source (packageName++".cabal"):mods)
+           cabal = [packageName++".cabal"] :< [source ".depend"] :<- makecabal
+           destination = pre++"/"++packageName++"/"
+           makecabal _ = do ver <- getVersion
+                            lic <- getEnv "FRANCHISE_LICENSE"
+                            cop <- getEnv "FRANCHISE_COPYRIGHT"
+                            mai <- getEnv "FRANCHISE_MAINTAINER"
+                            ema <- getEnv "EMAIL"
+                            writeFile (packageName++".cabal") $ unlines
+                                          ["name: "++packageName,
+                                           "version: "++ver,
+                                           "license: "++maybe "OtherLicense" id lic,
+                                           "copyright: "++maybe "" id cop,
+                                           "maintainer: "++maybe "" id (mai `mplus` ema),
+                                           "import-dirs: "++ destination,
+                                           "library-dirs: "++ destination,
+                                           "exposed-modules: "++unwords modules,
+                                           "hidden-modules: "++unwords (concatMap modName mods \\ modules),
+                                           "hs-libraries: "++packageName,
+                                           "exposed: True",
+                                           "depends: base, unix"]
+       return $ [destination] <: (lib:obj:cabal:mods)
 
 modName :: Buildable -> [String]
 modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
@@ -125,9 +127,18 @@ buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 
 build :: Buildable -> IO ()
-build ((x :< ds) :<- how) = do mapM_ build ds
-                               nw <- needsWork (x:<ds)
-                               when nw $ how (x :< ds)
+build b = do args <- getArgs
+             case args of
+               ["clean"] -> build' $ clean b
+               ["build"] -> build' b
+               [] -> build' b
+               ["install"] -> build' $ install b
+               x -> fail $ "I don't understand arguments " ++ unwords x
+
+build' :: Buildable -> IO ()
+build' ((x :< ds) :<- how) = do mapM_ build' ds
+                                nw <- needsWork (x:<ds)
+                                when nw $ how (x :< ds)
 
 needsWork :: Dependency -> IO Bool
 needsWork ([]:<_) = return True
@@ -171,10 +182,11 @@ a_to_o :: Dependency -> IO ()
 a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
 
-install :: Dependency -> IO ()
-install ([prefix]:<ds) =
-    do system "mkdir" ["-p",prefix]
-       let inst x = system "cp" ["--parents",x,prefix]
-           (cabal,others) = partition (endsWith ".cabal") $ concatMap buildName ds
-       mapM_ inst others
-       system "ghc-pkg" ("--user":"update":cabal)
+install :: Buildable -> Buildable
+install ([prefix]:<ds:<-h) | endsWith "/" prefix = [prefix]:<ds:<-h'
+  where h' b = do h b
+                  system "mkdir" ["-p",prefix]
+                  let inst x = system "cp" ["--parents",x,prefix]
+                      (cabal,others) = partition (endsWith ".cabal") $ concatMap buildName ds
+                  mapM_ inst others
+                  system "ghc-pkg" ("--user":"update":cabal)
