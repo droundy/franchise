@@ -159,7 +159,7 @@ needsWork ((x:_) :< ds) =
                                       if not ye
                                         then return True
                                         else do sy <- getFileStatus y
-                                                return (modificationTime sy > mt)
+                                                return (modificationTime sy >= mt)
                      anyM _ [] = return False
                      anyM f (z:zs) = do b <- f z
                                         if b then return True
