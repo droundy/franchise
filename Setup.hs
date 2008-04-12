@@ -2,4 +2,4 @@
 
 import Distribution.Franchise
 
-main = build $ package "franchise" ["Distribution.Franchise"]
+main = package "franchise" ["Distribution.Franchise"] >>= build

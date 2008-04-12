@@ -8,6 +8,7 @@ import System.Exit ( ExitCode(..) )
 import System.Process ( runProcess, waitForProcess )
 import System.Directory ( doesFileExist )
 import System.Posix.Files ( getFileStatus, modificationTime )
+import System.Posix.Env ( setEnv, getEnv )
 
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
@@ -36,9 +37,11 @@ source :: String -> Buildable
 source x = ([x]:<[]) :<- (const $ do e <- doesFileExist x
                                      when (not e) $ fail $ "Source file "++x++" does not exist!")
 
-package :: String -> [String] -> Buildable
-package packageName modules = ["/home/droundy/lib/"++packageName++"/"] <:
-                              (lib:obj:source (packageName++".cabal"):mods)
+package :: String -> [String] -> IO Buildable
+package packageName modules =
+    do setEnv "FRANCHISE_PACKAGE" packageName True
+       return $ ["/home/droundy/lib/"++packageName++"/"] <:
+                  (lib:obj:source (packageName++".cabal"):mods)
     where mods = map mod2build modules
           mod2build m = [mp++".o",mp++".hi"] <: [source (mp++".hs")]
               where mp = map dot2slash m
@@ -83,7 +86,10 @@ endsWith x y = drop (length y - length x) y == x
 
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWith ".hs") $ concatMap buildName ds of
-                      [d] -> system "ghc" ["-c","-package-name","franchise-0.0",d]
+                      [d] -> do pn <- getEnv "FRANCHISE_PACKAGE"
+                                case pn of
+                                  Just p -> system "ghc" ["-c","-package-name",p++"-0.0",d]
+                                  Nothing -> system "ghc" ["-c",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
