@@ -1,4 +1,5 @@
-module Distribution.Franchise ( build, executable,
+module Distribution.Franchise ( build, executable, privateExecutable,
+                                installBin,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
@@ -72,6 +73,14 @@ version x = setEnv "FRANCHISE_VERSION" x True
 
 executable :: String -> String -> IO Buildable
 executable exname src =
+    do x :< y :<- b <- privateExecutable exname src
+       return $ x :< y :<- b { install = installBin }
+
+-- privateExecutable is used for executables used by the build system but
+-- not to be installed.
+
+privateExecutable :: String -> String -> IO Buildable
+privateExecutable  exname src =
     do rm ".depend"
        system "ghc" ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
@@ -83,8 +92,7 @@ executable exname src =
                                  ["-hide-all-packages","-package-name",p,"-o",exname]
                        Nothing -> system "ghc" $ packs++objs++["-hide-all-packages","-o",exname]
        return $ [exname] :< (source src:mods)
-                  :<- defaultRule { make = mk, install = install_bin,
-                                    clean = \b -> rm ".depend" >> cleanIt b }
+                  :<- defaultRule { make = mk, clean = \b -> rm ".depend" >> cleanIt b }
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
@@ -244,10 +252,10 @@ ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap bui
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
-install_bin :: Dependency -> IO ()
-install_bin (xs:<_) = do pref <- getBinPrefix
-                         let inst x = system "cp" [x,pref++"/"]
-                         mapM_ inst xs
+installBin :: Dependency -> IO ()
+installBin (xs:<_) = do pref <- getBinPrefix
+                        let inst x = system "cp" [x,pref++"/"]
+                        mapM_ inst xs
 
 objects_to_a :: Dependency -> IO ()
 objects_to_a ([outname]:<ds) =

@@ -1,5 +1,4 @@
 #!/usr/bin/runhaskell
-
 import Distribution.Franchise
 
 main = do copyright "David Roundy"
@@ -9,6 +8,6 @@ main = do copyright "David Roundy"
           requireModule "System.Posix.Files"
           requireModule "System.Posix.Env ( setEnv )"
           p <- package "franchise" ["Distribution.Franchise"]
-          e <- executable "sample-setup" "Setup.hs"
-          --build (p .& e)
-          build p
+          e <- privateExecutable "sample-setup" "Setup.hs"
+          build (p .& e)
+
