@@ -201,7 +201,11 @@ install ([prefix]:<ds:<-h) | endsWith "/" prefix = [prefix]:<ds:<-h'
   where h' b = do h b
                   system "mkdir" ["-p",prefix]
                   let inst x = system "cp" ["--parents",x,prefix]
-                      (cabal,others) = partition (endsWith ".cabal") $ concatMap buildName ds
+                      (cabal,others) = partition (endsWith ".cabal") $ map buildNameHi ds
+                      buildNameHi x = case buildName x of
+                                      [y] -> y
+                                      [y,z] | endsWith ".hi" y -> y
+                                            | endsWith ".hi" z -> z
                   mapM_ inst others
                   system "ghc-pkg" ("--user":"update":cabal)
 
