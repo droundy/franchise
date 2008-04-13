@@ -8,4 +8,7 @@ main = do copyright "David Roundy"
           requireModule "Prelude"
           requireModule "System.Posix.Files"
           requireModule "System.Posix.Env ( setEnv )"
-          package "franchise" ["Distribution.Franchise"] >>= build
+          p <- package "franchise" ["Distribution.Franchise"]
+          e <- executable "sample-setup" "Setup.hs"
+          --build (p .& e)
+          build p

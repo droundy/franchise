@@ -1,4 +1,4 @@
-module Distribution.Franchise ( build,
+module Distribution.Franchise ( build, executable,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
@@ -8,7 +8,7 @@ module Distribution.Franchise ( build,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- semi-automatic rule generation
-                                (<:), source )
+                                (<:), source, (.&) )
     where
 
 import Control.Monad ( when, mplus )
@@ -55,6 +55,10 @@ source x = ([x]:<[]) :<-
    defaultRule { make = (const $ do e <- doesFileExist x
                                     when (not e) $ fail $ "Source file "++x++" does not exist!") }
 
+(.&) :: Buildable -> Buildable -> Buildable
+infixr 3 .&
+a .& b = [] :< [a,b] :<- defaultRule
+
 cleanIt (_:<[]) = return ()
 cleanIt (xs:<_) = mapM_ rm xs
     where rm f | endsWith "/" f = return ()
@@ -65,12 +69,31 @@ copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
 license x = setEnv "FRANCHISE_LICENSE" x True
 version x = setEnv "FRANCHISE_VERSION" x True
 
+-- WARNING: If you want to create a package and an executable, you must
+-- define the package before building the executable!
+
+executable :: String -> String -> IO Buildable
+executable exname src =
+    do removeFile ".depend" `catch` \_ -> return ()
+       system "ghc" ["-M","-optdep-f","-optdep.depend",src]
+       mods <- parseDeps `fmap` readFile ".depend"
+       let objs = filter (endsWith ".o") $ concatMap buildName mods
+           mk _ = do packs <- concatMap (\p -> ["-package",p]) `fmap` packages
+                     pn <- getPackageVersion
+                     case pn of
+                       Just p -> system "ghc" $ packs ++ objs ++
+                                 ["-hide-all-packages","-package-name",p,"-o",exname]
+                       Nothing -> system "ghc" $ packs++objs++["-hide-all-packages","-o",exname]
+       return $ [exname] :< (source src:mods)
+                  :<- defaultRule { make = mk, install = install_bin }
+
 package :: String -> [String] -> IO Buildable
 package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
+       removeFile ".depend" `catch` \_ -> return ()
        system "ghc" ("-M":"-optdep-f":"-optdep.depend":modules)
        mods <- parseDeps `fmap` readFile ".depend"
-       pre <- getPrefix
+       pre <- getHSLibPrefix
        ver <- getVersion
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
@@ -116,10 +139,14 @@ getVersion :: IO String
 getVersion = do ver <- getEnv "FRANCHISE_VERSION"
                 return $ maybe "0.0" id ver
 
-getPrefix :: IO String
-getPrefix = do pre <- getEnv "FRANCHISE_PREFIX"
-               hom <- getEnv "HOME"
-               return $ maybe "./lib" id $ pre `mplus` fmap (++"/lib") hom
+getHSLibPrefix :: IO String
+getHSLibPrefix = do pre <- getEnv "FRANCHISE_PREFIX"
+                    hom <- getEnv "HOME"
+                    return $ maybe "./lib" id $ pre `mplus` fmap (++"/lib") hom
+
+getBinPrefix :: IO String
+getBinPrefix = do hom <- getEnv "HOME"
+                  return $ maybe "/usr/bin" (++"/bin") hom
 
 parseDeps :: String -> [Buildable]
 parseDeps x = builds
@@ -211,6 +238,11 @@ ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap bui
                                   Nothing -> system "ghc" $ packs ++ ["-c","-hide-all-packages",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
+
+install_bin :: Dependency -> IO ()
+install_bin (xs:<_) = do pref <- getBinPrefix
+                         let inst x = system "cp" [x,pref++"/"]
+                         mapM_ inst xs
 
 objects_to_a :: Dependency -> IO ()
 objects_to_a ([outname]:<ds) =
