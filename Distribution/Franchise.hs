@@ -71,12 +71,12 @@ package packageName modules =
        system "ghc" ("-M":"-optdep-f":"-optdep.depend":modules)
        mods <- parseDeps `fmap` readFile ".depend"
        pre <- getPrefix
+       ver <- getVersion
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
            cabal = [packageName++".cabal"] :< [source ".depend"] :<- defaultRule { make = makecabal }
-           destination = pre++"/"++packageName++"/"
-           makecabal _ = do ver <- getVersion
-                            lic <- getEnv "FRANCHISE_LICENSE"
+           destination = pre++"/"++packageName++"-"++ver++"/"
+           makecabal _ = do lic <- getEnv "FRANCHISE_LICENSE"
                             cop <- getEnv "FRANCHISE_COPYRIGHT"
                             mai <- getEnv "FRANCHISE_MAINTAINER"
                             ema <- getEnv "EMAIL"
