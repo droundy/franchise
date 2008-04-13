@@ -1,7 +1,14 @@
-module Distribution.Franchise ( build, Dependency(..), Buildable(..),
+module Distribution.Franchise ( build,
+                                -- The constructors are exported so users
+                                -- can construct arbitrarily complex build
+                                -- systems, hopefully.
+                                Dependency(..), Buildable(..), BuildRule(..),
+                                -- Handy module-searching
                                 requireModule, searchForModule,
-                                copyright, license, version,
-                                (<:), source, package, clean )
+                                -- defining package properties
+                                package, copyright, license, version,
+                                -- semi-automatic rule generation
+                                (<:), source )
     where
 
 import Control.Monad ( when, mplus )
@@ -22,34 +29,36 @@ import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
 -}
 
 data Dependency = [String] :< [Buildable]
-data Buildable = Dependency :<- (Dependency -> IO ())
+data Buildable = Dependency :<- BuildRule
+
+data BuildRule = BuildRule { make :: Dependency -> IO (),
+                             install :: Dependency -> IO (),
+                             clean :: Dependency -> IO () }
+
+defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 
 infix 2 :<
 infix 1 :<-
 
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
-[x] <: y | endsWith ".a" x = [x] :< y :<- objects_to_a
-[x] <: y | endsWith ".o" x && all (all (endsWith ".a") . buildName) y = [x] :< y :<- a_to_o
+[x] <: y | endsWith ".a" x = [x] :< y :<- defaultRule { make = objects_to_a }
+[x] <: y | endsWith ".o" x && all (all (endsWith ".a") . buildName) y
+             = [x] :< y :<- defaultRule { make = a_to_o }
 x <: y | all (endsWithOneOf [".o",".hi"]) x &&
          any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
-             = x :< y :<- ghc_hs_to_o
-[x] <: y | endsWith "/" x = [x] :< y :<- const (return ())
+             = x :< y :<- defaultRule { make = ghc_hs_to_o }
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 source :: String -> Buildable
-source x = ([x]:<[]) :<- (const $ do e <- doesFileExist x
-                                     when (not e) $ fail $ "Source file "++x++" does not exist!")
+source x = ([x]:<[]) :<-
+   defaultRule { make = (const $ do e <- doesFileExist x
+                                    when (not e) $ fail $ "Source file "++x++" does not exist!") }
 
-clean :: Buildable -> Buildable
-clean b = [] :< [] :<- const (mapM_ rm $ listOutputs b)
+cleanIt (_:<[]) = return ()
+cleanIt (xs:<_) = mapM_ rm xs
     where rm f | endsWith "/" f = return ()
-               | otherwise = do putStrLn $ "  removing " ++ f
-                                removeFile f `catch` \_ -> return ()
-
-listOutputs :: Buildable -> [String]
-listOutputs (_ :< [] :<- _) = [] -- things that have no input (i.e. source!) aren't output
-listOutputs (xs :< ys :<- _) = nub (xs ++ concatMap listOutputs ys)
+               | otherwise = removeFile f `catch` \_ -> return ()
 
 copyright, license, version :: String -> IO ()
 copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
@@ -64,7 +73,7 @@ package packageName modules =
        pre <- getPrefix
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
-           cabal = [packageName++".cabal"] :< [source ".depend"] :<- makecabal
+           cabal = [packageName++".cabal"] :< [source ".depend"] :<- defaultRule { make = makecabal }
            destination = pre++"/"++packageName++"/"
            makecabal _ = do ver <- getVersion
                             lic <- getEnv "FRANCHISE_LICENSE"
@@ -84,7 +93,13 @@ package packageName modules =
                                            "hs-libraries: "++packageName,
                                            "exposed: True",
                                            "depends: base, unix"]
-       return $ [destination] <: (lib:obj:cabal:mods)
+           installme _ = do system "mkdir" ["-p",destination]
+                            let inst x = system "cp" ["--parents",x,destination]
+                                his = filter (endsWith ".hi") $ concatMap buildName mods
+                            mapM_ inst ["lib"++packageName++".a",packageName++".o"]
+                            mapM_ inst his
+                            system "ghc-pkg" ["--user","update",packageName++".cabal"]
+       return $ [destination] :< (lib:obj:cabal:mods) :<- defaultRule { install = installme }
 
 modName :: Buildable -> [String]
 modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
@@ -136,16 +151,25 @@ buildName (d:<-_) = depName d
 build :: Buildable -> IO ()
 build b = do args <- getArgs
              case args of
-               ["clean"] -> build' $ clean b
+               ["clean"] -> clean' b
                ["build"] -> build' b
                [] -> build' b
-               ["install"] -> build' $ install b
+               ["install"] -> do build' b
+                                 install' b
                x -> fail $ "I don't understand arguments " ++ unwords x
+
+install' :: Buildable -> IO ()
+install' ((x :< ds) :<- how) = do mapM_ install' ds
+                                  install how (x :< ds)
+
+clean' :: Buildable -> IO ()
+clean' ((x :< ds) :<- how) = do mapM_ clean' ds
+                                clean how (x :< ds)
 
 build' :: Buildable -> IO ()
 build' ((x :< ds) :<- how) = do mapM_ build' ds
                                 nw <- needsWork (x:<ds)
-                                when nw $ how (x :< ds)
+                                when nw $ make how (x :< ds)
 
 needsWork :: Dependency -> IO Bool
 needsWork ([]:<_) = return True
@@ -195,19 +219,6 @@ objects_to_a ([outname]:<ds) =
 a_to_o :: Dependency -> IO ()
 a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
-
-install :: Buildable -> Buildable
-install ([prefix]:<ds:<-h) | endsWith "/" prefix = [prefix]:<ds:<-h'
-  where h' b = do h b
-                  system "mkdir" ["-p",prefix]
-                  let inst x = system "cp" ["--parents",x,prefix]
-                      (cabal,others) = partition (endsWith ".cabal") $ map buildNameHi ds
-                      buildNameHi x = case buildName x of
-                                      [y] -> y
-                                      [y,z] | endsWith ".hi" y -> y
-                                            | endsWith ".hi" z -> z
-                  mapM_ inst others
-                  system "ghc-pkg" ("--user":"update":cabal)
 
 requireModule :: String -> IO ()
 requireModule m = needModule m Nothing
