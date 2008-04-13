@@ -61,8 +61,6 @@ a .& b = [] :< [a,b] :<- defaultRule
 
 cleanIt (_:<[]) = return ()
 cleanIt (xs:<_) = mapM_ rm xs
-    where rm f | endsWith "/" f = return ()
-               | otherwise = removeFile f `catch` \_ -> return ()
 
 copyright, license, version :: String -> IO ()
 copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
@@ -74,7 +72,7 @@ version x = setEnv "FRANCHISE_VERSION" x True
 
 executable :: String -> String -> IO Buildable
 executable exname src =
-    do removeFile ".depend" `catch` \_ -> return ()
+    do rm ".depend"
        system "ghc" ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
        let objs = filter (endsWith ".o") $ concatMap buildName mods
@@ -85,12 +83,13 @@ executable exname src =
                                  ["-hide-all-packages","-package-name",p,"-o",exname]
                        Nothing -> system "ghc" $ packs++objs++["-hide-all-packages","-o",exname]
        return $ [exname] :< (source src:mods)
-                  :<- defaultRule { make = mk, install = install_bin }
+                  :<- defaultRule { make = mk, install = install_bin,
+                                    clean = \b -> rm ".depend" >> cleanIt b }
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
-       removeFile ".depend" `catch` \_ -> return ()
+       rm ".depend"
        system "ghc" ("-M":"-optdep-f":"-optdep.depend":modules)
        mods <- parseDeps `fmap` readFile ".depend"
        pre <- getHSLibPrefix
@@ -122,7 +121,13 @@ package packageName modules =
                             mapM_ inst ["lib"++packageName++".a",packageName++".o"]
                             mapM_ inst his
                             system "ghc-pkg" ["--user","update",packageName++".cabal"]
-       return $ [destination] :< (lib:obj:cabal:mods) :<- defaultRule { install = installme }
+       return $ [destination] :< (lib:obj:cabal:mods)
+                  :<- defaultRule { install = installme,
+                                    clean = \b -> rm ".depend" >> cleanIt b}
+
+rm :: String -> IO ()
+rm f | endsWith "/" f = return ()
+rm f = removeFile f `catch` \_ -> return ()
 
 modName :: Buildable -> [String]
 modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
@@ -296,7 +301,6 @@ needModule m (Just []) =
 
 cleanModuleTest :: String -> IO ()
 cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"]
-                           rm f = removeFile f `catch` \_ -> return ()
                        mapM_ rm fns
 
 findOption :: String -> Maybe String
