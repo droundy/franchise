@@ -19,6 +19,7 @@ import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
+import Control.Concurrent ( forkOS, readChan, writeChan, newChan )
 
 import Distribution.Franchise.Util ( system, systemErr )
 
@@ -189,7 +190,7 @@ parseDeps x = builds
           makeBuild (xs,xds) = xs <: map (fb builds) xds
           fb _ x | endsWithOneOf [".lhs",".hs"] x = source x
           fb [] x = error $ "Couldn't find build for "++ x
-          fb ((xs:<xds:<-h):r) x | x `elem` xs = (x:delete x xs) :< xds :<- h
+          fb ((xs:<xds:<-h):r) x | x `elem` xs = xs :< xds :<- h
                                  | otherwise = fb r x
 
 depName :: Dependency -> [String]
@@ -203,9 +204,9 @@ build :: Buildable -> IO ()
 build b = do args <- getArgs
              case args of
                ["clean"] -> clean' b
-               ["build"] -> build' b
-               [] -> build' b
-               ["install"] -> do build' b
+               ["build"] -> buildPar b
+               [] -> buildPar b
+               ["install"] -> do buildPar b
                                  install' b
                x -> fail $ "I don't understand arguments " ++ unwords x
 
@@ -244,6 +245,62 @@ needsWork ((x:_) :< ds) =
                                         if b then return True
                                              else anyM f zs
                  anyM latertime $ concatMap buildName ds
+
+buildPar :: Buildable -> IO ()
+buildPar (Unknown f) = do e <- doesFileExist f
+                          when (not e) $ fail $ "Source file "++f++" does not exist!"
+buildPar b = do --w <- (mynub . reverse) `fmap` findWork b
+                w1 <- reverse `fmap` findWork b
+                let w = mynub w1
+                chan <- newChan
+                buildthem chan [] w
+    where mynub (b:bs) = b : mynub (filter (/= b) bs)
+          mynub [] = []
+          buildthem _ [] [] = return ()
+--          buildthem chan inprogress [] =
+--              do done <- readChan chan
+--                 buildthem chan (delB done inprogress) []
+          buildthem chan inprogress w =
+              do let (canb',depb') = partition (canBuildNow (inprogress++w)) w
+                     jobs = max 0 (4 - length inprogress)
+                     canb = take jobs canb'
+                     depb = drop jobs canb' ++ depb'
+                     buildone (d:<-how) = forkOS $ do make how d
+                                                           `catch` \_ -> writeChan chan Nothing
+                                                      writeChan chan (Just (d:<-how))
+                 mapM_ buildone canb
+                 md <- readChan chan
+                 case md of
+                   Nothing -> fail "Ooops..."
+                   Just d -> buildthem chan (delB d (inprogress++canb)) depb
+          delB done = filter (/= done)
+
+showBuild :: Buildable -> String
+showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
+
+instance Eq Buildable where
+    Unknown x == Unknown y = x == y
+    Unknown x == (ys:<_:<-_) = x `elem` ys
+    (ys:<_:<-_) == Unknown x = x `elem` ys
+    (xs:<_:<-_) == (ys:<_:<-_) = eqset xs ys
+        where eqset [] [] = True
+              eqset [] _ = False
+              eqset _ [] = False
+              eqset (x:xs) ys = x `elem` ys && xs `eqset` (delete x ys)
+
+canBuildNow :: [Buildable] -> Buildable -> Bool
+canBuildNow needwork b = all (\b' -> not (b `dependsUpon` b')) needwork
+
+dependsUpon :: Buildable -> Buildable -> Bool
+dependsUpon (Unknown _) _ = False
+dependsUpon (_:<ds:<-_) x = or (elem x ds : map (`dependsUpon` x) ds)
+
+findWork :: Buildable -> IO [Buildable]
+findWork (Unknown _) = return []
+findWork b@(xs:<ds:<-_) = do dw <- concat `fmap` mapM findWork ds
+                             ineedwork <- case dw of [] -> needsWork (xs:<ds)
+                                                     _ -> return True
+                             return $ if ineedwork then b:dw else []
 
 endsWith :: String -> String -> Bool
 endsWith x y = drop (length y - length x) y == x
