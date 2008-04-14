@@ -3,7 +3,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
-                                Dependency(..), Buildable(..), BuildRule(..),
+                                Dependency(..), Buildable, (|<-), BuildRule(..),
                                 -- Handy module-searching
                                 requireModule, searchForModule,
                                 -- defining package properties
@@ -31,6 +31,9 @@ import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
 
 data Dependency = [String] :< [Buildable]
 data Buildable = Dependency :<- BuildRule
+               | Unknown String
+(|<-) :: Dependency -> BuildRule -> Buildable
+(|<-) = (:<-)
 
 data BuildRule = BuildRule { make :: Dependency -> IO (),
                              install :: Dependency -> IO (),
@@ -39,7 +42,7 @@ data BuildRule = BuildRule { make :: Dependency -> IO (),
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 
 infix 2 :<
-infix 1 :<-
+infix 1 :<-, |<-
 
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
@@ -52,9 +55,7 @@ x <: y | all (endsWithOneOf [".o",".hi"]) x &&
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 source :: String -> Buildable
-source x = ([x]:<[]) :<-
-   defaultRule { make = (const $ do e <- doesFileExist x
-                                    when (not e) $ fail $ "Source file "++x++" does not exist!") }
+source = Unknown
 
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&
@@ -187,6 +188,7 @@ depName (n :< _) = n
 
 buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
+buildName (Unknown d) = [d]
 
 build :: Buildable -> IO ()
 build b = do args <- getArgs
@@ -201,15 +203,19 @@ build b = do args <- getArgs
 install' :: Buildable -> IO ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds
                                   install how (x :< ds)
+install' (Unknown _) = return ()
 
 clean' :: Buildable -> IO ()
 clean' ((x :< ds) :<- how) = do mapM_ clean' ds
                                 clean how (x :< ds)
+clean' (Unknown _) = return ()
 
 build' :: Buildable -> IO ()
 build' ((x :< ds) :<- how) = do mapM_ build' ds
                                 nw <- needsWork (x:<ds)
                                 when nw $ make how (x :< ds)
+build' (Unknown f) =  do e <- doesFileExist f
+                         when (not e) $ fail $ "Source file "++f++" does not exist!"
 
 needsWork :: Dependency -> IO Bool
 needsWork ([]:<_) = return True
