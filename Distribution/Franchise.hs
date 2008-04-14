@@ -275,9 +275,9 @@ needsWork ((x:_) :< ds) =
 buildPar :: Buildable -> IO ()
 buildPar (Unknown f) = do e <- doesFileExist f
                           when (not e) $ fail $ "Source file "++f++" does not exist!"
-buildPar b = do putStrLn "I'm thinking of recompiling..."
+buildPar b = do --putStrLn "I'm thinking of recompiling..."
                 w <- findWork b
-                putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
+                --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
                 putStrLn $ "Need to recompile "++ show (length w)
                 chan <- newChan
                 buildthem chan [] w
@@ -330,11 +330,11 @@ findWork zzz = fw [] [] $ mapBuildable id zzz
           fw nw ok (Unknown _:r) = fw nw ok r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
-              then do putStrLn $ "I already know about "++ unwords (buildName b)
+              then do --putStrLn $ "I already know about "++ unwords (buildName b)
                       fw nw ok r
               else do ineedwork <- case nw `intersect` ds of
-                                   (z:_) -> do putStrLn $ "Must compile "++ unwords (buildName b) ++
-                                                            " because of " ++ unwords (buildName z)
+                                   (z:_) -> do --putStrLn $ "Must compile "++ unwords (buildName b) ++
+                                               --             " because of " ++ unwords (buildName z)
                                                return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
