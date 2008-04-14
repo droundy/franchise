@@ -380,7 +380,7 @@ cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"
 findOption :: String -> Maybe String
 findOption x | take (length foo) x == foo = listToMaybe $
                                             map (takeWhile (/=',')) $
-                                            map (takeWhile (/='-')) $
+                                            map (takeWhile (/=' ')) $
                                             words $ drop (length foo) x
              where foo = "member of package "
 findOption (_:x) = findOption x
