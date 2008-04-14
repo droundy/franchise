@@ -93,15 +93,10 @@ executable exname src =
 privateExecutable :: String -> String -> IO Buildable
 privateExecutable  exname src =
     do rm ".depend"
-       system "ghc" ["-M","-optdep-f","-optdep.depend",src]
+       ghc system ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
        let objs = filter (endsWith ".o") $ concatMap buildName mods
-           mk _ = do packs <- concatMap (\p -> ["-package",p]) `fmap` packages
-                     pn <- getPackageVersion
-                     case pn of
-                       Just p -> system "ghc" $ packs ++ objs ++
-                                 ["-hide-all-packages","-package-name",p,"-o",exname]
-                       Nothing -> system "ghc" $ packs++objs++["-hide-all-packages","-o",exname]
+           mk _ = do ghc system (objs ++ ["-o",exname])
        return $ [exname] :< (source src:mods)
                   :<- defaultRule { make = mk, clean = \b -> rm ".depend" >> cleanIt b }
 
@@ -109,7 +104,7 @@ package :: String -> [String] -> IO Buildable
 package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
        rm ".depend"
-       system "ghc" ("-M":"-optdep-f":"-optdep.depend":modules)
+       ghc system ("-M":"-optdep-f":"-optdep.depend":modules)
        mods <- parseDeps `fmap` readFile ".depend"
        pre <- getHSLibPrefix
        ver <- getVersion
@@ -313,14 +308,16 @@ packages = do x <- getEnv "FRANCHISE_PACKAGES"
               case x of Nothing -> return []
                         Just y -> return $ words y
 
+ghc :: (String -> [String] -> IO a) -> [String] -> IO a
+ghc sys args = do pn <- getPackageVersion
+                  packs <- concatMap (\p -> ["-package",p]) `fmap` packages
+                  case pn of
+                    Just p -> sys "ghc" $ packs++["-hide-all-packages","-package-name",p]++args
+                    Nothing -> sys "ghc" $ "-hide-all-packages":packs++args
+
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
-                      [d] -> do pn <- getPackageVersion
-                                packs <- concatMap (\p -> ["-package",p]) `fmap` packages
-                                case pn of
-                                  Just p -> system "ghc" $ packs ++
-                                            ["-c","-hide-all-packages","-package-name",p,d]
-                                  Nothing -> system "ghc" $ packs ++ ["-c","-hide-all-packages",d]
+                      [d] -> ghc system ["-c",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
@@ -346,8 +343,7 @@ searchForModule m ps = needModule m (Just []) `catch` \_ -> needModule m (Just p
 needModule :: String -> Maybe [String] -> IO ()
 needModule m Nothing = do let fn = "Try"++m++".hs"
                           writeFile fn ("import "++m++"\nmain = undefined")
-                          packs <- concatMap (\p -> ["-package",p]) `fmap` packages
-                          e <- systemErr "ghc" (packs ++ ["-c","-hide-all-packages",fn])
+                          e <- ghc systemErr ["-c",fn]
                           cleanModuleTest m
                           case e of
                             "" -> return ()
@@ -359,21 +355,18 @@ needModule m Nothing = do let fn = "Try"++m++".hs"
 needModule m (Just (p:ps)) =
     do let fn = "Try"++m++".hs"
        writeFile fn ("import "++m++"\nmain = undefined")
-       otherPacks <- packages
-       e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) (p:otherPacks) ++
-                                           ["-c","-hide-all-packages",fn])
+       e <- ghc systemErr ["-package",p,"-c",fn]
        cleanModuleTest m
        case e of
-         "" -> do setEnv "FRANCHISE_PACKAGES" (unwords $ p:otherPacks) True
+         "" -> do otherPacks <- packages
+                  setEnv "FRANCHISE_PACKAGES" (unwords $ p:otherPacks) True
                   putStrLn $ "Found "++ m ++" in package "++ p
          _ -> do putStrLn $ "Couldn't find " ++ m ++ " in package "++p
                  needModule m (Just ps)
 needModule m (Just []) =
     do let fn = "Try"++m++".hs"
        writeFile fn ("import "++m++"\nmain = undefined")
-       otherPacks <- packages
-       e <- systemErr "ghc" (concatMap (\p -> ["-package",p]) otherPacks ++
-                                           ["-c","-hide-all-packages",fn])
+       e <- ghc systemErr ["-c",fn]
        cleanModuleTest m
        case e of
          "" -> putStrLn $ "Found "++ m
