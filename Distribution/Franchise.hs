@@ -343,7 +343,7 @@ searchForModule m ps = needModule m (Just []) `catch` \_ -> needModule m (Just p
 
 needModule :: String -> Maybe [String] -> IO ()
 needModule m Nothing = do let fn = "Try"++m++".hs"
-                          writeFile fn ("import "++m++"\nmain = undefined")
+                          writeFile fn ("import "++m++"\nmain = undefined\n")
                           e <- ghc systemErr ["-c",fn]
                           cleanModuleTest m
                           case e of
@@ -355,7 +355,7 @@ needModule m Nothing = do let fn = "Try"++m++".hs"
                                             needModule m (Just ps)
 needModule m (Just (p:ps)) =
     do let fn = "Try"++m++".hs"
-       writeFile fn ("import "++m++"\nmain = undefined")
+       writeFile fn ("import "++m++"\nmain = undefined\n")
        e <- ghc systemErr ["-package",p,"-c",fn]
        cleanModuleTest m
        case e of
@@ -366,7 +366,7 @@ needModule m (Just (p:ps)) =
                  needModule m (Just ps)
 needModule m (Just []) =
     do let fn = "Try"++m++".hs"
-       writeFile fn ("import "++m++"\nmain = undefined")
+       writeFile fn ("import "++m++"\nmain = undefined\n")
        e <- ghc systemErr ["-c",fn]
        cleanModuleTest m
        case e of
