@@ -12,7 +12,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 (<:), source, (.&) )
     where
 
-import Control.Monad ( when, mplus )
+import Control.Monad ( when, mplus, msum )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( nub, partition, delete, (\\) )
 import System.Environment ( getArgs )
@@ -59,7 +59,16 @@ source = Unknown
 
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&
-a .& b = [] :< [a,b] :<- defaultRule
+a .& b = [] :< [a',b'] :<- defaultRule
+    where a' = fixbuild b a
+          b' = fixbuild a b
+          fixbuild x (Unknown y) = maybe (Unknown y) id $ lookupB y x
+          fixbuild x (xs:<xds:<-h) = xs :< map (fixbuild x) xds :<- h
+
+lookupB :: String -> Buildable -> Maybe Buildable
+lookupB f (Unknown _) = Nothing
+lookupB f (xs:<xds:<-h) | f `elem` xs = Just (xs:<xds:<-h)
+                        | otherwise = msum (map (lookupB f) xds)
 
 cleanIt (_:<[]) = return ()
 cleanIt (xs:<_) = mapM_ rm xs
