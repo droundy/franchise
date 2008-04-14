@@ -311,9 +311,10 @@ packages = do x <- getEnv "FRANCHISE_PACKAGES"
 ghc :: (String -> [String] -> IO a) -> [String] -> IO a
 ghc sys args = do pn <- getPackageVersion
                   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
+                  fl <- maybe [] words `fmap` getEnv "GHC_FLAGS"
                   case pn of
-                    Just p -> sys "ghc" $ packs++["-hide-all-packages","-package-name",p]++args
-                    Nothing -> sys "ghc" $ "-hide-all-packages":packs++args
+                    Just p -> sys "ghc" $ fl++packs++["-hide-all-packages","-package-name",p]++args
+                    Nothing -> sys "ghc" $ fl++"-hide-all-packages":packs++args
 
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
