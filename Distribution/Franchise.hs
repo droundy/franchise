@@ -14,7 +14,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
 
 import Control.Monad ( when, mplus, msum )
 import Data.Maybe ( catMaybes, listToMaybe )
-import Data.List ( nub, partition, delete, (\\) )
+import Data.Set ( fromList, toList )
+import Data.List ( nub, partition, delete, intersect, (\\) )
 import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
@@ -38,7 +39,7 @@ data Buildable = Dependency :<- BuildRule
 
 data BuildRule = BuildRule { make :: Dependency -> IO (),
                              install :: Dependency -> IO (),
-                             clean :: Dependency -> IO () }
+                             clean :: Dependency -> [String] }
 
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 
@@ -53,6 +54,8 @@ infix 2 <:
 x <: y | all (endsWithOneOf [".o",".hi"]) x &&
          any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
              = x :< y :<- defaultRule { make = ghc_hs_to_o }
+[x] <: [y] | endsWith ".o" x && all (endsWith ".c") (buildName y)
+               = [x] :< [y] :<- defaultRule { make = ghc_c }
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 source :: String -> Buildable
@@ -71,8 +74,8 @@ lookupB f (Unknown _) = Nothing
 lookupB f (xs:<xds:<-h) | f `elem` xs = Just (xs:<xds:<-h)
                         | otherwise = msum (map (lookupB f) xds)
 
-cleanIt (_:<[]) = return ()
-cleanIt (xs:<_) = mapM_ rm xs
+cleanIt (_:<[]) = []
+cleanIt (xs:<_) = xs
 
 copyright, license, version :: String -> IO ()
 copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
@@ -82,23 +85,34 @@ version x = setEnv "FRANCHISE_VERSION" x True
 -- WARNING: If you want to create a package and an executable, you must
 -- define the package before building the executable!
 
-executable :: String -> String -> IO Buildable
-executable exname src =
-    do x :< y :<- b <- privateExecutable exname src
+executable :: String -> String -> [String] -> IO Buildable
+executable exname src cfiles =
+    do x :< y :<- b <- privateExecutable exname src cfiles
        return $ x :< y :<- b { install = installBin }
 
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.
 
-privateExecutable :: String -> String -> IO Buildable
-privateExecutable  exname src =
+privateExecutable :: String -> String -> [String] -> IO Buildable
+privateExecutable  exname src cfiles =
     do rm ".depend"
        ghc system ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
        let objs = filter (endsWith ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs ++ ["-o",exname])
-       return $ [exname] :< (source src:mods)
-                  :<- defaultRule { make = mk, clean = \b -> rm ".depend" >> cleanIt b }
+           cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
+       return $ [exname] :< (source src:mods++cobjs)
+                  :<- defaultRule { make = mk, clean = \b -> ".depend" : cleanIt b }
+
+printBuildableDeep :: Buildable -> IO ()
+printBuildableDeep b@(xs :< ds:<-_) =
+    do putStrLn $ unwords xs
+       putStrLn $ showBuild b
+       putStrLn "Depends on:\n\n"
+       let pbd i (x:<d:<-_) = do mapM_ (putStrLn . (take i (repeat ' ')++)) x
+                                 mapM_ (pbd (i+1)) d
+           pbd i (Unknown x) = putStrLn $ take i (repeat ' ')++"Source:"++x
+       mapM_ (pbd 0) ds
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
@@ -137,7 +151,7 @@ package packageName modules =
                             system "ghc-pkg" ["--user","update",packageName++".cabal"]
        return $ [destination] :< (lib:obj:cabal:mods)
                   :<- defaultRule { install = installme,
-                                    clean = \b -> rm ".depend" >> cleanIt b}
+                                    clean = \b -> ".depend" : cleanIt b}
 
 rm :: String -> IO ()
 rm f | endsWith "/" f = return ()
@@ -198,7 +212,7 @@ buildName (Unknown d) = [d]
 build :: Buildable -> IO ()
 build b = do args <- getArgs
              case args of
-               ["clean"] -> clean' b
+               ["clean"] -> mapM_ rm $ clean' b
                ["build"] -> buildPar b
                [] -> buildPar b
                ["install"] -> do buildPar b
@@ -210,10 +224,21 @@ install' ((x :< ds) :<- how) = do mapM_ install' ds
                                   install how (x :< ds)
 install' (Unknown _) = return ()
 
-clean' :: Buildable -> IO ()
-clean' ((x :< ds) :<- how) = do mapM_ clean' ds
-                                clean how (x :< ds)
-clean' (Unknown _) = return ()
+nubsort :: (Eq a, Ord a) => [a] -> [a]
+nubsort = toList . fromList
+
+mapBuildable :: (Buildable -> a) -> Buildable -> [a]
+mapBuildable f b = reverse $ mb [] [b]
+    where mb done (b:bs) | b `elem` done = mb done bs
+                         | otherwise = mb (b:done) (requirements b ++ bs) ++ [f b]
+          mb _ [] = []
+          requirements (_:<ds:<-_) = ds
+          requirements _ = []
+
+clean' :: Buildable -> [String]
+clean' b = concat $ mapBuildable c b
+    where c (d:<-how) = clean how d
+          c _ = []
 
 build' :: Buildable -> IO ()
 build' ((x :< ds) :<- how) = do mapM_ build' ds
@@ -227,14 +252,20 @@ needsWork ([]:<_) = return True
 needsWork ((x:_) :< ds) =
     do fe <- doesFileExist x
        if not fe
-         then return True
+         then do --putStrLn $ "need work because " ++ x ++ " doesn't exist"
+                 return True
          else do s <- getFileStatus x
                  let mt = modificationTime s
                      latertime y = do ye <- doesFileExist y
                                       if not ye
-                                        then return True
+                                        then do --putStrLn $ "Need work cuz "++y++" don't exist"
+                                                return True
                                         else do sy <- getFileStatus y
-                                                return (modificationTime sy >= mt)
+                                                --if (modificationTime sy > mt)
+                                                --   then putStrLn $ "I need work since "++ y ++
+                                                --            " is too new versus " ++ x
+                                                --   else return ()
+                                                return (modificationTime sy > mt)
                      anyM _ [] = return False
                      anyM f (z:zs) = do b <- f z
                                         if b then return True
@@ -244,17 +275,13 @@ needsWork ((x:_) :< ds) =
 buildPar :: Buildable -> IO ()
 buildPar (Unknown f) = do e <- doesFileExist f
                           when (not e) $ fail $ "Source file "++f++" does not exist!"
-buildPar b = do --w <- (mynub . reverse) `fmap` findWork b
-                w1 <- reverse `fmap` findWork b
-                let w = mynub w1
+buildPar b = do putStrLn "I'm thinking of recompiling..."
+                w <- findWork b
+                putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
+                putStrLn $ "Need to recompile "++ show (length w)
                 chan <- newChan
                 buildthem chan [] w
-    where mynub (b:bs) = b : mynub (filter (/= b) bs)
-          mynub [] = []
-          buildthem _ [] [] = return ()
---          buildthem chan inprogress [] =
---              do done <- readChan chan
---                 buildthem chan (delB done inprogress) []
+    where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
               do let (canb',depb') = partition (canBuildNow (inprogress++w)) w
                      jobs = max 0 (4 - length inprogress)
@@ -263,6 +290,10 @@ buildPar b = do --w <- (mynub . reverse) `fmap` findWork b
                      buildone (d:<-how) = forkOS $ do make how d
                                                            `catch` \_ -> writeChan chan Nothing
                                                       writeChan chan (Just (d:<-how))
+                 case filter (endsWith ".o") $ concatMap buildName canb of
+                   [] -> return ()
+                   [_] -> return ()
+                   tb -> putStrLn $ "I can now build "++ unwords tb
                  mapM_ buildone canb
                  md <- readChan chan
                  case md of
@@ -284,18 +315,30 @@ instance Eq Buildable where
               eqset (x:xs) ys = x `elem` ys && xs `eqset` (delete x ys)
 
 canBuildNow :: [Buildable] -> Buildable -> Bool
-canBuildNow needwork b = all (\b' -> not (b `dependsUpon` b')) needwork
+canBuildNow _ (Unknown _) = True
+canBuildNow needwork (_:<d:<-_) = not $ any (`elem` needwork) d
 
-dependsUpon :: Buildable -> Buildable -> Bool
-dependsUpon (Unknown _) _ = False
-dependsUpon (_:<ds:<-_) x = or (elem x ds : map (`dependsUpon` x) ds)
+data Foo a = Foo Int a deriving (Eq)
+instance Eq a => Ord (Foo a) where
+  compare (Foo a _) (Foo b _) = compare a b
+unfoo (Foo _ x) = x
 
 findWork :: Buildable -> IO [Buildable]
 findWork (Unknown _) = return []
-findWork b@(xs:<ds:<-_) = do dw <- concat `fmap` mapM findWork ds
-                             ineedwork <- case dw of [] -> needsWork (xs:<ds)
-                                                     _ -> return True
-                             return $ if ineedwork then b:dw else []
+findWork zzz = fw [] [] $ mapBuildable id zzz
+    where fw nw _ [] = return nw
+          fw nw ok (Unknown _:r) = fw nw ok r
+          fw nw ok (b@(xs:<ds:<-_):r) =
+              if b `elem` (ok++nw)
+              then do putStrLn $ "I already know about "++ unwords (buildName b)
+                      fw nw ok r
+              else do ineedwork <- case nw `intersect` ds of
+                                   (z:_) -> do putStrLn $ "Must compile "++ unwords (buildName b) ++
+                                                            " because of " ++ unwords (buildName z)
+                                               return True
+                                   [] -> needsWork (xs:<ds)
+                      if ineedwork then fw (b:nw) ok r
+                                   else fw nw (b:ok) r
 
 endsWith :: String -> String -> Bool
 endsWith x y = drop (length y - length x) y == x
@@ -321,6 +364,12 @@ ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap bui
                       [d] -> ghc system ["-c",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
+
+ghc_c :: Dependency -> IO ()
+ghc_c (_:<ds) = case filter (endsWith ".c") $ concatMap buildName ds of
+                [d] -> ghc system ["-c","-cpp",d]
+                [] -> fail "error 4"
+                _ -> fail "error 5"
 
 installBin :: Dependency -> IO ()
 installBin (xs:<_) = do pref <- getBinPrefix
