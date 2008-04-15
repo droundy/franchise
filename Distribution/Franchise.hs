@@ -8,6 +8,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 requireModule, searchForModule,
                                 -- defining package properties
                                 package, copyright, license, version,
+                                -- modifying the compilation environment
+                                addEnv,
                                 -- semi-automatic rule generation
                                 (<:), source, (.&) )
     where
@@ -96,6 +98,9 @@ executable exname src cfiles =
 privateExecutable :: String -> String -> [String] -> IO Buildable
 privateExecutable  exname src cfiles =
     do rm ".depend"
+       whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
+                                               addEnv "GHC_FLAGS" ("-I"++d)
+                                               return ()
        ghc system ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
        let objs = filter (endsWith ".o") $ concatMap buildName mods
@@ -103,6 +108,15 @@ privateExecutable  exname src cfiles =
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
        return $ [exname] :< (source src:mods++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> ".depend" : cleanIt b }
+
+whenJust :: Maybe a -> (a -> IO ()) -> IO ()
+whenJust (Just x) f = f x
+whenJust Nothing _ = return ()
+
+directoryPart :: String -> Maybe String
+directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
+                  "" -> Nothing
+                  d -> Just d
 
 printBuildableDeep :: Buildable -> IO ()
 printBuildableDeep b@(xs :< ds:<-_) =
@@ -180,6 +194,14 @@ getHSLibPrefix = do pre <- getEnv "FRANCHISE_PREFIX"
 getBinPrefix :: IO String
 getBinPrefix = do hom <- getEnv "HOME"
                   return $ maybe "/usr/bin" (++"/bin") hom
+
+addEnv :: String -> String -> IO String
+addEnv e "" = do o <- getEnv e
+                 return $ maybe "" id o
+addEnv e v = do o <- getEnv e
+                let n = maybe v (++(' ':v)) o
+                setEnv e n True
+                return n
 
 parseDeps :: String -> [Buildable]
 parseDeps x = builds
