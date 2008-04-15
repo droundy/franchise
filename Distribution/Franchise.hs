@@ -276,7 +276,7 @@ buildPar :: Buildable -> IO ()
 buildPar (Unknown f) = do e <- doesFileExist f
                           when (not e) $ fail $ "Source file "++f++" does not exist!"
 buildPar b = do --putStrLn "I'm thinking of recompiling..."
-                w <- findWork b
+                w <- reverse `fmap` findWork b
                 --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
                 putStrLn $ "Need to recompile "++ show (length w)
                 chan <- newChan
