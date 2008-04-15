@@ -99,7 +99,7 @@ privateExecutable  exname src cfiles =
        ghc system ["-M","-optdep-f","-optdep.depend",src]
        mods <- parseDeps `fmap` readFile ".depend"
        let objs = filter (endsWith ".o") $ concatMap buildName mods
-           mk _ = do ghc system (objs ++ ["-o",exname])
+           mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
        return $ [exname] :< (source src:mods++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> ".depend" : cleanIt b }
