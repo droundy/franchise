@@ -1,11 +1,14 @@
 #!/usr/bin/runhaskell
 import Distribution.Franchise
 
-main = do copyright "David Roundy"
-          license "BSD3"
-          version "0.0"
-          requireModule "System.Posix.Env ( setEnv )"
-          p <- package "franchise" ["Distribution.Franchise"]
-          e <- privateExecutable "sample-setup" "Setup.hs" []
-          build (p .& e)
+configure = do copyright "David Roundy"
+               license "BSD3"
+               version "0.0"
+               requireModule "System.Posix.Env ( setEnv )"
+
+buildable = do p <- package "franchise" ["Distribution.Franchise"]
+               e <- privateExecutable "sample-setup" "Setup.hs" []
+               return (p .& e)
+
+main = build configure buildable
 

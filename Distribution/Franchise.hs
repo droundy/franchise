@@ -231,15 +231,36 @@ buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
-build :: Buildable -> IO ()
-build b = do args <- getArgs
-             case args of
-               ["clean"] -> mapM_ rm $ clean' b
-               ["build"] -> buildPar b
-               [] -> buildPar b
-               ["install"] -> do buildPar b
-                                 install' b
-               x -> fail $ "I don't understand arguments " ++ unwords x
+savedVars :: [String]
+savedVars = ["GHC_FLAGS", "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
+             "FRANCHISE_PACKAGE", "FRANCHISE_PACKAGES",
+             "FRANCHISE_MAINTAINER",
+             "FRANCHISE_LICENSE", "FRANCHISE_COPYRIGHT"]
+
+saveConf :: IO ()
+saveConf = stat >>= writeFile "conf.state"
+    where stat = (unlines . filter (/="")) `fmap` mapM sv savedVars
+          sv v = maybe "" ((v++"=")++)  `fmap` getEnv v
+
+restoreConf :: IO ()
+restoreConf = (readv `fmap` readFile "conf.state") >>= mapM_ rc
+    where readv x = map (\l -> (takeWhile (/= '=') l,
+                                drop 1 $ dropWhile (/= '=') l)) $ lines x
+          rc (v,x) = setEnv v x True
+
+build :: IO () -> IO Buildable -> IO ()
+build doconf mkbuild =
+    do args <- getArgs
+       let configure = do putStrLn "Configuring..."
+                          doconf
+                          saveConf
+       if "configure" `elem` args
+          then configure
+          else restoreConf `catch` \_ -> configure
+       b <- mkbuild
+       when ("clean" `elem` args) $ mapM_ rm $ clean' b
+       when ("build" `elem` args || "install" `elem` args) $ buildPar b
+       when ("install" `elem` args) $ install' b
 
 install' :: Buildable -> IO ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds
@@ -300,7 +321,9 @@ buildPar (Unknown f) = do e <- doesFileExist f
 buildPar b = do --putStrLn "I'm thinking of recompiling..."
                 w <- reverse `fmap` findWork b
                 --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
-                putStrLn $ "Need to recompile "++ show (length w)
+                case length w of
+                  0 -> putStrLn "Nothing to recompile."
+                  l -> putStrLn $ "Need to recompile "++ show l ++"."
                 chan <- newChan
                 buildthem chan [] w
     where buildthem _ [] [] = return ()
