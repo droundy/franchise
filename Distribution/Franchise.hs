@@ -5,7 +5,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 -- Handy module-searching
-                                requireModule, searchForModule,
+                                requireModule,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- modifying the compilation environment
@@ -405,44 +405,27 @@ objects_to_a ([outname]:<ds) =
 a_to_o :: Dependency -> IO ()
 a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
+tryModule :: String -> IO String
+tryModule m = do let fn = "Try"++m++".hs"
+                 writeFile fn ("import "++m++"\nmain = undefined\n")
+                 e <- ghc systemErr ["-c",fn]
+                 cleanModuleTest m
+                 return e
 
 requireModule :: String -> IO ()
-requireModule m = needModule m Nothing
-
-searchForModule :: String -> [String] -> IO ()
-searchForModule m ps = needModule m (Just []) `catch` \_ -> needModule m (Just ps)
-
-needModule :: String -> Maybe [String] -> IO ()
-needModule m Nothing = do let fn = "Try"++m++".hs"
-                          writeFile fn ("import "++m++"\nmain = undefined\n")
-                          e <- ghc systemErr ["-c",fn]
-                          cleanModuleTest m
-                          case e of
-                            "" -> return ()
-                            _ -> case catMaybes $ map findOption $ lines e of
-                                   [] -> do putStrLn e
-                                            fail $ "Can't use module "++m
-                                   ps -> do -- putStrLn e -- for debugging!
-                                            needModule m (Just ps)
-needModule m (Just (p:ps)) =
-    do let fn = "Try"++m++".hs"
-       writeFile fn ("import "++m++"\nmain = undefined\n")
-       e <- ghc systemErr ["-package",p,"-c",fn]
-       cleanModuleTest m
-       case e of
-         "" -> do otherPacks <- packages
-                  setEnv "FRANCHISE_PACKAGES" (unwords $ p:otherPacks) True
-                  putStrLn $ "Found "++ m ++" in package "++ p
-         _ -> do putStrLn $ "Couldn't find " ++ m ++ " in package "++p
-                 needModule m (Just ps)
-needModule m (Just []) =
-    do let fn = "Try"++m++".hs"
-       writeFile fn ("import "++m++"\nmain = undefined\n")
-       e <- ghc systemErr ["-c",fn]
-       cleanModuleTest m
-       case e of
-         "" -> putStrLn $ "Found "++ m
-         _ -> fail $ "Couldn't find module " ++ m
+requireModule m = tryModule m >>= lookForModule
+    where lookForModule "" = putStrLn $ "found module "++m
+          lookForModule e =
+              case catMaybes $ map findOption $ lines e of
+              [] -> do putStrLn e
+                       fail $ "Can't use module "++m
+              ps -> do oldps <- addEnv "FRANCHISE_PACKAGES" (unwords ps)
+                       e2 <- tryModule m
+                       if e2 == e
+                          then do putStrLn e
+                                  fail $ "Can't use module "++m
+                          else do putStr $ "looking in package "++unwords ps++"... "
+                                  lookForModule e2
 
 cleanModuleTest :: String -> IO ()
 cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"]
