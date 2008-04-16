@@ -5,7 +5,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 -- Handy module-searching
-                                requireModule,
+                                requireModule, checkLib,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- modifying the compilation environment
@@ -245,7 +245,7 @@ buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
 savedVars :: [String]
-savedVars = ["GHC_FLAGS", "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
+savedVars = ["GHC_FLAGS", "LDFLAGS", "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
              "FRANCHISE_PACKAGE", "FRANCHISE_PACKAGES",
              "FRANCHISE_MAINTAINER",
              "FRANCHISE_LICENSE", "FRANCHISE_COPYRIGHT"]
@@ -409,9 +409,10 @@ ghc :: (String -> [String] -> IO a) -> [String] -> IO a
 ghc sys args = do pn <- getPackageVersion
                   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
                   fl <- maybe [] words `fmap` getEnv "GHC_FLAGS"
+                  ld <- (map ("-optl"++) . maybe [] words) `fmap` getEnv "LDFLAGS"
                   case pn of
-                    Just p -> sys "ghc" $ fl++packs++["-hide-all-packages","-package-name",p]++args
-                    Nothing -> sys "ghc" $ fl++"-hide-all-packages":packs++args
+                    Just p -> sys "ghc" $ ld++fl++packs++["-hide-all-packages","-package-name",p]++args
+                    Nothing -> sys "ghc" $ ld++fl++"-hide-all-packages":packs++args
 
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
@@ -443,6 +444,34 @@ tryModule m = do let fn = "Try"++m++".hs"
                  e <- ghc systemErr ["-c",fn]
                  mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
+
+tryLib :: String -> String -> String -> IO String
+tryLib l h func = do let fn = "try-lib"++l++".c"
+                         fo = "try-lib"++l++".o"
+                         hf = "try-lib.hs"
+                     writeFile hf $ unlines ["foreign import ccall unsafe \"static foo\" foo :: IO ()",
+                                             "main = foo"]
+                     writeFile fn $ unlines ["#include <stdio.h>",
+                                             "#include \""++h++"\"",
+                                             "void foo() {",
+                                             "  "++func++";",
+                                             "}"]
+                     e1 <- ghc systemErr ["-c","-cpp",fn]
+                     e2 <- ghc systemErr ["-fffi","-o","try-lib",fo,hf]
+                     mapM_ rm [fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
+                     return (e1++e2)
+
+checkLib :: String -> String -> String -> IO ()
+checkLib l h func =
+    do e <- tryLib l h func
+       case e of
+         "" -> putStrLn $ "found library "++l++" without any extra flags."
+         _ -> do oldfl <- addEnv "LDFLAGS" ("-l"++l)
+                 e2 <- tryLib l h func
+                 case e2 of
+                   "" -> putStrLn $ "found library "++l++" with -l"++l
+                   _ -> do putStrLn e2
+                           fail $ "Couldn't find library "++l
 
 requireModule :: String -> IO ()
 requireModule m = do x <- seekPackages $ tryModule m
