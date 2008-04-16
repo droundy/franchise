@@ -5,7 +5,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 -- Handy module-searching
-                                requireModule, checkLib,
+                                requireModule, checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- modifying the compilation environment
@@ -88,6 +88,14 @@ executable :: String -> String -> [String] -> IO Buildable
 executable exname src cfiles =
     do x :< y :<- b <- privateExecutable exname src cfiles
        return $ x :< y :<- b { install = installBin }
+
+findPackagesFor :: String -> IO ()
+findPackagesFor src = do rm "temp.depend"
+                         whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
+                                                                 addEnv "GHC_FLAGS" ("-I"++d)
+                                                                 return ()
+                         ghcDeps "temp.depend" [src] >>= build'
+                         rm "temp.depend"
 
 ghcDeps :: String -> [String] -> IO Buildable
 ghcDeps dname src =
