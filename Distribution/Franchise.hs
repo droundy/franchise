@@ -89,22 +89,29 @@ executable exname src cfiles =
     do x :< y :<- b <- privateExecutable exname src cfiles
        return $ x :< y :<- b { install = installBin }
 
+ghcDeps :: String -> [String] -> IO Buildable
+ghcDeps dname src =
+    do x <- readFile dname `catch` \_ -> return ""
+       return $ [dname] :< map source (filter (/=":") (words x))
+                  :<- defaultRule { make = builddeps }
+  where builddeps _ = ghc system $ ["-M","-optdep-f","-optdep"++dname] ++ src
+
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.
 
 privateExecutable :: String -> String -> [String] -> IO Buildable
 privateExecutable  exname src cfiles =
-    do rm ".depend"
-       whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
+    do whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
                                                addEnv "GHC_FLAGS" ("-I"++d)
                                                return ()
-       ghc system ["-M","-optdep-f","-optdep.depend",src]
-       mods <- parseDeps `fmap` readFile ".depend"
+       let depend = exname++".depend"
+       ghcDeps depend [src] >>= buildPar
+       mods <- parseDeps `fmap` readFile depend
        let objs = filter (endsWith ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
        return $ [exname] :< (source src:mods++cobjs)
-                  :<- defaultRule { make = mk, clean = \b -> ".depend" : cleanIt b }
+                  :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
 
 whenJust :: Maybe a -> (a -> IO ()) -> IO ()
 whenJust (Just x) f = f x
@@ -128,14 +135,14 @@ printBuildableDeep b@(xs :< ds:<-_) =
 package :: String -> [String] -> IO Buildable
 package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
-       rm ".depend"
-       ghc system ("-M":"-optdep-f":"-optdep.depend":modules)
-       mods <- parseDeps `fmap` readFile ".depend"
+       let depend = packageName++".depend"
+       ghcDeps depend modules >>= buildPar
+       mods <- parseDeps `fmap` readFile depend
        pre <- getHSLibPrefix
        ver <- getVersion
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
-           cabal = [packageName++".cabal"] :< [source ".depend"] :<- defaultRule { make = makecabal }
+           cabal = [packageName++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
            destination = pre++"/"++packageName++"-"++ver++"/"
            makecabal _ = do lic <- getEnv "FRANCHISE_LICENSE"
                             cop <- getEnv "FRANCHISE_COPYRIGHT"
@@ -162,7 +169,7 @@ package packageName modules =
                             system "ghc-pkg" ["--user","update",packageName++".cabal"]
        return $ [destination] :< (lib:obj:cabal:mods)
                   :<- defaultRule { install = installme,
-                                    clean = \b -> ".depend" : cleanIt b}
+                                    clean = \b -> depend : cleanIt b}
 
 rm :: String -> IO ()
 rm f | endsWith "/" f = return ()
