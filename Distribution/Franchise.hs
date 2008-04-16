@@ -441,7 +441,7 @@ tryModule :: String -> IO String
 tryModule m = do let fn = "Try"++m++".hs"
                  writeFile fn ("import "++m++"\nmain = undefined\n")
                  e <- ghc systemErr ["-c",fn]
-                 cleanModuleTest m
+                 mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
 
 requireModule :: String -> IO ()
@@ -465,10 +465,6 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                           then fail e
                           else do x <- lookForPackages e2
                                   return (ps++x)
-
-cleanModuleTest :: String -> IO ()
-cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"]
-                       mapM_ rm fns
 
 findOption :: String -> Maybe String
 findOption x | take (length foo) x == foo = listToMaybe $
