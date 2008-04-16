@@ -110,7 +110,7 @@ privateExecutable  exname src cfiles =
                                                addEnv "GHC_FLAGS" ("-I"++d)
                                                return ()
        let depend = exname++".depend"
-       ghcDeps depend [src] >>= buildPar
+       ghcDeps depend [src] >>= build'
        mods <- parseDeps `fmap` readFile depend
        let objs = filter (endsWith ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
@@ -141,7 +141,7 @@ package :: String -> [String] -> IO Buildable
 package packageName modules =
     do setEnv "FRANCHISE_PACKAGE" packageName True
        let depend = packageName++".depend"
-       ghcDeps depend modules >>= buildPar
+       ghcDeps depend modules >>= build'
        mods <- parseDeps `fmap` readFile depend
        pre <- getHSLibPrefix
        ver <- getVersion
@@ -271,7 +271,7 @@ build doconf mkbuild =
                              :<- defaultRule { make = \_ -> configure }
        b <- mkbuild
        when ("clean" `elem` args) $ mapM_ rm $ clean' b
-       when ("build" `elem` args || "install" `elem` args) $ buildPar b
+       when ("build" `elem` args || "install" `elem` args) $ build' b
        when ("install" `elem` args) $ install' b
 
 install' :: Buildable -> IO ()
@@ -294,13 +294,6 @@ clean' :: Buildable -> [String]
 clean' b = concat $ mapBuildable c b
     where c (d:<-how) = clean how d
           c _ = []
-
-build' :: Buildable -> IO ()
-build' ((x :< ds) :<- how) = do mapM_ build' ds
-                                nw <- needsWork (x:<ds)
-                                when nw $ make how (x :< ds)
-build' (Unknown f) =  do e <- doesFileExist f
-                         when (not e) $ fail $ "Source file "++f++" does not exist!"
 
 needsWork :: Dependency -> IO Bool
 needsWork ([]:<_) = return True
@@ -327,17 +320,17 @@ needsWork ((x:_) :< ds) =
                                              else anyM f zs
                  anyM latertime $ concatMap buildName ds
 
-buildPar :: Buildable -> IO ()
-buildPar (Unknown f) = do e <- doesFileExist f
-                          when (not e) $ fail $ "Source file "++f++" does not exist!"
-buildPar b = do --putStrLn "I'm thinking of recompiling..."
-                w <- reverse `fmap` findWork b
-                --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
-                case length w of
-                  0 -> putStrLn "Nothing to recompile."
-                  l -> putStrLn $ "Need to recompile "++ show l ++"."
-                chan <- newChan
-                buildthem chan [] w
+build' :: Buildable -> IO ()
+build' (Unknown f) = do e <- doesFileExist f
+                        when (not e) $ fail $ "Source file "++f++" does not exist!"
+build' b = do --putStrLn "I'm thinking of recompiling..."
+           w <- reverse `fmap` findWork b
+           --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
+           case length w of
+             0 -> putStrLn "Nothing to recompile."
+             l -> putStrLn $ "Need to recompile "++ show l ++"."
+           chan <- newChan
+           buildthem chan [] w
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
               do let (canb',depb') = partition (canBuildNow (inprogress++w)) w
