@@ -18,7 +18,7 @@ import Control.Monad ( when, mplus, msum )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.Set ( fromList, toList )
 import Data.List ( nub, partition, delete, intersect, (\\) )
-import System.Environment ( getArgs )
+import System.Environment ( getArgs, getProgName )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
@@ -265,7 +265,10 @@ build doconf mkbuild =
                           saveConf
        if "configure" `elem` args
           then configure
-          else restoreConf `catch` \_ -> configure
+          else do restoreConf `catch` \_ -> rm "conf.state"
+                  setupname <- getProgName
+                  build' $ ["conf.state"] :< [source setupname]
+                             :<- defaultRule { make = \_ -> configure }
        b <- mkbuild
        when ("clean" `elem` args) $ mapM_ rm $ clean' b
        when ("build" `elem` args || "install" `elem` args) $ buildPar b
