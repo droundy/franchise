@@ -92,8 +92,13 @@ executable exname src cfiles =
 ghcDeps :: String -> [String] -> IO Buildable
 ghcDeps dname src =
     do x <- readFile dname `catch` \_ -> return ""
-       return $ [dname] :< map source (filter (/=":") (words x))
-                  :<- defaultRule { make = builddeps }
+       let cleandeps = filter (not . endsWith ".hi") .
+                       filter (not . endsWith ".o") .
+                       filter (/=":") . words . unlines .
+                       filter notcomment . lines
+           notcomment ('#':_) = False
+           notcomment _ = True
+       return $ [dname] :< map source (cleandeps x) :<- defaultRule { make = builddeps }
   where builddeps _ = ghc system $ ["-M","-optdep-f","-optdep"++dname] ++ src
 
 -- privateExecutable is used for executables used by the build system but
