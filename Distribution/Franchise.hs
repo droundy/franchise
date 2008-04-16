@@ -84,9 +84,6 @@ copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
 license x = setEnv "FRANCHISE_LICENSE" x True
 version x = setEnv "FRANCHISE_VERSION" x True
 
--- WARNING: If you want to create a package and an executable, you must
--- define the package before building the executable!
-
 executable :: String -> String -> [String] -> IO Buildable
 executable exname src cfiles =
     do x :< y :<- b <- privateExecutable exname src cfiles
