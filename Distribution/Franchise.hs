@@ -98,8 +98,12 @@ ghcDeps dname src =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       return $ [dname] :< map source (cleandeps x) :<- defaultRule { make = builddeps }
-  where builddeps _ = ghc system $ ["-M","-optdep-f","-optdep"++dname] ++ src
+       return $ [dname] :< map source ("conf.state":cleandeps x) :<- defaultRule { make = builddeps }
+  where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M","-optdep-f","-optdep"++dname] ++ src)
+                         case x of
+                           [] -> return ()
+                           [_] -> putStrLn $ "Added package "++ unwords x++"..."
+                           _ -> putStrLn $ "Added packages "++ unwords x++"..."
 
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.
@@ -441,19 +445,26 @@ tryModule m = do let fn = "Try"++m++".hs"
                  return e
 
 requireModule :: String -> IO ()
-requireModule m = tryModule m >>= lookForModule
-    where lookForModule "" = putStrLn $ "found module "++m
-          lookForModule e =
+requireModule m = do x <- seekPackages $ tryModule m
+                     case x of
+                       [] -> putStrLn $ "found module "++m
+                       [_] -> putStrLn $ "found module "++m++" in package "++unwords x
+                       _ -> putStrLn $ "found module "++m++" in packages "++unwords x
+                  `catch` \e -> do putStrLn (show e)
+                                   fail $ "Can't use module "++m
+
+seekPackages :: IO String -> IO [String]
+seekPackages runghcErr = runghcErr >>= lookForPackages
+    where lookForPackages "" = return []
+          lookForPackages e =
               case catMaybes $ map findOption $ lines e of
-              [] -> do putStrLn e
-                       fail $ "Can't use module "++m
-              ps -> do oldps <- addEnv "FRANCHISE_PACKAGES" (unwords ps)
-                       e2 <- tryModule m
+              [] -> fail e
+              ps -> do addEnv "FRANCHISE_PACKAGES" (unwords ps)
+                       e2 <- runghcErr
                        if e2 == e
-                          then do putStrLn e
-                                  fail $ "Can't use module "++m
-                          else do putStr $ "looking in package "++unwords ps++"... "
-                                  lookForModule e2
+                          then fail e
+                          else do x <- lookForPackages e2
+                                  return (ps++x)
 
 cleanModuleTest :: String -> IO ()
 cleanModuleTest m = do let fns = ["Try"++m++".hs","Try"++m++".hi","Try"++m++".o"]

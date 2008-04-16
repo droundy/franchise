@@ -3,9 +3,8 @@ import Distribution.Franchise
 
 configure = do copyright "David Roundy"
                license "BSD3"
-               version "0.0"
                addEnv "GHC_FLAGS" "-threaded"
-               requireModule "System.Posix.Env ( setEnv )"
+               version "0.0"
 
 buildable = do p <- package "franchise" ["Distribution.Franchise"]
                e <- privateExecutable "sample-setup" "Setup.hs" []
