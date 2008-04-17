@@ -10,6 +10,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 package, copyright, license, version,
                                 -- modifying the compilation environment
                                 addEnv,
+                                -- utility for running external code
+                                systemOut,
                                 -- semi-automatic rule generation
                                 (<:), source, (.&) )
     where
@@ -24,7 +26,7 @@ import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
 import Control.Concurrent ( forkOS, readChan, writeChan, newChan )
 
-import Distribution.Franchise.Util ( system, systemErr )
+import Distribution.Franchise.Util ( system, systemOut, systemErr )
 
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
