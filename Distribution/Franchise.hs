@@ -221,7 +221,8 @@ getBinPrefix = do hom <- getEnv "HOME"
 addEnv :: String -> String -> IO String
 addEnv e "" = maybe "" id `fmap` getEnv e
 addEnv e v = do o <- getEnv e
-                let n = maybe v (++(' ':v)) o
+                let n = maybe v' (++(' ':v')) o
+                    v' = unwords $ words v
                 setEnv e n True
                 return n
 
