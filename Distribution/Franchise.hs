@@ -459,17 +459,21 @@ tryModule m = do let fn = "Try"++m++".hs"
 tryLib :: String -> String -> String -> IO String
 tryLib l h func = do let fn = "try-lib"++l++".c"
                          fo = "try-lib"++l++".o"
+                         fh = "try-lib"++l++".h"
                          hf = "try-lib.hs"
-                     writeFile hf $ unlines ["foreign import ccall unsafe \"static foo\" foo :: IO ()",
+                     writeFile fh $ unlines ["void foo();"]
+                     writeFile hf $ unlines ["foreign import ccall unsafe \""++
+                                             fh++" foo\" foo :: IO ()",
                                              "main = foo"]
                      writeFile fn $ unlines ["#include <stdio.h>",
                                              "#include \""++h++"\"",
+                                             "void foo();",
                                              "void foo() {",
                                              "  "++func++";",
                                              "}"]
                      e1 <- ghc systemErr ["-c","-cpp",fn]
                      e2 <- ghc systemErr ["-fffi","-o","try-lib",fo,hf]
-                     mapM_ rm [fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
+                     mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
                      return (e1++e2)
 
 checkLib :: String -> String -> String -> IO ()
