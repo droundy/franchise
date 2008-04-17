@@ -254,7 +254,8 @@ buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
 savedVars :: [String]
-savedVars = ["GHC_FLAGS", "LDFLAGS", "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
+savedVars = ["GHC_FLAGS", "CFLAGS", "LDFLAGS",
+             "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
              "FRANCHISE_PACKAGE", "FRANCHISE_PACKAGES",
              "FRANCHISE_MAINTAINER",
              "FRANCHISE_LICENSE", "FRANCHISE_COPYRIGHT"]
@@ -418,10 +419,13 @@ ghc :: (String -> [String] -> IO a) -> [String] -> IO a
 ghc sys args = do pn <- getPackageVersion
                   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
                   fl <- maybe [] words `fmap` getEnv "GHC_FLAGS"
+                  cf <- (map ("-optc"++) . maybe [] words) `fmap` getEnv "CFLAGS"
                   ld <- (map ("-optl"++) . maybe [] words) `fmap` getEnv "LDFLAGS"
+                  let opts = fl ++ (if "-c" `elem` args then [] else ld)
+                                ++ (if any (endsWith ".c") args then cf else packs)
                   case pn of
-                    Just p -> sys "ghc" $ ld++fl++packs++["-hide-all-packages","-package-name",p]++args
-                    Nothing -> sys "ghc" $ ld++fl++"-hide-all-packages":packs++args
+                    Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++args
+                    Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
 
 ghc_hs_to_o :: Dependency -> IO ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
