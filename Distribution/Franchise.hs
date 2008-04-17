@@ -219,8 +219,7 @@ getBinPrefix = do hom <- getEnv "HOME"
                   return $ maybe "/usr/bin" (++"/bin") hom
 
 addEnv :: String -> String -> IO String
-addEnv e "" = do o <- getEnv e
-                 return $ maybe "" id o
+addEnv e "" = maybe "" id `fmap` getEnv e
 addEnv e v = do o <- getEnv e
                 let n = maybe v (++(' ':v)) o
                 setEnv e n True
