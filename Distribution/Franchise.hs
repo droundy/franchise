@@ -95,7 +95,6 @@ findPackagesFor :: String -> IO ()
 findPackagesFor src = do rm "temp.depend"
                          whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
                                                                  addEnv "GHC_FLAGS" ("-I"++d)
-                                                                 return ()
                          ghcDeps "temp.depend" [src] >>= build'
                          rm "temp.depend"
 
@@ -122,7 +121,6 @@ privateExecutable :: String -> String -> [String] -> IO Buildable
 privateExecutable  exname src cfiles =
     do whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
                                                addEnv "GHC_FLAGS" ("-I"++d)
-                                               return ()
        let depend = exname++".depend"
        ghcDeps depend [src] >>= build'
        mods <- parseDeps `fmap` readFile depend
@@ -218,13 +216,12 @@ getBinPrefix :: IO String
 getBinPrefix = do hom <- getEnv "HOME"
                   return $ maybe "/usr/bin" (++"/bin") hom
 
-addEnv :: String -> String -> IO String
-addEnv e "" = maybe "" id `fmap` getEnv e
+addEnv :: String -> String -> IO ()
+addEnv _ "" = return ()
 addEnv e v = do o <- getEnv e
                 let n = maybe v' (++(' ':v')) o
                     v' = unwords $ words v
                 setEnv e n True
-                return n
 
 parseDeps :: String -> [Buildable]
 parseDeps x = builds
@@ -480,7 +477,7 @@ checkLib l h func =
     do e <- tryLib l h func
        case e of
          "" -> putStrLn $ "found library "++l++" without any extra flags."
-         _ -> do oldfl <- addEnv "LDFLAGS" ("-l"++l)
+         _ -> do addEnv "LDFLAGS" ("-l"++l)
                  e2 <- tryLib l h func
                  case e2 of
                    "" -> putStrLn $ "found library "++l++" with -l"++l
