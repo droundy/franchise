@@ -3,11 +3,15 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr )
 
 import System.Directory ( removeFile )
 import System.Exit ( ExitCode(..) )
+import System.Posix.Env ( getEnv )
 import System.Process ( runProcess, waitForProcess )
 import System.IO ( IOMode(..), openBinaryFile )
 
 system :: String -> [String] -> IO ()
-system c args = do putStrLn $ "  " ++ unwords (c:args)
+system c args = do v <- getEnv "VERBOSE"
+                   case v of
+                     Nothing -> putStrLn $ "  " ++ unwords (c:"...":drop (length args-1) args)
+                     Just _ -> putStrLn $ "  " ++ unwords (c:args)
                    pid <- runProcess c args Nothing Nothing Nothing Nothing Nothing
                    ec <- waitForProcess pid
                    case ec of
