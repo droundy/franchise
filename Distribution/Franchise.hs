@@ -26,7 +26,7 @@ import System.Posix.Files ( getFileStatus, modificationTime )
 import System.Posix.Env ( setEnv, getEnv )
 import Control.Concurrent ( forkOS, readChan, writeChan, newChan )
 
-import Distribution.Franchise.Util ( system, systemOut, systemErr )
+import Distribution.Franchise.Util
 
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
@@ -82,9 +82,9 @@ cleanIt (_:<[]) = []
 cleanIt (xs:<_) = xs
 
 copyright, license, version :: String -> IO ()
-copyright x = setEnv "FRANCHISE_COPYRIGHT" x True
-license x = setEnv "FRANCHISE_LICENSE" x True
-version x = setEnv "FRANCHISE_VERSION" x True
+copyright x = setEnv "COPYRIGHT" x True
+license x = setEnv "LICENSE" x True
+version x = setEnv "VERSION" x True
 
 executable :: String -> String -> [String] -> IO Buildable
 executable exname src cfiles =
@@ -151,19 +151,19 @@ printBuildableDeep b@(xs :< ds:<-_) =
 
 package :: String -> [String] -> IO Buildable
 package packageName modules =
-    do setEnv "FRANCHISE_PACKAGE" packageName True
+    do setEnv "PACKAGENAME" packageName True
        let depend = packageName++".depend"
        ghcDeps depend modules >>= build'
        mods <- parseDeps `fmap` readFile depend
-       pre <- getHSLibPrefix
+       pre <- getDir "LIBDIR" "lib"
        ver <- getVersion
        let lib = ["lib"++packageName++".a"] <: mods
            obj = [packageName++".o"] <: [lib]
            cabal = [packageName++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
            destination = pre++"/"++packageName++"-"++ver++"/"
-           makecabal _ = do lic <- getEnv "FRANCHISE_LICENSE"
-                            cop <- getEnv "FRANCHISE_COPYRIGHT"
-                            mai <- getEnv "FRANCHISE_MAINTAINER"
+           makecabal _ = do lic <- getEnv "LICENSE"
+                            cop <- getEnv "COPYRIGHT"
+                            mai <- getEnv "MAINTAINER"
                             ema <- getEnv "EMAIL"
                             writeFile (packageName++".cabal") $ unlines
                                           ["name: "++packageName,
@@ -200,21 +200,12 @@ modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
 
 getPackageVersion :: IO (Maybe String)
 getPackageVersion = do ver <- getVersion
-                       pn <- getEnv "FRANCHISE_PACKAGE"
+                       pn <- getEnv "PACKAGENAME"
                        return $ fmap (++("-"++ver)) pn
 
 getVersion :: IO String
-getVersion = do ver <- getEnv "FRANCHISE_VERSION"
+getVersion = do ver <- getEnv "VERSION"
                 return $ maybe "0.0" id ver
-
-getHSLibPrefix :: IO String
-getHSLibPrefix = do pre <- getEnv "FRANCHISE_PREFIX"
-                    hom <- getEnv "HOME"
-                    return $ maybe "./lib" id $ pre `mplus` fmap (++"/lib") hom
-
-getBinPrefix :: IO String
-getBinPrefix = do hom <- getEnv "HOME"
-                  return $ maybe "/usr/bin" (++"/bin") hom
 
 addEnv :: String -> String -> IO ()
 addEnv _ "" = return ()
@@ -253,10 +244,10 @@ buildName (Unknown d) = [d]
 
 savedVars :: [String]
 savedVars = ["GHC_FLAGS", "CFLAGS", "LDFLAGS",
-             "FRANCHISE_PREFIX", "FRANCHISE_VERSION",
-             "FRANCHISE_PACKAGE", "FRANCHISE_PACKAGES",
-             "FRANCHISE_MAINTAINER",
-             "FRANCHISE_LICENSE", "FRANCHISE_COPYRIGHT"]
+             "PREFIX", "VERSION",
+             "PACKAGENAME", "PACKAGES",
+             "MAINTAINER",
+             "LICENSE", "COPYRIGHT"]
 
 saveConf :: IO ()
 saveConf = stat >>= writeFile "conf.state"
@@ -272,6 +263,7 @@ restoreConf = (readv `fmap` readFile "conf.state") >>= mapM_ rc
 build :: IO () -> IO Buildable -> IO ()
 build doconf mkbuild =
     do args <- getArgs
+       parseArgs args
        let configure = do putStrLn "Configuring..."
                           doconf
                           saveConf
@@ -402,14 +394,8 @@ findWork zzz = fw [] [] $ mapBuildable id zzz
                       if ineedwork then fw (b:nw) ok r
                                    else fw nw (b:ok) r
 
-endsWith :: String -> String -> Bool
-endsWith x y = drop (length y - length x) y == x
-
-endsWithOneOf :: [String] -> String -> Bool
-endsWithOneOf xs y = any (\x -> endsWith x y) xs
-
 packages :: IO [String]
-packages = do x <- getEnv "FRANCHISE_PACKAGES"
+packages = do x <- getEnv "PACKAGES"
               case x of Nothing -> return []
                         Just y -> return $ words y
 
@@ -438,7 +424,7 @@ ghc_c (_:<ds) = case filter (endsWith ".c") $ concatMap buildName ds of
                 _ -> fail "error 5"
 
 installBin :: Dependency -> IO ()
-installBin (xs:<_) = do pref <- getBinPrefix
+installBin (xs:<_) = do pref <- getDir "BINDIR" "bin"
                         let inst x = system "cp" [x,pref++"/"]
                         mapM_ inst xs
 
@@ -503,7 +489,7 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
           lookForPackages e =
               case catMaybes $ map findOption $ lines e of
               [] -> fail e
-              ps -> do addEnv "FRANCHISE_PACKAGES" (unwords ps)
+              ps -> do addEnv "PACKAGES" (unwords ps)
                        e2 <- runghcErr
                        if e2 == e
                           then fail e
