@@ -210,8 +210,7 @@ getVersion = do ver <- getEnv "VERSION"
 addEnv :: String -> String -> IO ()
 addEnv _ "" = return ()
 addEnv e v = do o <- getEnv e
-                let n = maybe v' (++(' ':v')) o
-                    v' = unwords $ words v
+                let n = unwords $ nub (maybe [] words o ++ words v)
                 setEnv e n True
 
 parseDeps :: String -> [Buildable]
