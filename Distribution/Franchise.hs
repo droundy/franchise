@@ -436,7 +436,7 @@ a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
 tryModule :: String -> IO String
 tryModule m = do let fn = "Try"++m++".hs"
-                 writeFile fn ("import "++m++"\nmain = undefined\n")
+                 writeFile fn ("import "++m++"\nmain:: IO ()\nmain = undefined\n")
                  e <- ghc systemErr ["-c",fn]
                  mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
@@ -449,6 +449,7 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
                      writeFile fh $ unlines ["void foo();"]
                      writeFile hf $ unlines ["foreign import ccall unsafe \""++
                                              fh++" foo\" foo :: IO ()",
+                                             "main :: IO ()",
                                              "main = foo"]
                      writeFile fn $ unlines ["#include <stdio.h>",
                                              "#include \""++h++"\"",
