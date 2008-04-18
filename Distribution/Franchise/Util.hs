@@ -3,12 +3,12 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr,
                                      endsWith, endsWithOneOf )
     where
 
-import System.Directory ( removeFile )
 import System.Exit ( ExitCode(..) )
 import System.Posix.Env ( getEnv, setEnv )
-import System.Process ( runProcess, waitForProcess )
-import System.IO ( IOMode(..), openBinaryFile )
+import System.Process ( runInteractiveProcess, waitForProcess )
+import System.IO ( hFlush, stdout, hGetContents )
 import Control.Monad ( msum )
+import Control.Concurrent ( forkIO )
 
 beginsWith :: String -> String -> Bool
 beginsWith x y = take (length x) y == x
@@ -20,34 +20,44 @@ endsWithOneOf :: [String] -> String -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
 system :: String -> [String] -> IO ()
-system c args = do v <- getEnv "VERBOSE"
-                   case v of
-                     Nothing -> putStrLn $ "  " ++ unwords (c:"...":drop (length args-1) args)
-                     Just _ -> putStrLn $ "  " ++ unwords (c:args)
-                   pid <- runProcess c args Nothing Nothing Nothing Nothing Nothing
+system c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+                   out <- hGetContents o
+                   err <- hGetContents e
+                   -- now we ensure that out and err are consumed, so that
+                   -- the code we're running won't hang waiting for its
+                   -- output (or error) to be consumed.
+                   forkIO $ seq (length out) $ return ()
+                   forkIO $ seq (length err) $ return ()
                    ec <- waitForProcess pid
+                   v <- getEnv "VERBOSE"
+                   let cl = case v of
+                            Nothing -> unwords (c:"...":drop (length args-1) args)
+                            Just _ -> unwords (c:args)
+                   putStr (cl++'\n':out++err)
+                   hFlush stdout
                    case ec of
                      ExitSuccess -> return ()
-                     ExitFailure x -> fail $ c ++ " failed with: " ++ show x
+                     ExitFailure x -> fail $ c ++ " failed with: " ++ show (out++err)
 
 systemErr :: String -> [String] -> IO String
-systemErr c args = do h <- openBinaryFile "systemErr" WriteMode
-                      pid <- runProcess c args Nothing Nothing Nothing Nothing (Just h)
+systemErr c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+                      out <- hGetContents o
+                      err <- hGetContents e
+                      forkIO $ seq (length out) $ return ()
+                      forkIO $ seq (length err) $ return ()
                       waitForProcess pid
-                      x <- readFile "systemErr"
-                      removeFile "systemErr" `catch` \_ -> return ()
-                      return x
+                      return err
 
 systemOut :: String -> [String] -> IO String
-systemOut c args = do h <- openBinaryFile "systemOut" WriteMode
-                      pid <- runProcess c args Nothing Nothing Nothing (Just h) Nothing
-                      ec <- waitForProcess pid
-                      case ec of
-                        ExitSuccess -> return ()
-                        ExitFailure x -> fail $ c ++ " failed with: " ++ show x
-                      x <- readFile "systemOut"
-                      removeFile "systemOut" `catch` \_ -> return ()
-                      return x
+systemOut c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+                      out <- hGetContents o
+                      err <- hGetContents e
+                      forkIO $ seq (length out) $ return ()
+                      case err of
+                        [] -> return ()
+                        _ -> putStr $ unwords (c:args) ++ '\n':err
+                      waitForProcess pid
+                      return out
 
 withArg :: String -> [String] -> (String -> IO ()) -> IO ()
 withArg _ [] _ = return ()
