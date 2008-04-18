@@ -7,7 +7,7 @@ import System.Exit ( ExitCode(..) )
 import System.Posix.Env ( getEnv, setEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
-import Control.Monad ( msum )
+import Control.Monad ( when, msum )
 import Control.Concurrent ( forkIO )
 
 beginsWith :: String -> String -> Bool
@@ -81,3 +81,4 @@ parseArgs args = do withArgEnv "--prefix" "PREFIX" args
                     withArgEnv "--bindir" "BINDIR" args
                     withArgEnv "--libdir" "LIBDIR" args
                     withArgEnv "--libsubdir" "LIBSUBDIR" args
+                    when ("--user" `elem` args) $ setEnv "PKG_FLAGS" "--user" True

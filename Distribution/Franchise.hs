@@ -183,7 +183,8 @@ package packageName modules =
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
                             mapM_ inst ["lib"++packageName++".a",packageName++".o"]
                             mapM_ inst his
-                            system "ghc-pkg" ["--user","update",packageName++".cabal"]
+                            pkgflags <- maybe [] words `fmap` getEnv "PKG_FLAGS"
+                            system "ghc-pkg" $ pkgflags ++ ["update",packageName++".cabal"]
        return $ [destination] :< (lib:obj:cabal:mods)
                   :<- defaultRule { install = installme,
                                     clean = \b -> depend : cleanIt b}
@@ -242,7 +243,7 @@ buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
 savedVars :: [String]
-savedVars = ["GHC_FLAGS", "CFLAGS", "LDFLAGS",
+savedVars = ["GHC_FLAGS", "PKG_FLAGS", "CFLAGS", "LDFLAGS",
              "PREFIX", "VERSION",
              "PACKAGENAME", "PACKAGES",
              "MAINTAINER",
