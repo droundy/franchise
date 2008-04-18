@@ -45,6 +45,12 @@ to be useful to you without any features added, unless you've got a very
 simple project, in which case you should be able to pretty easily copy and
 modify an existing franchise Setup.hs file.
 
+To get franchise, run
+
+darcs get http://darcs.net/repos/franchise
+
+(note that this will require darcs 2.0.0)
+
 To build and install franchise, simply execute
 
 runghc Setup.hs install --user --prefix=$HOME
