@@ -21,6 +21,12 @@ compatibility, and just plain makes your life easier.  If a particular
 module is provided by more than one package, you may need to disambiguate,
 but that's not the common case.
 
+Perhaps also worth mentioning is that franchise supports parallel builds
+similar to make -j.  Currently the number of simultaneous builds is fixed
+at four.  Franchise does not, however, compute an optimized parallel build
+order, with the result that on the darcs repository a franchise build is a
+few percent slower than make -j4.
+
 Franchise is currently ghc-specific and won't run on Windows, but patches
 to extend either of these limitations would be welcome.  It also currently
 won't work when any flags contain space characters (e.g. with
