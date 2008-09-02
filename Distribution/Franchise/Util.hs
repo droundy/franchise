@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -30,16 +31,27 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr,
-                                     getDir, parseArgs,
-                                     endsWith, endsWithOneOf )
+                                     getDir, parseArgs, getEnv,
+                                     endsWith, endsWithOneOf,
+                                     ghcFlags, ldFlags, addPackages, packageName,
+                                     pkgFlags, copyright, license, version,
+                                     getGhcFlags, getCFlags, getLdFlags,
+                                     getVersion, packages, getPackageVersion,
+                                     getPkgFlags,
+                                     CanModifyState(..),
+                                     C, ConfigureState(..), runC, io, catchC, forkC
+                                   )
     where
 
 import System.Exit ( ExitCode(..) )
-import System.Posix.Env ( getEnv, setEnv )
+import qualified System.Environment as E ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
 import Control.Monad ( when, msum )
-import Control.Concurrent ( forkIO )
+import Control.Concurrent ( forkIO, forkOS )
+import Control.Monad.State ( StateT, MonadIO, MonadState,
+                             runStateT, liftIO, get, gets, put, modify )
+
 
 beginsWith :: String -> String -> Bool
 beginsWith x y = take (length x) y == x
@@ -50,8 +62,14 @@ endsWith x y = drop (length y - length x) y == x
 endsWithOneOf :: [String] -> String -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
-system :: String -> [String] -> IO ()
-system c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+amVerbose :: MonadIO m => m Bool
+amVerbose = io $ do v <- E.getEnv "VERBOSE"
+                    return (v /= "" && v /= "0")
+                 `catch` \_ -> return False
+
+system :: String -> [String] -> C ()
+system c args = io $
+                do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
                    out <- hGetContents o
                    err <- hGetContents e
                    -- now we ensure that out and err are consumed, so that
@@ -60,18 +78,18 @@ system c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
                    forkIO $ seq (length out) $ return ()
                    forkIO $ seq (length err) $ return ()
                    ec <- waitForProcess pid
-                   v <- getEnv "VERBOSE"
-                   let cl = case v of
-                            Nothing -> unwords (c:"...":drop (length args-1) args)
-                            Just _ -> unwords (c:args)
+                   v <- amVerbose
+                   let cl = if v then unwords (c:args)
+                                 else unwords (c:"...":drop (length args-1) args)
                    putStr (cl++'\n':out++err)
                    hFlush stdout
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure x -> fail $ c ++ " failed with: " ++ show (out++err)
 
-systemErr :: String -> [String] -> IO String
-systemErr c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+systemErr :: String -> [String] -> C String
+systemErr c args = io $
+                   do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
                       out <- hGetContents o
                       err <- hGetContents e
                       forkIO $ seq (length out) $ return ()
@@ -79,8 +97,9 @@ systemErr c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothin
                       waitForProcess pid
                       return err
 
-systemOut :: String -> [String] -> IO String
-systemOut c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
+systemOut :: String -> [String] -> C String
+systemOut c args = io $
+                   do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
                       out <- hGetContents o
                       err <- hGetContents e
                       forkIO $ seq (length out) $ return ()
@@ -90,26 +109,131 @@ systemOut c args = do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothin
                       waitForProcess pid
                       return out
 
-withArg :: String -> [String] -> (String -> IO ()) -> IO ()
+withArg :: String -> [String] -> (String -> C ()) -> C ()
 withArg _ [] _ = return ()
 withArg x (y:z:_) f | y == x = f z
                     | y == x++"=" = f z
+withArg x (y:"=":z:_) f | y == x = f z
 withArg x (y:z) f | beginsWith (x++"=") y = f $ drop (1+length x) y
                   | otherwise = withArg x z f
 
-withArgEnv :: String -> String -> [String] -> IO ()
-withArgEnv p e args = withArg p args $ \v -> setEnv e v True
-
-getDir :: String -> String -> IO String
+getDir :: String -> String -> C String
 getDir e d = do bindir <- getEnv e
                 pre <- getEnv "PREFIX"
                 hom <- getEnv "HOME"
                 return $ maybe ("/usr/local/"++d) id $ msum $
                        bindir : map (fmap (++("/"++d))) [pre,hom]
 
-parseArgs :: [String] -> IO ()
-parseArgs args = do withArgEnv "--prefix" "PREFIX" args
-                    withArgEnv "--bindir" "BINDIR" args
-                    withArgEnv "--libdir" "LIBDIR" args
-                    withArgEnv "--libsubdir" "LIBSUBDIR" args
-                    when ("--user" `elem` args) $ setEnv "PKG_FLAGS" "--user" True
+parseArgs :: [String] -> C ()
+parseArgs args =
+    do withArg "--prefix" args $ \v -> modify (\c -> c { prefixC = Just v })
+       withArg "--bindir" args $ \v -> modify (\c -> c { bindirC = Just v })
+       withArg "--libdir" args $ \v -> modify (\c -> c { libdirC = Just v })
+       withArg "--libsubdir" args $ \v -> modify (\c -> c { libsubdirC = Just v })
+       when ("--user" `elem` args) $ pkgFlags ["--user"]
+
+addPackages :: [String] -> C ()
+addPackages x = modify $ \c -> c { packagesC = packagesC c ++ x }
+
+pkgFlags :: [String] -> C ()
+pkgFlags x = modify $ \c -> c { pkgFlagsC = pkgFlagsC c ++ x }
+
+ghcFlags :: [String] -> C ()
+ghcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c ++ x }
+
+copyright, license, version :: String -> C ()
+copyright x = modify $ \c -> c { copyrightC = Just x }
+license x = modify $ \c -> c { licenseC = Just x }
+version x = modify $ \c -> c { versionC = x }
+
+getGhcFlags :: C [String]
+getGhcFlags = gets ghcFlagsC
+
+getCFlags :: C [String]
+getCFlags = gets cFlagsC
+
+getLdFlags :: C [String]
+getLdFlags = gets ldFlagsC
+
+packages :: C [String]
+packages = gets packagesC
+
+getPkgFlags :: C [String]
+getPkgFlags = gets pkgFlagsC
+
+getVersion :: C String
+getVersion = gets versionC
+
+packageName :: String -> C ()
+packageName x = modify $ \c -> c { packageNameC = Just x }
+
+getPackageName :: C (Maybe String)
+getPackageName = gets packageNameC
+
+getPackageVersion :: C (Maybe String)
+getPackageVersion = do ver <- getVersion
+                       pn <- getPackageName
+                       return $ fmap (++("-"++ver)) pn
+
+ldFlags :: [String] -> C ()
+ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
+
+data ConfigureState = CS { ghcFlagsC :: [String],
+                           pkgFlagsC :: [String],
+                           cFlagsC :: [String],
+                           ldFlagsC :: [String],
+                           packagesC :: [String],
+                           prefixC :: Maybe String,
+                           bindirC :: Maybe String,
+                           libdirC :: Maybe String,
+                           libsubdirC :: Maybe String,
+                           versionC :: String,
+                           packageNameC :: Maybe String,
+                           maintainerC :: Maybe String,
+                           licenseC :: Maybe String,
+                           copyrightC :: Maybe String }
+                      deriving ( Read, Show )
+
+newtype C a = C ((StateT ConfigureState IO) a)
+    deriving (Functor, Monad, MonadIO, MonadState ConfigureState)
+
+runC :: C a -> IO a
+runC (C a) = fst `fmap` runStateT a defaultConfiguration
+
+defaultConfiguration :: ConfigureState
+defaultConfiguration = CS { ghcFlagsC = [],
+                            pkgFlagsC = [],
+                            cFlagsC = [],
+                            ldFlagsC = [],
+                            packagesC = [],
+                            prefixC = Nothing,
+                            bindirC = Nothing,
+                            libdirC = Nothing,
+                            libsubdirC = Nothing,
+                            versionC = "0.0",
+                            packageNameC = Nothing,
+                            maintainerC = Nothing,
+                            licenseC = Nothing,
+                            copyrightC = Nothing }
+
+io :: MonadIO m => IO a -> m a
+io = liftIO
+
+catchC :: C a -> (String -> C a) -> C a
+catchC (C a) b =
+    do c <- get
+       (out,c') <- io (runStateT a c `catch` \err -> runStateT (unC $ b $ show err) c)
+       put c'
+       return out
+    where unC (C x) = x
+
+forkC :: CanModifyState -> C () -> C ()
+forkC CannotModifyState (C j) = do c <- get
+                                   io $ forkOS $ do runStateT j c; return ()
+                                   return ()
+forkC _ j = j
+
+getEnv :: String -> C (Maybe String)
+getEnv x = fmap Just (io (E.getEnv x)) `catchC` \_ -> return Nothing
+
+data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)

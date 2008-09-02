@@ -39,8 +39,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 requireModule, checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
-                                -- modifying the compilation environment
-                                addEnv,
+                                -- setting compile parameters
+                                ghcFlags,
                                 -- utility for running external code
                                 systemOut,
                                 -- semi-automatic rule generation
@@ -54,8 +54,9 @@ import Data.List ( nub, partition, delete, intersect, (\\) )
 import System.Environment ( getArgs, getProgName )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
-import System.Posix.Env ( setEnv, getEnv )
-import Control.Concurrent ( forkOS, readChan, writeChan, newChan )
+import Control.Concurrent ( readChan, writeChan, newChan )
+
+import Control.Monad.State ( modify, put, get )
 
 import Distribution.Franchise.Util
 
@@ -72,8 +73,8 @@ data Buildable = Dependency :<- BuildRule
 (|<-) :: Dependency -> BuildRule -> Buildable
 (|<-) = (:<-)
 
-data BuildRule = BuildRule { make :: Dependency -> IO (),
-                             install :: Dependency -> IO (),
+data BuildRule = BuildRule { make :: Dependency -> C (),
+                             install :: Dependency -> C (),
                              clean :: Dependency -> [String] }
 
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
@@ -112,26 +113,21 @@ lookupB f (xs:<xds:<-h) | f `elem` xs = Just (xs:<xds:<-h)
 cleanIt (_:<[]) = []
 cleanIt (xs:<_) = xs
 
-copyright, license, version :: String -> IO ()
-copyright x = setEnv "COPYRIGHT" x True
-license x = setEnv "LICENSE" x True
-version x = setEnv "VERSION" x True
-
-executable :: String -> String -> [String] -> IO Buildable
+executable :: String -> String -> [String] -> C Buildable
 executable exname src cfiles =
     do x :< y :<- b <- privateExecutable exname src cfiles
        return $ x :< y :<- b { install = installBin }
 
-findPackagesFor :: String -> IO ()
+findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
-                         whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
-                                                                 addEnv "GHC_FLAGS" ("-I"++d)
-                         ghcDeps "temp.depend" [src] >>= build'
+                         whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d,
+                                                                        "-I"++d]
+                         ghcDeps "temp.depend" [src] >>= build' CanModifyState
                          rm "temp.depend"
 
-ghcDeps :: String -> [String] -> IO Buildable
+ghcDeps :: String -> [String] -> C Buildable
 ghcDeps dname src =
-    do x <- readFile dname `catch` \_ -> return ""
+    do x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . endsWith ".hi") .
                        filter (not . endsWith ".o") .
                        filter (/=":") . words . unlines .
@@ -142,26 +138,25 @@ ghcDeps dname src =
   where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M","-optdep-f","-optdep"++dname] ++ src)
                          case x of
                            [] -> return ()
-                           [_] -> putStrLn $ "Added package "++ unwords x++"..."
-                           _ -> putStrLn $ "Added packages "++ unwords x++"..."
+                           [_] -> putS $ "Added package "++ unwords x++"..."
+                           _ -> putS $ "Added packages "++ unwords x++"..."
 
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.
 
-privateExecutable :: String -> String -> [String] -> IO Buildable
+privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  exname src cfiles =
-    do whenJust (directoryPart src) $ \d -> do addEnv "GHC_FLAGS" ("-i"++d)
-                                               addEnv "GHC_FLAGS" ("-I"++d)
+    do whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
-       ghcDeps depend [src] >>= build'
-       mods <- parseDeps `fmap` readFile depend
+       ghcDeps depend [src] >>= build' CanModifyState
+       mods <- parseDeps `fmap` io (readFile depend)
        let objs = filter (endsWith ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
        return $ [exname] :< (source src:mods++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
 
-whenJust :: Maybe a -> (a -> IO ()) -> IO ()
+whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
 whenJust Nothing _ = return ()
 
@@ -170,35 +165,35 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
-printBuildableDeep :: Buildable -> IO ()
+printBuildableDeep :: Buildable -> C ()
 printBuildableDeep b@(xs :< ds:<-_) =
-    do putStrLn $ unwords xs
-       putStrLn $ showBuild b
-       putStrLn "Depends on:\n\n"
-       let pbd i (x:<d:<-_) = do mapM_ (putStrLn . (take i (repeat ' ')++)) x
+    do putS $ unwords xs
+       putS $ showBuild b
+       putS "Depends on:\n\n"
+       let pbd i (x:<d:<-_) = do mapM_ (putS . (take i (repeat ' ')++)) x
                                  mapM_ (pbd (i+1)) d
-           pbd i (Unknown x) = putStrLn $ take i (repeat ' ')++"Source:"++x
+           pbd i (Unknown x) = putS $ take i (repeat ' ')++"Source:"++x
        mapM_ (pbd 0) ds
 
-package :: String -> [String] -> IO Buildable
-package packageName modules =
-    do setEnv "PACKAGENAME" packageName True
-       let depend = packageName++".depend"
-       ghcDeps depend modules >>= build'
-       mods <- parseDeps `fmap` readFile depend
+package :: String -> [String] -> C Buildable
+package pn modules =
+    do packageName pn
+       let depend = pn++".depend"
+       ghcDeps depend modules >>= build' CanModifyState
+       mods <- parseDeps `fmap` io (readFile depend)
        pre <- getDir "LIBDIR" "lib"
        ver <- getVersion
-       let lib = ["lib"++packageName++".a"] <: mods
-           obj = [packageName++".o"] <: [lib]
-           cabal = [packageName++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
-           destination = pre++"/"++packageName++"-"++ver++"/"
+       let lib = ["lib"++pn++".a"] <: mods
+           obj = [pn++".o"] <: [lib]
+           cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
+           destination = pre++"/"++pn++"-"++ver++"/"
            makecabal _ = do lic <- getEnv "LICENSE"
                             cop <- getEnv "COPYRIGHT"
                             mai <- getEnv "MAINTAINER"
                             ema <- getEnv "EMAIL"
                             deps <- packages
-                            writeFile (packageName++".cabal") $ unlines
-                                          ["name: "++packageName,
+                            io $ writeFile (pn++".cabal") $ unlines
+                                          ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++maybe "OtherLicense" id lic,
                                            "copyright: "++maybe "" id cop,
@@ -207,16 +202,16 @@ package packageName modules =
                                            "library-dirs: "++ destination,
                                            "exposed-modules: "++unwords modules,
                                            "hidden-modules: "++unwords (concatMap modName mods \\ modules),
-                                           "hs-libraries: "++packageName,
+                                           "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
            installme _ = do system "mkdir" ["-p",destination]
                             let inst x = system "cp" ["--parents",x,destination]
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
-                            mapM_ inst ["lib"++packageName++".a",packageName++".o"]
+                            mapM_ inst ["lib"++pn++".a",pn++".o"]
                             mapM_ inst his
-                            pkgflags <- maybe [] words `fmap` getEnv "PKG_FLAGS"
-                            system "ghc-pkg" $ pkgflags ++ ["update",packageName++".cabal"]
+                            pkgflags <- getPkgFlags
+                            system "ghc-pkg" $ pkgflags ++ ["update",pn++".cabal"]
        return $ [destination] :< (lib:obj:cabal:mods)
                   :<- defaultRule { install = installme,
                                     clean = \b -> depend : cleanIt b}
@@ -226,30 +221,15 @@ commaWords [] = ""
 commaWords [x] = x
 commaWords (x:xs) = x++", "++commaWords xs
 
-rm :: String -> IO ()
+rm :: String -> C ()
 rm f | endsWith "/" f = return ()
-rm f = removeFile f `catch` \_ -> return ()
+rm f = io (removeFile f) `catchC` \_ -> return ()
 
 modName :: Buildable -> [String]
 modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
     where toMod x = map todots $ take (length x - 2) x
           todots '/' = '.'
           todots x = x
-
-getPackageVersion :: IO (Maybe String)
-getPackageVersion = do ver <- getVersion
-                       pn <- getEnv "PACKAGENAME"
-                       return $ fmap (++("-"++ver)) pn
-
-getVersion :: IO String
-getVersion = do ver <- getEnv "VERSION"
-                return $ maybe "0.0" id ver
-
-addEnv :: String -> String -> IO ()
-addEnv _ "" = return ()
-addEnv e v = do o <- getEnv e
-                let n = unwords $ nub (maybe [] words o ++ words v)
-                setEnv e n True
 
 parseDeps :: String -> [Buildable]
 parseDeps x = builds
@@ -279,43 +259,36 @@ buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
-savedVars :: [String]
-savedVars = ["GHC_FLAGS", "PKG_FLAGS", "CFLAGS", "LDFLAGS",
-             "PREFIX", "VERSION",
-             "PACKAGENAME", "PACKAGES",
-             "MAINTAINER",
-             "LICENSE", "COPYRIGHT"]
+saveConf :: C ()
+saveConf = do s <- show `fmap` get
+              io $ writeFile "conf.state" s
 
-saveConf :: IO ()
-saveConf = stat >>= writeFile "conf.state"
-    where stat = (unlines . filter (/="")) `fmap` mapM sv savedVars
-          sv v = maybe "" ((v++"=")++)  `fmap` getEnv v
+restoreConf :: C ()
+restoreConf = do s <- io $ readFile "conf.state"
+                 case reads s of
+                   ((c,_):_) -> put c
+                   _ -> fail "Couldn't read conf.state"
 
-restoreConf :: IO ()
-restoreConf = (readv `fmap` readFile "conf.state") >>= mapM_ rc
-    where readv x = map (\l -> (takeWhile (/= '=') l,
-                                drop 1 $ dropWhile (/= '=') l)) $ lines x
-          rc (v,x) = setEnv v x True
-
-build :: IO () -> IO Buildable -> IO ()
+build :: C () -> C Buildable -> IO ()
 build doconf mkbuild =
-    do args <- getArgs
+    runC $
+    do args <- io $ getArgs
        parseArgs args
-       let configure = do putStrLn "Configuring..."
+       let configure = do putS "Configuring..."
                           doconf
                           saveConf
        if "configure" `elem` args
           then configure
-          else do restoreConf `catch` \_ -> rm "conf.state"
-                  setupname <- getProgName
-                  build' $ ["conf.state"] :< [source setupname]
+          else do restoreConf `catchC` \_ -> rm "conf.state"
+                  setupname <- io $ getProgName
+                  build' CannotModifyState $ ["conf.state"] :< [source setupname]
                              :<- defaultRule { make = \_ -> configure }
        b <- mkbuild
        when ("clean" `elem` args) $ mapM_ rm $ clean' b
-       when ("build" `elem` args || "install" `elem` args) $ build' b
+       when ("build" `elem` args || "install" `elem` args) $ build' CannotModifyState b
        when ("install" `elem` args) $ install' b
 
-install' :: Buildable -> IO ()
+install' :: Buildable -> C ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds
                                   install how (x :< ds)
 install' (Unknown _) = return ()
@@ -336,22 +309,22 @@ clean' b = concat $ mapBuildable c b
     where c (d:<-how) = clean how d
           c _ = []
 
-needsWork :: Dependency -> IO Bool
+needsWork :: Dependency -> C Bool
 needsWork ([]:<_) = return True
 needsWork ((x:_) :< ds) =
-    do fe <- doesFileExist x
+    do fe <- io $ doesFileExist x
        if not fe
-         then do --putStrLn $ "need work because " ++ x ++ " doesn't exist"
+         then do --putS $ "need work because " ++ x ++ " doesn't exist"
                  return True
-         else do s <- getFileStatus x
+         else do s <- io $ getFileStatus x
                  let mt = modificationTime s
-                     latertime y = do ye <- doesFileExist y
+                     latertime y = do ye <- io $ doesFileExist y
                                       if not ye
-                                        then do --putStrLn $ "Need work cuz "++y++" don't exist"
+                                        then do --putS $ "Need work cuz "++y++" don't exist"
                                                 return True
-                                        else do sy <- getFileStatus y
+                                        else do sy <- io $ getFileStatus y
                                                 --if (modificationTime sy > mt)
-                                                --   then putStrLn $ "I need work since "++ y ++
+                                                --   then putS $ "I need work since "++ y ++
                                                 --            " is too new versus " ++ x
                                                 --   else return ()
                                                 return (modificationTime sy > mt)
@@ -361,17 +334,18 @@ needsWork ((x:_) :< ds) =
                                              else anyM f zs
                  anyM latertime $ concatMap buildName ds
 
-build' :: Buildable -> IO ()
-build' (Unknown f) = do e <- doesFileExist f
-                        when (not e) $ fail $ "Source file "++f++" does not exist!"
-build' b = do --putStrLn "I'm thinking of recompiling..."
+build' :: CanModifyState -> Buildable -> C ()
+build' _ (Unknown f) = do e <- io $ doesFileExist f
+                          when (not e) $ fail $ "Source file "++f++" does not exist!"
+build' cms b =
+        do -- putS $ unwords ("I'm thinking of recompiling...": buildName b)
            w <- reverse `fmap` findWork b
-           --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
+           --putS $ "I want to recompile all of "++ unwords (concatMap buildName w)
            case length w of
-             0 -> putStrLn $ "Nothing to recompile for "++unwords (buildName b)++"."
-             l -> putStrLn $ unwords $ ["Need to recompile ",show l,"for"]
+             0 -> putS $ "Nothing to recompile for "++unwords (buildName b)++"."
+             l -> putS $ unwords $ ["Need to recompile ",show l,"for"]
                                        ++buildName b++["."]
-           chan <- newChan
+           chan <- io $ newChan
            buildthem chan [] w
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
@@ -379,15 +353,16 @@ build' b = do --putStrLn "I'm thinking of recompiling..."
                      jobs = max 0 (4 - length inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
-                     buildone (d:<-how) = forkOS $ do make how d
-                                                           `catch` \_ -> writeChan chan Nothing
-                                                      writeChan chan (Just (d:<-how))
+                     buildone (d:<-how) = forkC cms $
+                                          do make how d
+                                               `catchC` \_ -> io (writeChan chan Nothing)
+                                             io $ writeChan chan (Just (d:<-how))
                  case filter (endsWith ".o") $ concatMap buildName canb of
                    [] -> return ()
                    [_] -> return ()
-                   tb -> putStrLn $ "I can now build "++ unwords tb
+                   tb -> putS $ "I can now build "++ unwords tb
                  mapM_ buildone canb
-                 md <- readChan chan
+                 md <- io $ readChan chan
                  case md of
                    Nothing -> fail "Ooops..."
                    Just d -> buildthem chan (delB d (inprogress++canb)) depb
@@ -415,82 +390,77 @@ instance Eq a => Ord (Foo a) where
   compare (Foo a _) (Foo b _) = compare a b
 unfoo (Foo _ x) = x
 
-findWork :: Buildable -> IO [Buildable]
+findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
 findWork zzz = fw [] [] $ mapBuildable id zzz
     where fw nw _ [] = return nw
           fw nw ok (Unknown _:r) = fw nw ok r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
-              then do --putStrLn $ "I already know about "++ unwords (buildName b)
+              then do --putS $ "I already know about "++ unwords (buildName b)
                       fw nw ok r
               else do ineedwork <- case nw `intersect` ds of
-                                   (z:_) -> do --putStrLn $ "Must compile "++ unwords (buildName b) ++
+                                   (z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
                                                --             " because of " ++ unwords (buildName z)
                                                return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
                                    else fw nw (b:ok) r
 
-packages :: IO [String]
-packages = do x <- getEnv "PACKAGES"
-              case x of Nothing -> return []
-                        Just y -> return $ words y
-
-ghc :: (String -> [String] -> IO a) -> [String] -> IO a
+ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
                   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
-                  fl <- maybe [] words `fmap` getEnv "GHC_FLAGS"
-                  cf <- (map ("-optc"++) . maybe [] words) `fmap` getEnv "CFLAGS"
-                  ld <- (map ("-optl"++) . maybe [] words) `fmap` getEnv "LDFLAGS"
+                  fl <- getGhcFlags
+                  cf <- map ("-optc"++) `fmap` getCFlags
+                  ld <- map ("-optl"++) `fmap` getLdFlags
                   let opts = fl ++ (if "-c" `elem` args then [] else ld)
                                 ++ (if any (endsWith ".c") args then cf else packs)
                   case pn of
                     Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++args
                     Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
 
-ghc_hs_to_o :: Dependency -> IO ()
+ghc_hs_to_o :: Dependency -> C ()
 ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
                       [d] -> ghc system ["-c",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
-ghc_c :: Dependency -> IO ()
+ghc_c :: Dependency -> C ()
 ghc_c (_:<ds) = case filter (endsWith ".c") $ concatMap buildName ds of
                 [d] -> ghc system ["-c","-cpp",d]
                 [] -> fail "error 4"
                 _ -> fail "error 5"
 
-installBin :: Dependency -> IO ()
+installBin :: Dependency -> C ()
 installBin (xs:<_) = do pref <- getDir "BINDIR" "bin"
                         let inst x = system "cp" [x,pref++"/"]
                         mapM_ inst xs
 
-objects_to_a :: Dependency -> IO ()
+objects_to_a :: Dependency -> C ()
 objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (endsWith ".o") (concatMap buildName ds))
 
-a_to_o :: Dependency -> IO ()
+a_to_o :: Dependency -> C ()
 a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
-tryModule :: String -> IO String
+tryModule :: String -> C String
 tryModule m = do let fn = "Try"++m++".hs"
-                 writeFile fn ("import "++m++"\nmain:: IO ()\nmain = undefined\n")
+                 io $ writeFile fn ("import "++m++"\nmain:: IO ()\nmain = undefined\n")
                  e <- ghc systemErr ["-c",fn]
                  mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
 
-tryLib :: String -> String -> String -> IO String
+tryLib :: String -> String -> String -> C String
 tryLib l h func = do let fn = "try-lib"++l++".c"
                          fo = "try-lib"++l++".o"
                          fh = "try-lib"++l++".h"
                          hf = "try-lib.hs"
-                     writeFile fh $ unlines ["void foo();"]
-                     writeFile hf $ unlines ["foreign import ccall unsafe \""++
+                     io $ writeFile fh $ unlines ["void foo();"]
+                     io $ writeFile hf $ unlines ["foreign import ccall unsafe \""++
                                              fh++" foo\" foo :: IO ()",
                                              "main :: IO ()",
                                              "main = foo"]
-                     writeFile fn $ unlines ["#include <stdio.h>",
+                     io $ writeFile fn $ unlines ["#include <stdio.h>",
                                              "#include \""++h++"\"",
                                              "void foo();",
                                              "void foo() {",
@@ -501,34 +471,34 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
                      mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
                      return (e1++e2)
 
-checkLib :: String -> String -> String -> IO ()
+checkLib :: String -> String -> String -> C ()
 checkLib l h func =
     do e <- tryLib l h func
        case e of
-         "" -> putStrLn $ "found library "++l++" without any extra flags."
-         _ -> do addEnv "LDFLAGS" ("-l"++l)
+         "" -> putS $ "found library "++l++" without any extra flags."
+         _ -> do ldFlags ["-l"++l]
                  e2 <- tryLib l h func
                  case e2 of
-                   "" -> putStrLn $ "found library "++l++" with -l"++l
-                   _ -> do putStrLn e2
+                   "" -> putS $ "found library "++l++" with -l"++l
+                   _ -> do putS e2
                            fail $ "Couldn't find library "++l
 
-requireModule :: String -> IO ()
+requireModule :: String -> C ()
 requireModule m = do x <- seekPackages $ tryModule m
                      case x of
-                       [] -> putStrLn $ "found module "++m
-                       [_] -> putStrLn $ "found module "++m++" in package "++unwords x
-                       _ -> putStrLn $ "found module "++m++" in packages "++unwords x
-                  `catch` \e -> do putStrLn (show e)
-                                   fail $ "Can't use module "++m
+                       [] -> putS $ "found module "++m
+                       [_] -> putS $ "found module "++m++" in package "++unwords x
+                       _ -> putS $ "found module "++m++" in packages "++unwords x
+                  `catchC` \e -> do putS e
+                                    fail $ "Can't use module "++m
 
-seekPackages :: IO String -> IO [String]
+seekPackages :: C String -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
     where lookForPackages "" = return []
           lookForPackages e =
               case catMaybes $ map findOption $ lines e of
               [] -> fail e
-              ps -> do addEnv "PACKAGES" (unwords ps)
+              ps -> do addPackages ps
                        e2 <- runghcErr
                        if e2 == e
                           then fail e
@@ -543,3 +513,6 @@ findOption x | take (length foo) x == foo = listToMaybe $
              where foo = "member of package "
 findOption (_:x) = findOption x
 findOption [] = Nothing
+
+putS :: String -> C ()
+putS = io . putStrLn
