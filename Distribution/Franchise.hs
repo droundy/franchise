@@ -196,6 +196,7 @@ package packageName modules =
                             cop <- getEnv "COPYRIGHT"
                             mai <- getEnv "MAINTAINER"
                             ema <- getEnv "EMAIL"
+                            deps <- packages
                             writeFile (packageName++".cabal") $ unlines
                                           ["name: "++packageName,
                                            "version: "++ver,
@@ -208,7 +209,7 @@ package packageName modules =
                                            "hidden-modules: "++unwords (concatMap modName mods \\ modules),
                                            "hs-libraries: "++packageName,
                                            "exposed: True",
-                                           "depends: base, unix"]
+                                           "depends: "++commaWords deps]
            installme _ = do system "mkdir" ["-p",destination]
                             let inst x = system "cp" ["--parents",x,destination]
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
@@ -219,6 +220,11 @@ package packageName modules =
        return $ [destination] :< (lib:obj:cabal:mods)
                   :<- defaultRule { install = installme,
                                     clean = \b -> depend : cleanIt b}
+
+commaWords :: [String] -> String
+commaWords [] = ""
+commaWords [x] = x
+commaWords (x:xs) = x++", "++commaWords xs
 
 rm :: String -> IO ()
 rm f | endsWith "/" f = return ()
