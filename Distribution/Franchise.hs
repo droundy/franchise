@@ -368,8 +368,9 @@ build' b = do --putStrLn "I'm thinking of recompiling..."
            w <- reverse `fmap` findWork b
            --putStrLn $ "I want to recompile all of "++ unwords (concatMap buildName w)
            case length w of
-             0 -> putStrLn "Nothing to recompile."
-             l -> putStrLn $ "Need to recompile "++ show l ++"."
+             0 -> putStrLn $ "Nothing to recompile for "++unwords (buildName b)++"."
+             l -> putStrLn $ unwords $ ["Need to recompile ",show l,"for"]
+                                       ++buildName b++["."]
            chan <- newChan
            buildthem chan [] w
     where buildthem _ [] [] = return ()
