@@ -62,7 +62,7 @@ import Distribution.Franchise.Util
 {-
 import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
                                            emptyInstalledPackageInfo,
-                                           parseInstalledPackageInfo, 
+                                           parseInstalledPackageInfo,
                                            showInstalledPackageInfo )
 -}
 
@@ -262,7 +262,7 @@ parseDeps x = builds
           breakdep [] = Nothing
           pd :: [(String,String)] -> [([String],[String])]
           pd [] = []
-          pd ((x,y):r) | endsWith ".o" x = 
+          pd ((x,y):r) | endsWith ".o" x =
                            ([x,take (length x-2) x++".hi"], y : map snd ys) : pd r'
               where (ys,r') = partition ((==x).fst) r
           makeBuild :: ([String],[String]) -> Buildable
