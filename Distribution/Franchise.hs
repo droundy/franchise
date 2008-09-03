@@ -61,13 +61,6 @@ import System.Console.GetOpt ( OptDescr(..) )
 
 import Distribution.Franchise.Util
 
-{-
-import Distribution.InstalledPackageInfo ( InstalledPackageInfo,
-                                           emptyInstalledPackageInfo,
-                                           parseInstalledPackageInfo,
-                                           showInstalledPackageInfo )
--}
-
 data Dependency = [String] :< [Buildable]
 data Buildable = Dependency :<- BuildRule
                | Unknown String
