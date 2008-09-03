@@ -32,13 +32,14 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr,
                                      runWithArgs, whenNotConfigured, setConfigured,
-                                     getDir, getEnv,
                                      endsWith, endsWithOneOf,
                                      ghcFlags, ldFlags, addPackages, packageName,
                                      pkgFlags, copyright, license, version,
                                      getGhcFlags, getCFlags, getLdFlags,
+                                     getLibDir, getBinDir,
                                      getVersion, packages, getPackageVersion,
-                                     getPkgFlags,
+                                     getPkgFlags, getCopyright, getLicense,
+                                     getMaintainer,
                                      CanModifyState(..),
                                      C, ConfigureState(..), runC, io, catchC, forkC
                                    )
@@ -48,7 +49,7 @@ import System.Exit ( ExitCode(..) )
 import qualified System.Environment as E ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
-import Control.Monad ( when, msum )
+import Control.Monad ( when, msum, mplus )
 import Control.Concurrent ( forkIO, forkOS )
 import Control.Monad.State ( StateT, MonadIO, MonadState,
                              runStateT, liftIO, get, gets, put, modify )
@@ -196,6 +197,17 @@ getPkgFlags = gets pkgFlagsC
 getVersion :: C String
 getVersion = gets versionC
 
+getLicense :: C String
+getLicense = maybe "OtherLicense" id `fmap` gets licenseC
+
+getCopyright :: C String
+getCopyright = maybe "???" id `fmap` gets copyrightC
+
+getMaintainer :: C String
+getMaintainer = do ema <- getEnv "EMAIL"
+                   mai <- gets maintainerC
+                   return $ maybe "???" id (mai `mplus` ema)
+
 packageName :: String -> C ()
 packageName x = modify $ \c -> c { packageNameC = Just x }
 
@@ -206,6 +218,12 @@ getPackageVersion :: C (Maybe String)
 getPackageVersion = do ver <- getVersion
                        pn <- getPackageName
                        return $ fmap (++("-"++ver)) pn
+
+getLibDir :: C String
+getLibDir = maybe "lib" id `fmap` gets libdirC
+
+getBinDir :: C String
+getBinDir = maybe "bin" id `fmap` gets bindirC
 
 ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }

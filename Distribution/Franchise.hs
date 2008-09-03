@@ -182,23 +182,22 @@ package pn modules =
        let depend = pn++".depend"
        ghcDeps depend modules >>= build' CanModifyState
        mods <- parseDeps `fmap` io (readFile depend)
-       pre <- getDir "LIBDIR" "lib"
+       pre <- getLibDir
        ver <- getVersion
        let lib = ["lib"++pn++".a"] <: mods
            obj = [pn++".o"] <: [lib]
            cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
            destination = pre++"/"++pn++"-"++ver++"/"
-           makecabal _ = do lic <- getEnv "LICENSE"
-                            cop <- getEnv "COPYRIGHT"
-                            mai <- getEnv "MAINTAINER"
-                            ema <- getEnv "EMAIL"
+           makecabal _ = do lic <- getLicense
+                            cop <- getCopyright
+                            mai <- getMaintainer
                             deps <- packages
                             io $ writeFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
-                                           "license: "++maybe "OtherLicense" id lic,
-                                           "copyright: "++maybe "" id cop,
-                                           "maintainer: "++maybe "" id (mai `mplus` ema),
+                                           "license: "++lic,
+                                           "copyright: "++cop,
+                                           "maintainer: "++mai,
                                            "import-dirs: "++ destination,
                                            "library-dirs: "++ destination,
                                            "exposed-modules: "++unwords modules,
@@ -436,7 +435,7 @@ ghc_c (_:<ds) = case filter (endsWith ".c") $ concatMap buildName ds of
                 _ -> fail "error 5"
 
 installBin :: Dependency -> C ()
-installBin (xs:<_) = do pref <- getDir "BINDIR" "bin"
+installBin (xs:<_) = do pref <- getBinDir
                         let inst x = system "cp" [x,pref++"/"]
                         mapM_ inst xs
 
