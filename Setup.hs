@@ -12,5 +12,5 @@ buildable = do p <- package "franchise" ["Distribution.Franchise"]
                --return (p .& e)
                return p
 
-main = build configure buildable
+main = build [] configure buildable
 

@@ -57,6 +57,7 @@ import System.Posix.Files ( getFileStatus, modificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
 import Control.Monad.State ( modify, put, get )
+import System.Console.GetOpt ( OptDescr(..) )
 
 import Distribution.Franchise.Util
 
@@ -269,24 +270,27 @@ restoreConf = do s <- io $ readFile "conf.state"
                    ((c,_):_) -> put c
                    _ -> fail "Couldn't read conf.state"
 
-build :: C () -> C Buildable -> IO ()
-build doconf mkbuild =
-    runC $
-    do args <- io $ getArgs
-       parseArgs args
-       let configure = do putS "Configuring..."
-                          doconf
-                          saveConf
-       if "configure" `elem` args
-          then configure
-          else do restoreConf `catchC` \_ -> rm "conf.state"
-                  setupname <- io $ getProgName
-                  build' CannotModifyState $ ["conf.state"] :< [source setupname]
-                             :<- defaultRule { make = \_ -> configure }
-       b <- mkbuild
-       when ("clean" `elem` args) $ mapM_ rm $ clean' b
-       when ("build" `elem` args || "install" `elem` args) $ build' CannotModifyState b
-       when ("install" `elem` args) $ install' b
+build :: [OptDescr (C ())] -> C () -> C Buildable -> IO ()
+build opts doconf mkbuild =
+    runC $ runWithArgs opts ["configure","build","clean","install"] runcommand
+    where runcommand "configure" = configure
+          runcommand "clean" = do b <- mkbuild
+                                  mapM_ rm $ clean' b
+          runcommand "build" = do reconfigure
+                                  b <- mkbuild
+                                  build' CannotModifyState b
+          runcommand "install" = do reconfigure
+                                    b <- mkbuild
+                                    build' CannotModifyState b
+                                    install' b
+          configure = do putS "Configuring..."
+                         doconf
+                         saveConf
+                         setConfigured
+          reconfigure = do restoreConf `catchC` \_ -> rm "conf.state"
+                           setupname <- io $ getProgName
+                           build' CanModifyState $ ["conf.state"] :< [source setupname]
+                                      :<- defaultRule { make = \_ -> configure }
 
 install' :: Buildable -> C ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds

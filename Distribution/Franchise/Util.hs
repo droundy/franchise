@@ -31,7 +31,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr,
-                                     getDir, parseArgs, getEnv,
+                                     runWithArgs, whenNotConfigured, setConfigured,
+                                     getDir, getEnv,
                                      endsWith, endsWithOneOf,
                                      ghcFlags, ldFlags, addPackages, packageName,
                                      pkgFlags, copyright, license, version,
@@ -52,6 +53,11 @@ import Control.Concurrent ( forkIO, forkOS )
 import Control.Monad.State ( StateT, MonadIO, MonadState,
                              runStateT, liftIO, get, gets, put, modify )
 
+import System.Exit ( exitWith, ExitCode(..) )
+import System ( getArgs, getProgName )
+import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
+                               usageInfo, getOpt )
+import Data.List ( (\\) )
 
 beginsWith :: String -> String -> Bool
 beginsWith x y = take (length x) y == x
@@ -109,14 +115,6 @@ systemOut c args = io $
                       waitForProcess pid
                       return out
 
-withArg :: String -> [String] -> (String -> C ()) -> C ()
-withArg _ [] _ = return ()
-withArg x (y:z:_) f | y == x = f z
-                    | y == x++"=" = f z
-withArg x (y:"=":z:_) f | y == x = f z
-withArg x (y:z) f | beginsWith (x++"=") y = f $ drop (1+length x) y
-                  | otherwise = withArg x z f
-
 getDir :: String -> String -> C String
 getDir e d = do bindir <- getEnv e
                 pre <- getEnv "PREFIX"
@@ -124,13 +122,47 @@ getDir e d = do bindir <- getEnv e
                 return $ maybe ("/usr/local/"++d) id $ msum $
                        bindir : map (fmap (++("/"++d))) [pre,hom]
 
-parseArgs :: [String] -> C ()
-parseArgs args =
-    do withArg "--prefix" args $ \v -> modify (\c -> c { prefixC = Just v })
-       withArg "--bindir" args $ \v -> modify (\c -> c { bindirC = Just v })
-       withArg "--libdir" args $ \v -> modify (\c -> c { libdirC = Just v })
-       withArg "--libsubdir" args $ \v -> modify (\c -> c { libsubdirC = Just v })
-       when ("--user" `elem` args) $ pkgFlags ["--user"]
+runWithArgs :: [OptDescr (C ())] -> [String] -> (String -> C ()) -> C ()
+runWithArgs opts validCommands runCommand =
+    do args <- io $ getArgs
+       myname <- io $ getProgName
+       let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
+           inbrackets x = "["++x++"]"
+           defaults = [ Option ['h'] ["help"] (NoArg showUsage)
+                                   "show usage info",
+                        Option [] ["user"] (NoArg $ pkgFlags ["--user"])
+                                   "install as user",
+                        Option [] ["prefix"]
+                          (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
+                          "install under prefix",
+                        Option [] ["bindir"]
+                          (ReqArg (\v -> modify (\c -> c { bindirC = Just v })) "PATH")
+                          "install in bindir",
+                        Option [] ["libdir"]
+                          (ReqArg (\v -> modify (\c -> c { libdirC = Just v })) "PATH")
+                          "install in libdir",
+                        Option [] ["libsubdir"]
+                          (ReqArg (\v -> modify (\c -> c { libsubdirC = Just v })) "PATH")
+                          "install in libsubdir",
+                        Option ['V'] ["version"] (NoArg showVersion)
+                                   "show version number"
+                      ]
+           putAndExit x = do io $ putStrLn x
+                             io $ exitWith ExitSuccess
+           showVersion = putAndExit "version 0.0"
+           showUsage = putAndExit (usageInfo header options)
+           options = opts++defaults
+       case getOpt Permute options args of
+         (flags, commands, []) ->
+             case commands \\ validCommands of
+               [] -> do sequence_ flags
+                        mapM_ runCommand commands
+               invalid -> failNicely $ "unrecognized arguments: " ++ unwords invalid
+         (_, _, msgs)   -> failNicely $ concat msgs ++ usageInfo header options
+
+failNicely :: String -> C ()
+failNicely x = do io $ putStrLn $ "Error:  "++x
+                  io $ exitWith $ ExitFailure 1
 
 addPackages :: [String] -> C ()
 addPackages x = modify $ \c -> c { packagesC = packagesC c ++ x }
@@ -183,6 +215,7 @@ data ConfigureState = CS { ghcFlagsC :: [String],
                            cFlagsC :: [String],
                            ldFlagsC :: [String],
                            packagesC :: [String],
+                           amConfigured :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -206,6 +239,7 @@ defaultConfiguration = CS { ghcFlagsC = [],
                             cFlagsC = [],
                             ldFlagsC = [],
                             packagesC = [],
+                            amConfigured = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -215,6 +249,14 @@ defaultConfiguration = CS { ghcFlagsC = [],
                             maintainerC = Nothing,
                             licenseC = Nothing,
                             copyrightC = Nothing }
+
+whenNotConfigured :: C () -> C ()
+whenNotConfigured j = do amc <- gets amConfigured
+                         when (not amc) $ j
+
+
+setConfigured :: C ()
+setConfigured = modify $ \c -> c { amConfigured = True }
 
 io :: MonadIO m => IO a -> m a
 io = liftIO
