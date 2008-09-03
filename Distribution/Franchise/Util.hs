@@ -37,9 +37,11 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr,
                                      pkgFlags, copyright, license, version,
                                      getGhcFlags, getCFlags, getLdFlags,
                                      getLibDir, getBinDir,
+                                     replace, replacements,
                                      getVersion, packages, getPackageVersion,
                                      getPkgFlags, getCopyright, getLicense,
                                      getMaintainer,
+                                     flag,
                                      CanModifyState(..),
                                      C, ConfigureState(..), runC, io, catchC, forkC
                                    )
@@ -123,6 +125,9 @@ getDir e d = do bindir <- getEnv e
                 return $ maybe ("/usr/local/"++d) id $ msum $
                        bindir : map (fmap (++("/"++d))) [pre,hom]
 
+flag :: String -> String -> C () -> OptDescr (C ())
+flag n h j = Option [] [n] (NoArg j) h
+
 runWithArgs :: [OptDescr (C ())] -> [String] -> (String -> C ()) -> C ()
 runWithArgs opts validCommands runCommand =
     do args <- io $ getArgs
@@ -131,8 +136,7 @@ runWithArgs opts validCommands runCommand =
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
-                        Option [] ["user"] (NoArg $ pkgFlags ["--user"])
-                                   "install as user",
+                        flag "user" "install as user" (pkgFlags ["--user"]),
                         Option [] ["prefix"]
                           (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
@@ -238,6 +242,7 @@ data ConfigureState = CS { ghcFlagsC :: [String],
                            cFlagsC :: [String],
                            ldFlagsC :: [String],
                            packagesC :: [String],
+                           replacementsC :: [(String,String)],
                            amConfigured :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
@@ -262,6 +267,7 @@ defaultConfiguration = CS { ghcFlagsC = [],
                             cFlagsC = [],
                             ldFlagsC = [],
                             packagesC = [],
+                            replacementsC = [],
                             amConfigured = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
@@ -302,3 +308,10 @@ getEnv :: String -> C (Maybe String)
 getEnv x = fmap Just (io (E.getEnv x)) `catchC` \_ -> return Nothing
 
 data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
+
+replace :: Show a => String -> a -> C ()
+replace a b = do r <- gets replacementsC
+                 modify $ \c -> c { replacementsC = (a,show b):r }
+
+replacements :: C [(String,String)]
+replacements = gets replacementsC

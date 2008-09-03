@@ -31,18 +31,22 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise ( build, executable, privateExecutable,
                                 installBin,
+                                replace, createFile, define, io, catchC,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 -- Handy module-searching
-                                requireModule, checkLib, findPackagesFor,
+                                requireModule, lookForModule,
+                                checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- setting compile parameters
                                 ghcFlags,
                                 -- utility for running external code
                                 systemOut,
+                                -- simplification of getopt data types
+                                flag,
                                 -- semi-automatic rule generation
                                 (<:), source, (.&) )
     where
@@ -57,7 +61,7 @@ import System.Posix.Files ( getFileStatus, modificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
 import Control.Monad.State ( modify, put, get )
-import System.Console.GetOpt ( OptDescr(..) )
+import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
 
 import Distribution.Franchise.Util
 
@@ -482,13 +486,18 @@ checkLib l h func =
                            fail $ "Couldn't find library "++l
 
 requireModule :: String -> C ()
-requireModule m = do x <- seekPackages $ tryModule m
+requireModule m = do haveit <- lookForModule m
+                     when (not haveit) $ fail $ "Can't use module "++m
+
+lookForModule :: String -> C Bool
+lookForModule m = do x <- seekPackages $ tryModule m
                      case x of
                        [] -> putS $ "found module "++m
                        [_] -> putS $ "found module "++m++" in package "++unwords x
                        _ -> putS $ "found module "++m++" in packages "++unwords x
+                     return True
                   `catchC` \e -> do putS e
-                                    fail $ "Can't use module "++m
+                                    return False
 
 seekPackages :: C String -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
@@ -514,3 +523,19 @@ findOption [] = Nothing
 
 putS :: String -> C ()
 putS = io . putStrLn
+
+createFile :: String -> C ()
+createFile fn = do x <- io $ readFile (fn++".in")
+                   r <- replacements
+                   io $ writeFile fn $ repl r x
+    where repl [] x = x
+          repl ((a,b):rs) x = repl rs $ r1 a b x
+          r1 a b x@(x1:xs) | startsWith a x = b ++ r1 a b (drop (length a) x)
+                           | otherwise = x1 : r1 a b xs
+          r1 _ _ "" = ""
+          startsWith [] _ = True
+          startsWith (c:cs) (d:ds) = c == d && startsWith cs ds
+          startsWith _ _ = False
+
+define :: String -> C ()
+define x = ghcFlags ["-D"++x]
