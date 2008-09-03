@@ -209,11 +209,16 @@ build' cms b =
                      jobs = max 0 (4 - length inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
-                     buildone (d:<-how) = forkC cms $
-                                          do make how d
+                     buildone (d:<-how) =
+                         forkC cms $
+                         do stillneedswork <- needsWork d
+                            if stillneedswork
+                              then do make how d
                                                `catchC`
                                                (io . writeChan chan . Left . show)
-                                             io $ writeChan chan (Right (d:<-how))
+                                      io $ writeChan chan (Right (d:<-how))
+                              else do --putS "I get to skip one!"
+                                      io $ writeChan chan (Right (d:<-how))
                      buildone (Unknown _) = error "bug in buildone"
                  case filter (endsWith ".o") $ concatMap buildName canb of
                    [] -> return ()

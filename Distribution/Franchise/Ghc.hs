@@ -55,6 +55,10 @@ x <: y | all (endsWithOneOf [".o",".hi"]) x &&
              = x :< y :<- defaultRule { make = ghc_hs_to_o }
 [x] <: [y] | endsWith ".o" x && all (endsWith ".c") (buildName y)
                = [x] :< [y] :<- defaultRule { make = ghc_c }
+[x] <: [y] | endsWith ".hi" x && endsWith ".o" yy &&
+             drop 3 (reverse x) == drop 2 (reverse yy)
+                 = [x] :< [y] :<- defaultRule -- hokey trick
+                   where yy = concat $ buildName y
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 executable :: String -> String -> [String] -> C Buildable
@@ -173,7 +177,7 @@ parseDeps x = builds
           pd :: [(String,String)] -> [([String],[String])]
           pd [] = []
           pd ((z,y):r) | endsWith ".o" z =
-                           ([z,take (length z-2) z++".hi"], y : map snd ys) : pd r'
+                           ([z], y : map snd ys) :([take (length z-2) z++".hi"], [z]):pd r'
               where (ys,r') = partition ((==z).fst) r
           pd _ = error "bug in parseDeps pd"
           makeBuild :: ([String],[String]) -> Buildable
