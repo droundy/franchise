@@ -219,11 +219,16 @@ getPackageVersion = do ver <- getVersion
                        pn <- getPackageName
                        return $ fmap (++("-"++ver)) pn
 
+getPrefix :: C String
+getPrefix = maybe "/usr/local/" id `fmap` gets prefixC
+
 getLibDir :: C String
-getLibDir = maybe "lib" id `fmap` gets libdirC
+getLibDir = do prefix <- getPrefix
+               maybe (prefix++"/lib") id `fmap` gets libdirC
 
 getBinDir :: C String
-getBinDir = maybe "bin" id `fmap` gets bindirC
+getBinDir = do prefix <- getPrefix
+               maybe (prefix++"/bin") id `fmap` gets bindirC
 
 ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
