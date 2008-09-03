@@ -68,3 +68,4 @@ import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
+import Distribution.Franchise.ConfigureState

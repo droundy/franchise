@@ -55,6 +55,7 @@ import Control.Monad.State ( modify, put, get )
 import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
 
 import Distribution.Franchise.Util
+import Distribution.Franchise.ConfigureState
 
 data Dependency = [String] :< [Buildable]
 data Buildable = Dependency :<- BuildRule

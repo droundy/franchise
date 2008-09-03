@@ -51,6 +51,7 @@ import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
+import Distribution.Franchise.ConfigureState
 
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
