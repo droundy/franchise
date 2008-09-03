@@ -389,11 +389,6 @@ canBuildNow :: [Buildable] -> Buildable -> Bool
 canBuildNow _ (Unknown _) = True
 canBuildNow needwork (_:<d:<-_) = not $ any (`elem` needwork) d
 
-data Foo a = Foo Int a deriving (Eq)
-instance Eq a => Ord (Foo a) where
-  compare (Foo a _) (Foo b _) = compare a b
-unfoo (Foo _ x) = x
-
 findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
 findWork zzz = fw [] [] $ mapBuildable id zzz
