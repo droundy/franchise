@@ -351,8 +351,9 @@ build' cms b =
                      depb = drop jobs canb' ++ depb'
                      buildone (d:<-how) = forkC cms $
                                           do make how d
-                                               `catchC` \_ -> io (writeChan chan Nothing)
-                                             io $ writeChan chan (Just (d:<-how))
+                                               `catchC`
+                                               (io . writeChan chan . Left . show)
+                                             io $ writeChan chan (Right (d:<-how))
                  case filter (endsWith ".o") $ concatMap buildName canb of
                    [] -> return ()
                    [_] -> return ()
@@ -360,8 +361,9 @@ build' cms b =
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
-                   Nothing -> fail "Ooops..."
-                   Just d -> buildthem chan (delB d (inprogress++canb)) depb
+                   Left e -> fail $ "Failure building " ++ unwords (buildName b)
+                                  ++"\n" ++ e
+                   Right d -> buildthem chan (delB d (inprogress++canb)) depb
           delB done = filter (/= done)
 
 showBuild :: Buildable -> String
