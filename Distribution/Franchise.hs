@@ -53,18 +53,6 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 (<:), source, (.&) )
     where
 
-import Control.Monad ( when, mplus, msum )
-import Data.Maybe ( catMaybes, listToMaybe )
-import Data.Set ( fromList, toList )
-import Data.List ( nub, partition, delete, intersect, (\\) )
-import System.Environment ( getArgs, getProgName )
-import System.Directory ( doesFileExist, removeFile )
-import System.Posix.Files ( getFileStatus, modificationTime )
-import Control.Concurrent ( readChan, writeChan, newChan )
-
-import Control.Monad.State ( modify, put, get )
-import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
-
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc

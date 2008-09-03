@@ -37,17 +37,9 @@ module Distribution.Franchise.Ghc
       package,
       (<:) ) where
 
-import Control.Monad ( when, mplus, msum )
+import Control.Monad ( when )
 import Data.Maybe ( catMaybes, listToMaybe )
-import Data.Set ( fromList, toList )
-import Data.List ( nub, partition, delete, intersect, (\\) )
-import System.Environment ( getArgs, getProgName )
-import System.Directory ( doesFileExist, removeFile )
-import System.Posix.Files ( getFileStatus, modificationTime )
-import Control.Concurrent ( readChan, writeChan, newChan )
-
-import Control.Monad.State ( modify, put, get )
-import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
+import Data.List ( partition, (\\) )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -167,27 +159,30 @@ modName (xs :< _ :<- _) = map toMod $ filter (endsWith ".o") xs
     where toMod x = map todots $ take (length x - 2) x
           todots '/' = '.'
           todots x = x
+modName _ = error "bug in modName"
 
 parseDeps :: String -> [Buildable]
 parseDeps x = builds
     where builds = map makeBuild $ pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
           notcomm ('#':_) = False
-          notcomm x = True
+          notcomm _ = True
           breakdep (' ':':':' ':r) = Just ("",r)
-          breakdep (x:y) = do (a,b) <- breakdep y
-                              Just (x:a,b)
+          breakdep (z:y) = do (a,b) <- breakdep y
+                              Just (z:a,b)
           breakdep [] = Nothing
           pd :: [(String,String)] -> [([String],[String])]
           pd [] = []
-          pd ((x,y):r) | endsWith ".o" x =
-                           ([x,take (length x-2) x++".hi"], y : map snd ys) : pd r'
-              where (ys,r') = partition ((==x).fst) r
+          pd ((z,y):r) | endsWith ".o" z =
+                           ([z,take (length z-2) z++".hi"], y : map snd ys) : pd r'
+              where (ys,r') = partition ((==z).fst) r
+          pd _ = error "bug in parseDeps pd"
           makeBuild :: ([String],[String]) -> Buildable
           makeBuild (xs,xds) = xs <: map (fb builds) xds
-          fb _ x | endsWithOneOf [".lhs",".hs"] x = source x
-          fb [] x = error $ "Couldn't find build for "++ x
-          fb ((xs:<xds:<-h):r) x | x `elem` xs = xs :< xds :<- h
-                                 | otherwise = fb r x
+          fb _ z | endsWithOneOf [".c",".lhs",".hs"] z = source z
+          fb [] z = error $ "Couldn't find build for "++ z
+          fb ((xs:<xds:<-h):r) z | z `elem` xs = xs :< xds :<- h
+                                 | otherwise = fb r z
+          fb _ _ = error "bug in parseDeps fb"
 
 ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
@@ -216,10 +211,12 @@ ghc_c (_:<ds) = case filter (endsWith ".c") $ concatMap buildName ds of
 objects_to_a :: Dependency -> C ()
 objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (endsWith ".o") (concatMap buildName ds))
+objects_to_a _ = error "bug in objects_to_a"
 
 a_to_o :: Dependency -> C ()
 a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
                                    filter (endsWith ".a") (concatMap buildName ds))
+a_to_o _ = error "bug in a_to_o"
 tryModule :: String -> C String
 tryModule m = do let fn = "Try"++m++".hs"
                  io $ writeFile fn ("import "++m++"\nmain:: IO ()\nmain = undefined\n")

@@ -31,14 +31,13 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr,
-                                     endsWith, endsWithOneOf )
+                                     beginsWith, endsWith, endsWithOneOf )
     where
 
 import System.Exit ( ExitCode(..) )
 import System.Environment ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
-import Control.Monad ( when, msum )
 import Control.Concurrent ( forkIO )
 import Control.Monad.State ( MonadIO )
 
@@ -76,7 +75,7 @@ system c args = io $
                    hFlush stdout
                    case ec of
                      ExitSuccess -> return ()
-                     ExitFailure x -> fail $ c ++ " failed with: " ++ show (out++err)
+                     ExitFailure _ -> fail $ c ++ " failed with: " ++ show (out++err)
 
 systemErr :: String -> [String] -> C String
 systemErr c args = io $

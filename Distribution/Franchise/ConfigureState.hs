@@ -45,10 +45,9 @@ module Distribution.Franchise.ConfigureState
       C, ConfigureState(..), runC, io, catchC, forkC )
         where
 
-import System.Exit ( ExitCode(..) )
 import qualified System.Environment as E ( getEnv )
-import Control.Monad ( when, msum, mplus )
-import Control.Concurrent ( forkIO, forkOS )
+import Control.Monad ( when, mplus )
+import Control.Concurrent ( forkIO )
 import Control.Monad.State ( StateT, MonadIO, MonadState,
                              runStateT, liftIO, get, gets, put, modify )
 
@@ -65,6 +64,8 @@ runWithArgs :: [OptDescr (C ())] -> [String] -> (String -> C ()) -> C ()
 runWithArgs opts validCommands runCommand =
     do args <- io $ getArgs
        myname <- io $ getProgName
+       withEnv "GHCFLAGS" (ghcFlags . words)
+       withEnv "LDFLAGS" (ldFlags . words)
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
@@ -233,12 +234,17 @@ catchC (C a) b =
 
 forkC :: CanModifyState -> C () -> C ()
 forkC CannotModifyState (C j) = do c <- get
-                                   io $ forkOS $ do runStateT j c; return ()
+                                   io $ forkIO $ do runStateT j c; return ()
                                    return ()
 forkC _ j = j
 
 getEnv :: String -> C (Maybe String)
 getEnv x = fmap Just (io (E.getEnv x)) `catchC` \_ -> return Nothing
+
+withEnv :: String -> (String -> C ()) -> C ()
+withEnv x j = do e <- io $ E.getEnv x
+                 j e
+              `catchC` \_ -> return ()
 
 data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
 

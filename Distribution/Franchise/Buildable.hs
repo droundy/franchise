@@ -36,23 +36,22 @@ module Distribution.Franchise.Buildable
       -- systems, hopefully.
       Dependency(..), Buildable(..), (|<-), BuildRule(..),
       defaultRule, buildName, build', cleanIt, rm,
+      printBuildableDeep,
       -- useful for user-oriented messages.
       putS,
       -- semi-automatic rule generation
       source, (.&) )
     where
 
-import Control.Monad ( when, mplus, msum )
-import Data.Maybe ( catMaybes, listToMaybe )
-import Data.Set ( fromList, toList )
-import Data.List ( nub, partition, delete, intersect, (\\) )
-import System.Environment ( getArgs, getProgName )
+import Control.Monad ( when, msum )
+import Data.List ( nub, partition, delete, intersect )
+import System.Environment ( getProgName )
 import System.Directory ( doesFileExist, removeFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
-import Control.Monad.State ( modify, put, get )
-import System.Console.GetOpt ( OptDescr(..), ArgDescr(..) )
+import Control.Monad.State ( put, get )
+import System.Console.GetOpt ( OptDescr(..) )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
@@ -67,6 +66,7 @@ data BuildRule = BuildRule { make :: Dependency -> C (),
                              install :: Dependency -> C (),
                              clean :: Dependency -> [String] }
 
+defaultRule :: BuildRule
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 
 infix 2 :<
@@ -84,10 +84,11 @@ a .& b = [] :< [a',b'] :<- defaultRule
           fixbuild x (xs:<xds:<-h) = xs :< map (fixbuild x) xds :<- h
 
 lookupB :: String -> Buildable -> Maybe Buildable
-lookupB f (Unknown _) = Nothing
+lookupB _ (Unknown _) = Nothing
 lookupB f (xs:<xds:<-h) | f `elem` xs = Just (xs:<xds:<-h)
                         | otherwise = msum (map (lookupB f) xds)
 
+cleanIt :: Dependency -> [String]
 cleanIt (_:<[]) = []
 cleanIt (xs:<_) = xs
 
@@ -100,11 +101,7 @@ printBuildableDeep b@(xs :< ds:<-_) =
                                  mapM_ (pbd (i+1)) d
            pbd i (Unknown x) = putS $ take i (repeat ' ')++"Source:"++x
        mapM_ (pbd 0) ds
-
-commaWords :: [String] -> String
-commaWords [] = ""
-commaWords [x] = x
-commaWords (x:xs) = x++", "++commaWords xs
+printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 
 rm :: String -> C ()
 rm f | endsWith "/" f = return ()
@@ -140,6 +137,7 @@ build opts doconf mkbuild =
                                     b <- mkbuild
                                     build' CannotModifyState b
                                     install' b
+          runcommand x = fail $ "nonexistent command "++x
           configure = do putS "Configuring..."
                          doconf
                          saveConf
@@ -154,13 +152,10 @@ install' ((x :< ds) :<- how) = do mapM_ install' ds
                                   install how (x :< ds)
 install' (Unknown _) = return ()
 
-nubsort :: (Eq a, Ord a) => [a] -> [a]
-nubsort = toList . fromList
-
 mapBuildable :: (Buildable -> a) -> Buildable -> [a]
 mapBuildable f b = reverse $ mb [] [b]
-    where mb done (b:bs) | b `elem` done = mb done bs
-                         | otherwise = mb (b:done) (requirements b ++ bs) ++ [f b]
+    where mb done (x:xs) | x `elem` done = mb done xs
+                         | otherwise = mb (x:done) (requirements x ++ xs) ++ [f x]
           mb _ [] = []
           requirements (_:<ds:<-_) = ds
           requirements _ = []
@@ -219,6 +214,7 @@ build' cms b =
                                                `catchC`
                                                (io . writeChan chan . Left . show)
                                              io $ writeChan chan (Right (d:<-how))
+                     buildone (Unknown _) = error "bug in buildone"
                  case filter (endsWith ".o") $ concatMap buildName canb of
                    [] -> return ()
                    [_] -> return ()
@@ -233,6 +229,7 @@ build' cms b =
 
 showBuild :: Buildable -> String
 showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
+showBuild _ = error "bug in showBuild"
 
 instance Eq Buildable where
     Unknown x == Unknown y = x == y
@@ -242,7 +239,7 @@ instance Eq Buildable where
         where eqset [] [] = True
               eqset [] _ = False
               eqset _ [] = False
-              eqset (x:xs) ys = x `elem` ys && xs `eqset` (delete x ys)
+              eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
 
 canBuildNow :: [Buildable] -> Buildable -> Bool
 canBuildNow _ (Unknown _) = True
@@ -258,7 +255,7 @@ findWork zzz = fw [] [] $ mapBuildable id zzz
               then do --putS $ "I already know about "++ unwords (buildName b)
                       fw nw ok r
               else do ineedwork <- case nw `intersect` ds of
-                                   (z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
+                                   (_:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
                                                --             " because of " ++ unwords (buildName z)
                                                return True
                                    [] -> needsWork (xs:<ds)
