@@ -36,6 +36,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
+                                defaultRule, build', CanModifyState(..),
                                 -- Handy module-searching
                                 requireModule, lookForModule,
                                 checkLib, findPackagesFor,
