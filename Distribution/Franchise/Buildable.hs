@@ -220,10 +220,10 @@ build' cms b =
                               else do --putS "I get to skip one!"
                                       io $ writeChan chan (Right (d:<-how))
                      buildone (Unknown _) = error "bug in buildone"
-                 case filter (endsWith ".o") $ concatMap buildName canb of
-                   [] -> return ()
-                   [_] -> return ()
-                   tb -> putS $ "I can now build "++ unwords tb
+                 --case filter (endsWith ".o") $ concatMap buildName canb of
+                 --  [] -> return ()
+                 --  [_] -> return ()
+                 --  tb -> putS $ "I can now build "++ unwords tb
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
