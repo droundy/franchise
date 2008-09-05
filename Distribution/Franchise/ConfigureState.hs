@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.ConfigureState
     ( runWithArgs, whenNotConfigured, setConfigured,
       ghcFlags, ldFlags, addPackages, packageName,
+      rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
       getLibDir, getBinDir,
@@ -111,6 +112,9 @@ pkgFlags x = modify $ \c -> c { pkgFlagsC = pkgFlagsC c ++ x }
 
 ghcFlags :: [String] -> C ()
 ghcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c ++ x }
+
+rmGhcFlags :: [String] -> C ()
+rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
 
 copyright, license, version :: String -> C ()
 copyright x = modify $ \c -> c { copyrightC = Just x }
@@ -250,7 +254,9 @@ data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
 
 replace :: Show a => String -> a -> C ()
 replace a b = do r <- gets replacementsC
-                 modify $ \c -> c { replacementsC = (a,show b):r }
+                 if a `elem` map fst r
+                    then return ()
+                    else modify $ \c -> c { replacementsC = (a,show b):r }
 
 replacements :: C [(String,String)]
 replacements = gets replacementsC

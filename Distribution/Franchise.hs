@@ -44,6 +44,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 package, copyright, license, version,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags,
+                                rmGhcFlags,
                                 -- utility for running external code
                                 systemOut,
                                 -- useful for user-oriented messages.
