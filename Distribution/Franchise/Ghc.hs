@@ -229,7 +229,7 @@ a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
 a_to_o _ = error "bug in a_to_o"
 tryModule :: String -> C String
 tryModule m = do let fn = "Try"++m++".hs"
-                 io $ writeFile fn ("import "++m++"\nmain:: IO ()\nmain = undefined\n")
+                 io $ writeFile fn ("import "++m++" ()\nmain:: IO ()\nmain = undefined\n")
                  e <- ghc systemErr ["-c",fn]
                  mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
