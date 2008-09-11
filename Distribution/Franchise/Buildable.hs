@@ -46,8 +46,7 @@ module Distribution.Franchise.Buildable
 import Control.Monad ( when, msum )
 import Data.List ( nub, partition, delete, intersect )
 import System.Environment ( getProgName )
-import System.Directory ( doesFileExist, removeFile, copyFile )
-import System.Posix.Files ( getFileStatus, modificationTime )
+import System.Directory ( doesFileExist, removeFile, copyFile, getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
 import Control.Monad.State ( put, get )
@@ -172,18 +171,17 @@ needsWork ((x:_) :< ds) =
        if not fe
          then do --putS $ "need work because " ++ x ++ " doesn't exist"
                  return True
-         else do s <- io $ getFileStatus x
-                 let mt = modificationTime s
-                     latertime y = do ye <- io $ doesFileExist y
+         else do mt <- io $ getModificationTime x
+                 let latertime y = do ye <- io $ doesFileExist y
                                       if not ye
                                         then do --putS $ "Need work cuz "++y++" don't exist"
                                                 return True
-                                        else do sy <- io $ getFileStatus y
+                                        else do mty <- io $ getModificationTime y
                                                 --if (modificationTime sy > mt)
                                                 --   then putS $ "I need work since "++ y ++
                                                 --            " is too new versus " ++ x
                                                 --   else return ()
-                                                return (modificationTime sy > mt)
+                                                return (mty > mt)
                      anyM _ [] = return False
                      anyM f (z:zs) = do b <- f z
                                         if b then return True
