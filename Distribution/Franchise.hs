@@ -43,7 +43,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 -- setting compile parameters
-                                ghcFlags, ldFlags,
+                                ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 systemOut,

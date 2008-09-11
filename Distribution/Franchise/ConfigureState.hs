@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ConfigureState
     ( runWithArgs, whenNotConfigured, setConfigured,
-      ghcFlags, ldFlags, addPackages, packageName,
+      ghcFlags, ldFlags, cFlags, addPackages, packageName,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -67,6 +67,7 @@ runWithArgs opts validCommands runCommand =
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
        withEnv "LDFLAGS" (ldFlags . words)
+       withEnv "CFLAGS" (cFlags . words)
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
@@ -112,6 +113,9 @@ pkgFlags x = modify $ \c -> c { pkgFlagsC = pkgFlagsC c ++ x }
 
 ghcFlags :: [String] -> C ()
 ghcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c ++ x }
+
+cFlags :: [String] -> C ()
+cFlags x = modify $ \c -> c { cFlagsC = cFlagsC c ++ x }
 
 rmGhcFlags :: [String] -> C ()
 rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
