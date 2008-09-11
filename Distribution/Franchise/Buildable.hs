@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
-    ( build, installBin, replace, createFile, define,
+    ( build, installBin, replace, createFile, define, defineAs,
       -- The constructors are exported so users
       -- can construct arbitrarily complex build
       -- systems, hopefully.
@@ -288,4 +288,9 @@ createFile fn = do x <- io $ readFile (fn++".in")
           startsWith _ _ = False
 
 define :: String -> C ()
-define x = ghcFlags ["-D"++x]
+define x = do ghcFlags ["-D"++x]
+              cFlags ["-D"++x]
+
+defineAs :: String -> String -> C ()
+defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
+                  cFlags ["-D"++x++"=\""++y++"\""]
