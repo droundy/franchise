@@ -46,7 +46,7 @@ module Distribution.Franchise.Buildable
 import Control.Monad ( when, msum )
 import Data.List ( nub, partition, delete, intersect )
 import System.Environment ( getProgName )
-import System.Directory ( doesFileExist, removeFile )
+import System.Directory ( doesFileExist, removeFile, copyFile )
 import System.Posix.Files ( getFileStatus, modificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
@@ -269,8 +269,7 @@ findWork zzz = fw [] [] $ mapBuildable id zzz
 
 installBin :: Dependency -> C ()
 installBin (xs:<_) = do pref <- getBinDir
-                        let inst x = system "cp" [x,pref++"/"]
-                        mapM_ inst xs
+                        mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
 
 putS :: String -> C ()
 putS = io . putStrLn

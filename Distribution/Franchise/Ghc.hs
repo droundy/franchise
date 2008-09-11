@@ -40,6 +40,7 @@ module Distribution.Franchise.Ghc
 import Control.Monad ( when )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\) )
+import System.Directory ( createDirectoryIfMissing, copyFile )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -142,8 +143,13 @@ package pn modules =
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
-           installme _ = do system "mkdir" ["-p",destination]
-                            let inst x = system "cp" ["--parents",x,destination]
+           installme _ = do io $ createDirectoryIfMissing True destination
+                            let inst x =
+                                    do case reverse $ dropWhile (/= '/') $ reverse x of
+                                         "" -> return ()
+                                         xdn -> io $ createDirectoryIfMissing True
+                                                $ destination++"/"++xdn
+                                       io $ copyFile x (destination++"/"++x)
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
                             mapM_ inst ["lib"++pn++".a",pn++".o"]
                             mapM_ inst his
