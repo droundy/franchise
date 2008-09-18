@@ -76,6 +76,8 @@ source = Unknown
 
 (..&) :: Buildable -> Buildable -> Buildable
 infixr 3 ..&
+([] :< ds :<- b) ..& z = [] :< (ds++[z]) :<- b
+a ..& ([] :< ds  :<- b) = [] :< (a:ds) :<- b
 a ..& b = [] :< [a,b] :<- defaultRule
 
 (.&) :: Buildable -> Buildable -> Buildable
