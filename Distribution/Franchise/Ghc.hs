@@ -60,6 +60,7 @@ x <: y | all (endsWithOneOf [".o",".hi"]) x &&
              drop 3 (reverse x) == drop 2 (reverse yy)
                  = [x] :< [y] :<- defaultRule -- hokey trick
                    where yy = concat $ buildName y
+[stubo] <: [y] | endsWith "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
 
 executable :: String -> String -> [String] -> C Buildable
