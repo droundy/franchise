@@ -40,7 +40,7 @@ module Distribution.Franchise.Buildable
       -- useful for user-oriented messages.
       putS,
       -- semi-automatic rule generation
-      source, (.&) )
+      source, (.&), (..&) )
     where
 
 import Control.Monad ( when, msum )
@@ -73,6 +73,10 @@ infix 1 :<-, |<-
 
 source :: String -> Buildable
 source = Unknown
+
+(..&) :: Buildable -> Buildable -> Buildable
+infixr 3 ..&
+a ..& b = [] :< [a,b] :<- defaultRule
 
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&

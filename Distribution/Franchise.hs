@@ -53,7 +53,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- simplification of getopt data types
                                 flag,
                                 -- semi-automatic rule generation
-                                (<:), source, (.&) )
+                                (<:), source, (.&), (..&) )
     where
 
 import Distribution.Franchise.Util
