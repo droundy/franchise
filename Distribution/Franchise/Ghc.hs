@@ -49,8 +49,6 @@ import Distribution.Franchise.ConfigureState
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
 [x] <: y | endsWith ".a" x = [x] :< y :<- defaultRule { make = objects_to_a }
-[x] <: y | endsWith ".o" x && all (all (endsWith ".a") . buildName) y
-             = [x] :< y :<- defaultRule { make = a_to_o }
 x <: y | all (endsWithOneOf [".o",".hi"]) x &&
          any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
              = x :< y :<- defaultRule { make = ghc_hs_to_o }
@@ -124,7 +122,6 @@ package pn modules =
        pre <- getLibDir
        ver <- getVersion
        let lib = ["lib"++pn++".a"] <: mods
-           obj = [pn++".o"] <: [lib]
            cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
            destination = pre++"/"++pn++"-"++ver++"/"
            makecabal _ = do lic <- getLicense
@@ -155,8 +152,8 @@ package pn modules =
                             mapM_ inst ["lib"++pn++".a",pn++".o"]
                             mapM_ inst his
                             pkgflags <- getPkgFlags
-                            system "ghc-pkg" $ pkgflags ++ ["update",pn++".cabal"]
-       return $ [destination] :< (lib:obj:cabal:mods)
+                            system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cabal"]
+       return $ [destination] :< (lib:cabal:mods)
                   :<- defaultRule { install = installme,
                                     clean = \b -> depend : cleanIt b}
 
@@ -224,10 +221,6 @@ objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (endsWith ".o") (concatMap buildName ds))
 objects_to_a _ = error "bug in objects_to_a"
 
-a_to_o :: Dependency -> C ()
-a_to_o ([outname]:<ds) = system "ld" ("-r":"--whole-archive":"-o":outname:
-                                   filter (endsWith ".a") (concatMap buildName ds))
-a_to_o _ = error "bug in a_to_o"
 tryModule :: String -> C String
 tryModule m = do let fn = "Try"++m++".hs"
                  io $ writeFile fn $ unlines $ ["import "++m++" ()",
