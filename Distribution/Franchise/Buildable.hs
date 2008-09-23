@@ -209,7 +209,8 @@ build' cms b =
            buildthem chan [] w
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
-              do let (canb',depb') = partition (canBuildNow (inprogress++w)) w
+              do -- putS $ unwords ("I am now wanting to compile":concatMap buildName w)
+                 let (canb',depb') = partition (canBuildNow (inprogress++w)) w
                      jobs = max 0 (4 - length inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
@@ -256,17 +257,18 @@ canBuildNow needwork (_:<d:<-_) = not $ any (`elem` needwork) d
 
 findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
-findWork zzz = fw [] [] $ mapBuildable id zzz
+findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
+                  fw [] [] $ reverse $ mapBuildable id zzz
     where fw nw _ [] = return nw
           fw nw ok (Unknown _:r) = fw nw ok r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
-              then do --putS $ "I already know about "++ unwords (buildName b)
+              then do putS $ "I already know about "++ unwords (buildName b)
                       fw nw ok r
               else do ineedwork <- case nw `intersect` ds of
-                                   (_:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
-                                               --             " because of " ++ unwords (buildName z)
-                                               return True
+                                   (_z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
+                                                --             " because of " ++ unwords (buildName z)
+                                                return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
                                    else fw nw (b:ok) r

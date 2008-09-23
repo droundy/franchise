@@ -48,7 +48,6 @@ import Distribution.Franchise.ConfigureState
 
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
-[x] <: y | endsWith ".a" x = [x] :< y :<- defaultRule { make = objects_to_a }
 x <: y | all (endsWithOneOf [".o",".hi"]) x &&
          any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
              = x :< y :<- defaultRule { make = ghc_hs_to_o }
@@ -121,8 +120,7 @@ package pn modules =
        mods <- parseDeps `fmap` io (readFile depend)
        pre <- getLibDir
        ver <- getVersion
-       let lib = ["lib"++pn++".a"] <: mods
-           cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
+       let cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
            destination = pre++"/"++pn++"-"++ver++"/"
            makecabal _ = do lic <- getLicense
                             cop <- getCopyright
@@ -149,12 +147,15 @@ package pn modules =
                                                 $ destination++"/"++xdn
                                        io $ copyFile x (destination++"/"++x)
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
-                            mapM_ inst ["lib"++pn++".a",pn++".o"]
-                            mapM_ inst his
+                            mapM_ inst (("lib"++pn++".a") : his)
                             pkgflags <- getPkgFlags
                             system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cabal"]
-       return $ [destination] :< (lib:cabal:mods)
-                  :<- defaultRule { install = installme,
+       --putS $ "LIBRARY DEPENDS:\n"
+       --printBuildableDeep (["lib"++pn++".a"] :< (cabal:mods) |<- defaultRule)
+       --putS "\n\n"
+       return $ ["lib"++pn++".a"] :< (cabal:mods)
+                  :<- defaultRule { make = objects_to_a,
+                                    install = installme,
                                     clean = \b -> depend : cleanIt b}
 
 commaWords :: [String] -> String
