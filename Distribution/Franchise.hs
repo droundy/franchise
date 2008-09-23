@@ -47,7 +47,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
                                 -- utility for running external code
-                                systemOut,
+                                system, systemOut, cd,
                                 -- useful for user-oriented messages.
                                 putS,
                                 -- simplification of getopt data types

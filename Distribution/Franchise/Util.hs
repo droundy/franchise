@@ -30,10 +30,11 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Util ( system, systemOut, systemErr,
+module Distribution.Franchise.Util ( system, systemOut, systemErr, cd,
                                      beginsWith, endsWith, endsWithOneOf )
     where
 
+import System.Directory ( setCurrentDirectory )
 import System.Exit ( ExitCode(..) )
 import System.Environment ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
@@ -98,3 +99,6 @@ systemOut c args = io $
                         _ -> putStr $ unwords (c:args) ++ '\n':err
                       waitForProcess pid
                       return out
+
+cd :: String -> C ()
+cd = io . setCurrentDirectory
