@@ -70,9 +70,8 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    v <- amVerbose
                    let cl = if v then unwords (c:args)
                                  else unwords (c:"...":drop (length args-1) args)
-                   io $ putStrLn cl
-                   --io $ putStrLn (out++err)
-                   io $ hFlush stdout
+                   putS cl
+                   --putS (out++err)
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure _ -> fail $ indent 4 $ c ++ " failed with:" ++indent 2 (out++err)
@@ -91,15 +90,14 @@ systemErr c args = io $
                       return err
 
 systemOut :: String -> [String] -> C String
-systemOut c args = io $
-                   do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
-                      out <- hGetContents o
-                      err <- hGetContents e
-                      forkIO $ seq (length out) $ return ()
+systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+                      out <- io $ hGetContents o
+                      err <- io $ hGetContents e
+                      io $ forkIO $ seq (length out) $ return ()
                       case err of
                         [] -> return ()
-                        _ -> putStr $ unwords (c:args) ++ '\n':err
-                      waitForProcess pid
+                        _ -> putS $ unwords (c:args) ++ '\n':err
+                      io $ waitForProcess pid
                       return out
 
 cd :: String -> C ()

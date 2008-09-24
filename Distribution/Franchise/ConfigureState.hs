@@ -42,8 +42,9 @@ module Distribution.Franchise.ConfigureState
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
       flag,
+      getNumJobs,
       CanModifyState(..),
-      C, ConfigureState(..), runC, io, catchC, forkC,
+      C, ConfigureState(..), runC, io, catchC, forkC, putS,
       put, get, gets, modify )
         where
 
@@ -51,7 +52,7 @@ import qualified System.Environment as E ( getEnv )
 import Prelude hiding ( catch )
 import Control.Exception ( Exception(AssertionFailed), throw, catch )
 import Control.Monad ( when, mplus )
-import Control.Concurrent ( forkIO )
+import Control.Concurrent ( forkIO, Chan, readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System ( getArgs, getProgName )
@@ -87,7 +88,7 @@ runWithArgs opts validCommands runCommand =
                           (ReqArg (\v -> modify (\c -> c { libsubdirC = Just v })) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
-                          (OptArg (\v -> modify (\c -> c { numJobs = maybe 1000 id (v >>= readM) })) "N")
+                          (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
                           "Allow N jobs at once; infinite jobs with no arg.",
                         Option ['V'] ["version"] (NoArg showVersion)
                                    "show version number"
@@ -186,7 +187,6 @@ ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
 data ConfigureState = CS { commandLine :: [String],
-                           numJobs :: Int,
                            ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
                            cFlagsC :: [String],
@@ -205,9 +205,14 @@ data ConfigureState = CS { commandLine :: [String],
                            copyrightC :: Maybe String }
                       deriving ( Read, Show )
 
-newtype C a = C (ConfigureState -> IO (a,ConfigureState))
+data TotalState = TS { numJobs :: Int,
+                       outputChan :: Chan String,
+                       syncChan :: Chan (),
+                       configureState :: ConfigureState }
 
-unC :: C a -> ConfigureState -> IO (a,ConfigureState)
+newtype C a = C (TotalState -> IO (a,TotalState))
+
+unC :: C a -> TotalState -> IO (a,TotalState)
 unC (C f) = f
 
 instance Functor C where
@@ -220,24 +225,40 @@ instance Monad C where
     fail e = C (\_ -> throw $ AssertionFailed e)
 
 get :: C ConfigureState
-get = C $ \cs -> return (cs,cs)
+get = C $ \ts -> return (configureState ts,ts)
 
 put :: ConfigureState -> C ()
-put cs = C $ \_ -> return ((),cs)
+put cs = C $ \ts -> return ((),ts { configureState=cs })
 
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
-modify f = C $ \cs -> return ((),f cs)
+modify f = C $ \ts -> return ((),ts { configureState = f $ configureState ts })
+
+setNumJobs :: Int -> C ()
+setNumJobs n = C $ \ts -> return ((), ts { numJobs = n })
+
+getNumJobs :: C Int
+getNumJobs = C $ \ts -> return (numJobs ts, ts)
 
 runC :: C a -> IO a
-runC (C a) = do x <- getArgs
-                fst `fmap` a (defaultConfiguration { commandLine = x })
+runC (C a) =
+    do x <- getArgs
+       ch <- newChan
+       ch2 <- newChan
+       let writethread = do s <- readChan ch
+                            putStrLn s
+                            writeChan ch2 ()
+                            writethread
+       forkIO writethread
+       fst `fmap` a (TS { outputChan = ch,
+                          syncChan = ch2,
+                          numJobs = 1,
+                          configureState = defaultConfiguration { commandLine = x } })
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
-                            numJobs = 1,
                             ghcFlagsC = [],
                             pkgFlagsC = [],
                             cFlagsC = [],
@@ -268,17 +289,11 @@ io x = C $ \cs -> do a <- x
                      return (a,cs)
 
 catchC :: C a -> (String -> C a) -> C a
-catchC (C a) b =
-    do c <- get
-       (out,c') <- io (a c `catch` \err -> unC (b $ show err) c)
-       put c'
-       return out
-    where unC (C x) = x
+catchC (C a) b = C $ \ts -> a ts `catch` \err -> unC (b $ show err) ts
 
 forkC :: CanModifyState -> C () -> C ()
-forkC CannotModifyState (C j) = do c <- get
-                                   io $ forkIO $ do j c; return ()
-                                   return ()
+forkC CannotModifyState (C j) = C (\ts -> do forkIO (j ts >> return())
+                                             return ((),ts))
 forkC _ j = j
 
 getEnv :: String -> C (Maybe String)
@@ -299,3 +314,8 @@ replace a b = do r <- gets replacementsC
 
 replacements :: C [(String,String)]
 replacements = gets replacementsC
+
+putS :: String -> C ()
+putS str = C $ \ts -> do writeChan (outputChan ts) str
+                         readChan (syncChan ts)
+                         return ((),ts)

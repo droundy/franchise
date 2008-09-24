@@ -213,7 +213,7 @@ build' cms b =
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
               do -- putS $ unwords ("I am now wanting to compile":concatMap buildName w)
-                 njobs <- max 1 `fmap` gets numJobs
+                 njobs <- max 1 `fmap` getNumJobs
                  let (canb',depb') = partition (canBuildNow (inprogress++w)) w
                      jobs = max 0 (njobs - length inprogress)
                      canb = take jobs canb'
@@ -280,9 +280,6 @@ findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName 
 installBin :: Dependency -> C ()
 installBin (xs:<_) = do pref <- getBinDir
                         mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
-
-putS :: String -> C ()
-putS = io . putStrLn
 
 createFile :: String -> C ()
 createFile fn = do x <- cat (fn++".in")
