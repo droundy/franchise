@@ -43,14 +43,14 @@ module Distribution.Franchise.ConfigureState
       getMaintainer,
       flag,
       CanModifyState(..),
-      C, ConfigureState(..), runC, io, catchC, forkC )
+      C, ConfigureState(..), runC, io, catchC, forkC, put, get )
         where
 
 import qualified System.Environment as E ( getEnv )
+import Prelude hiding ( catch )
+import Control.Exception ( Exception(AssertionFailed), throw, catch )
 import Control.Monad ( when, mplus )
 import Control.Concurrent ( forkIO )
-import Control.Monad.State ( StateT, MonadIO, MonadState,
-                             runStateT, liftIO, get, gets, put, modify )
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System ( getArgs, getProgName )
@@ -197,11 +197,34 @@ data ConfigureState = CS { ghcFlagsC :: [String],
                            copyrightC :: Maybe String }
                       deriving ( Read, Show )
 
-newtype C a = C ((StateT ConfigureState IO) a)
-    deriving (Functor, Monad, MonadIO, MonadState ConfigureState)
+newtype C a = C (ConfigureState -> IO (a,ConfigureState))
+
+unC :: C a -> ConfigureState -> IO (a,ConfigureState)
+unC (C f) = f
+
+instance Functor C where
+    f `fmap` x = x >>= (return . f)
+
+instance Monad C where
+    (C f) >>= g = C $ \cs -> do (a,cs') <- f cs
+                                unC (g a) cs'
+    return x = C (\cs -> return (x,cs))
+    fail e = C (\_ -> throw $ AssertionFailed e)
+
+get :: C ConfigureState
+get = C $ \cs -> return (cs,cs)
+
+put :: ConfigureState -> C ()
+put cs = C $ \_ -> return ((),cs)
+
+gets :: (ConfigureState -> a) -> C a
+gets f = f `fmap` get
+
+modify :: (ConfigureState -> ConfigureState) -> C ()
+modify f = C $ \cs -> return ((),f cs)
 
 runC :: C a -> IO a
-runC (C a) = fst `fmap` runStateT a defaultConfiguration
+runC (C a) = fst `fmap` a defaultConfiguration
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { ghcFlagsC = [],
@@ -229,20 +252,21 @@ whenNotConfigured j = do amc <- gets amConfigured
 setConfigured :: C ()
 setConfigured = modify $ \c -> c { amConfigured = True }
 
-io :: MonadIO m => IO a -> m a
-io = liftIO
+io :: IO a -> C a
+io x = C $ \cs -> do a <- x
+                     return (a,cs)
 
 catchC :: C a -> (String -> C a) -> C a
 catchC (C a) b =
     do c <- get
-       (out,c') <- io (runStateT a c `catch` \err -> runStateT (unC $ b $ show err) c)
+       (out,c') <- io (a c `catch` \err -> unC (b $ show err) c)
        put c'
        return out
     where unC (C x) = x
 
 forkC :: CanModifyState -> C () -> C ()
 forkC CannotModifyState (C j) = do c <- get
-                                   io $ forkIO $ do runStateT j c; return ()
+                                   io $ forkIO $ do j c; return ()
                                    return ()
 forkC _ j = j
 

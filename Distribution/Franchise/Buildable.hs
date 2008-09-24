@@ -49,7 +49,6 @@ import System.Environment ( getProgName )
 import System.Directory ( doesFileExist, removeFile, copyFile, getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
-import Control.Monad.State ( put, get )
 import System.Console.GetOpt ( OptDescr(..) )
 
 import Distribution.Franchise.Util
@@ -220,7 +219,7 @@ build' cms b =
                             if stillneedswork
                               then do make how d
                                                `catchC`
-                                               (io . writeChan chan . Left . show)
+                                               (io . writeChan chan . Left)
                                       io $ writeChan chan (Right (d:<-how))
                               else do --putS "I get to skip one!"
                                       io $ writeChan chan (Right (d:<-how))

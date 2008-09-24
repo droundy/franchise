@@ -40,7 +40,6 @@ import System.Environment ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
 import Control.Concurrent ( forkIO )
-import Control.Monad.State ( MonadIO )
 
 import Distribution.Franchise.ConfigureState
 
@@ -53,30 +52,33 @@ endsWith x y = drop (length y - length x) y == x
 endsWithOneOf :: [String] -> String -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
-amVerbose :: MonadIO m => m Bool
+amVerbose :: C Bool
 amVerbose = io $ do v <- getEnv "VERBOSE"
                     return (v /= "" && v /= "0")
                  `catch` \_ -> return False
 
 system :: String -> [String] -> C ()
-system c args = io $
-                do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
-                   out <- hGetContents o
-                   err <- hGetContents e
+system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+                   out <- io $ hGetContents o
+                   err <- io $ hGetContents e
                    -- now we ensure that out and err are consumed, so that
                    -- the code we're running won't hang waiting for its
                    -- output (or error) to be consumed.
-                   forkIO $ seq (length out) $ return ()
-                   forkIO $ seq (length err) $ return ()
-                   ec <- waitForProcess pid
+                   io $ forkIO $ seq (length out) $ return ()
+                   io $ forkIO $ seq (length err) $ return ()
+                   ec <- io $ waitForProcess pid
                    v <- amVerbose
                    let cl = if v then unwords (c:args)
                                  else unwords (c:"...":drop (length args-1) args)
-                   putStr (cl++'\n':out++err)
-                   hFlush stdout
+                   io $ putStrLn cl
+                   --io $ putStrLn (out++err)
+                   io $ hFlush stdout
                    case ec of
                      ExitSuccess -> return ()
-                     ExitFailure _ -> fail $ c ++ " failed with: " ++ show (out++err)
+                     ExitFailure _ -> fail $ indent 4 $ c ++ " failed with:" ++indent 2 (out++err)
+
+indent :: Int -> String -> String
+indent n = unlines . map ((replicate n ' ')++) . lines
 
 systemErr :: String -> [String] -> C String
 systemErr c args = io $
