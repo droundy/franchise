@@ -86,9 +86,14 @@ runWithArgs opts validCommands runCommand =
                         Option [] ["libsubdir"]
                           (ReqArg (\v -> modify (\c -> c { libsubdirC = Just v })) "PATH")
                           "install in libsubdir",
+                        Option ['j'] ["jobs"]
+                          (OptArg (\v -> modify (\c -> c { numJobs = maybe 1000 id (v >>= readM) })) "N")
+                          "Allow N jobs at once; infinite jobs with no arg.",
                         Option ['V'] ["version"] (NoArg showVersion)
                                    "show version number"
                       ]
+           readM s = case reads s of [(x,"")] -> Just x
+                                     _ -> Nothing
            putAndExit x = do io $ putStrLn x
                              io $ exitWith ExitSuccess
            showVersion = putAndExit "version 0.0"
@@ -181,6 +186,7 @@ ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
 data ConfigureState = CS { commandLine :: [String],
+                           numJobs :: Int,
                            ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
                            cFlagsC :: [String],
@@ -231,6 +237,7 @@ runC (C a) = do x <- getArgs
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
+                            numJobs = 1,
                             ghcFlagsC = [],
                             pkgFlagsC = [],
                             cFlagsC = [],

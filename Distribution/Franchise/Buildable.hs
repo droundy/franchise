@@ -213,8 +213,9 @@ build' cms b =
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
               do -- putS $ unwords ("I am now wanting to compile":concatMap buildName w)
+                 njobs <- max 1 `fmap` gets numJobs
                  let (canb',depb') = partition (canBuildNow (inprogress++w)) w
-                     jobs = max 0 (4 - length inprogress)
+                     jobs = max 0 (njobs - length inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
                      buildone (d:<-how) =
