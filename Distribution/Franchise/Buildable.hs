@@ -123,7 +123,7 @@ saveConf = do s <- show `fmap` get
               io $ writeFile "conf.state" s
 
 restoreConf :: C ()
-restoreConf = do s <- io $ readFile "conf.state"
+restoreConf = do s <- cat "conf.state"
                  case reads s of
                    ((c,_):_) -> put c
                    _ -> fail "Couldn't read conf.state"
@@ -280,7 +280,7 @@ putS :: String -> C ()
 putS = io . putStrLn
 
 createFile :: String -> C ()
-createFile fn = do x <- io $ readFile (fn++".in")
+createFile fn = do x <- cat (fn++".in")
                    r <- replacements
                    io $ writeFile fn $ repl r x
     where repl [] x = x

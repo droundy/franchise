@@ -30,7 +30,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Util ( system, systemOut, systemErr, cd,
+module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
                                      beginsWith, endsWith, endsWithOneOf )
     where
 
@@ -104,3 +104,8 @@ systemOut c args = io $
 
 cd :: String -> C ()
 cd = io . setCurrentDirectory
+
+-- cat is just a strict readFile.
+cat :: String -> C String
+cat fn = do x <- io $ readFile fn
+            length x `seq` return x
