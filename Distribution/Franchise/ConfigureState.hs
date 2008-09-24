@@ -43,7 +43,8 @@ module Distribution.Franchise.ConfigureState
       getMaintainer,
       flag,
       CanModifyState(..),
-      C, ConfigureState(..), runC, io, catchC, forkC, put, get )
+      C, ConfigureState(..), runC, io, catchC, forkC,
+      put, get, gets, modify )
         where
 
 import qualified System.Environment as E ( getEnv )
@@ -63,7 +64,7 @@ flag n h j = Option [] [n] (NoArg j) h
 
 runWithArgs :: [OptDescr (C ())] -> [String] -> (String -> C ()) -> C ()
 runWithArgs opts validCommands runCommand =
-    do args <- io $ getArgs
+    do args <- gets commandLine
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
        withEnv "LDFLAGS" (ldFlags . words)
@@ -179,7 +180,8 @@ getBinDir = do prefix <- getPrefix
 ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
-data ConfigureState = CS { ghcFlagsC :: [String],
+data ConfigureState = CS { commandLine :: [String],
+                           ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
                            cFlagsC :: [String],
                            ldFlagsC :: [String],
@@ -224,10 +226,12 @@ modify :: (ConfigureState -> ConfigureState) -> C ()
 modify f = C $ \cs -> return ((),f cs)
 
 runC :: C a -> IO a
-runC (C a) = fst `fmap` a defaultConfiguration
+runC (C a) = do x <- getArgs
+                fst `fmap` a (defaultConfiguration { commandLine = x })
 
 defaultConfiguration :: ConfigureState
-defaultConfiguration = CS { ghcFlagsC = [],
+defaultConfiguration = CS { commandLine = [],
+                            ghcFlagsC = [],
                             pkgFlagsC = [],
                             cFlagsC = [],
                             ldFlagsC = [],

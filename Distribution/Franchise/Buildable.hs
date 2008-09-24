@@ -130,8 +130,9 @@ restoreConf = do s <- cat "conf.state"
 
 build :: [OptDescr (C ())] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
-    runC $ runWithArgs opts ["configure","build","clean","install"] runcommand
-    where runcommand "configure" = configure
+    runC $ runWithArgs opts myargs runcommand
+    where myargs = ["configure","build","clean","install"]
+          runcommand "configure" = configure
           runcommand "clean" = do b <- mkbuild
                                   mapM_ rm $ clean' b
           runcommand "build" = do reconfigure
@@ -149,7 +150,10 @@ build opts doconf mkbuild =
           reconfigure = do restoreConf `catchC` \_ -> rm "conf.state"
                            setupname <- io $ getProgName
                            build' CanModifyState $ ["conf.state"] :< [source setupname]
-                                      :<- defaultRule { make = \_ -> configure }
+                                      :<- defaultRule { make = makeConfState }
+          makeConfState _ = do fs <- gets commandLine
+                               runWithArgs opts myargs (const configure)
+                               modify $ \s -> s { commandLine=fs }
 
 install' :: Buildable -> C ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds
