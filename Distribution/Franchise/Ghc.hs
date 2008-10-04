@@ -100,6 +100,8 @@ privateExecutable  exname src cfiles =
        let objs = filter (endsWith ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
+       --putS $ "privateExecutable: "++exname
+       --printBuildableDeep ([exname] :< (source src:mods++cobjs) |<- defaultRule)
        return $ [exname] :< (source src:mods++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
 

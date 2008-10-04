@@ -204,9 +204,9 @@ build' :: CanModifyState -> Buildable -> C ()
 build' _ (Unknown f) = do e <- io $ doesFileExist f
                           when (not e) $ fail $ "Source file "++f++" does not exist!"
 build' cms b =
-        do -- putS $ unwords ("I'm thinking of recompiling...": buildName b)
+        do putS $ unwords ("I'm thinking of recompiling...": buildName b)
            w <- reverse `fmap` findWork b
-           --putS $ "I want to recompile all of "++ unwords (concatMap buildName w)
+           putS $ "I want to recompile all of "++ unwords (concatMap buildName w)
            case length w of
              0 -> putS $ "Nothing to recompile for "++unwords (buildName b)++"."
              l -> putS $ unwords $ ["Need to recompile ",show l,"for"]
@@ -215,7 +215,7 @@ build' cms b =
            buildthem chan [] w
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
-              do -- putS $ unwords ("I am now wanting to compile":concatMap buildName w)
+              do putS $ unwords ("I am now wanting to compile":concatMap buildName w)
                  njobs <- max 1 `fmap` getNumJobs
                  let (canb',depb') = partition (canBuildNow (inprogress++w)) w
                      jobs = max 0 (njobs - length inprogress)
@@ -225,17 +225,18 @@ build' cms b =
                          forkC cms $
                          do stillneedswork <- needsWork d
                             if stillneedswork
-                              then do make how d
+                              then do putS $ "I am making "++ unwords (depName d)
+                                      make how d
                                                `catchC`
                                                (io . writeChan chan . Left)
                                       io $ writeChan chan (Right (d:<-how))
-                              else do --putS "I get to skip one!"
+                              else do putS $ "I get to skip one! " ++ unwords (depName d)
                                       io $ writeChan chan (Right (d:<-how))
                      buildone (Unknown _) = error "bug in buildone"
-                 --case filter (endsWith ".o") $ concatMap buildName canb of
-                 --  [] -> return ()
-                 --  [_] -> return ()
-                 --  tb -> putS $ "I can now build "++ unwords tb
+                 case filter (endsWith ".o") $ concatMap buildName canb of
+                   [] -> return ()
+                   [_] -> return ()
+                   tb -> putS $ "I can now build "++ unwords tb
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
