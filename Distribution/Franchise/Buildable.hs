@@ -136,13 +136,13 @@ build opts doconf mkbuild =
                         b2 <- buildCreatedFiles
                         return (b .& b2)
           runcommand "configure" = configure
-          runcommand "clean" = do b <- mkbuild
+          runcommand "clean" = do b <- mkbuild'
                                   mapM_ rm $ clean' b
           runcommand "build" = do reconfigure
                                   b <- mkbuild
                                   build' CannotModifyState b
           runcommand "install" = do reconfigure
-                                    b <- mkbuild
+                                    b <- mkbuild'
                                     build' CannotModifyState b
                                     install' b
           runcommand x = fail $ "nonexistent command "++x
