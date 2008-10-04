@@ -226,6 +226,8 @@ build' cms b =
                          do stillneedswork <- needsWork d
                             if stillneedswork
                               then do putS $ "I am making "++ unwords (depName d)
+                                      let _ :< xs = d
+                                      putS $ "This depends on "++ unwords (concatMap buildName xs)
                                       make how d
                                                `catchC`
                                                (io . writeChan chan . Left)
