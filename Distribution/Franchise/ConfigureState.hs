@@ -42,7 +42,7 @@ module Distribution.Franchise.ConfigureState
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
       flag,
-      getNumJobs,
+      getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC, putS,
       put, get, gets, modify )
@@ -187,6 +187,7 @@ ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
 data ConfigureState = CS { commandLine :: [String],
+                           createdFiles :: [String],
                            ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
                            cFlagsC :: [String],
@@ -242,6 +243,12 @@ setNumJobs n = C $ \ts -> return ((), ts { numJobs = n })
 getNumJobs :: C Int
 getNumJobs = C $ \ts -> return (numJobs ts, ts)
 
+addCreatedFile :: String -> C ()
+addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
+
+getCreatedFiles :: C [String]
+getCreatedFiles = gets createdFiles
+
 runC :: C a -> IO a
 runC (C a) =
     do x <- getArgs
@@ -259,6 +266,7 @@ runC (C a) =
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
+                            createdFiles = [],
                             ghcFlagsC = [],
                             pkgFlagsC = [],
                             cFlagsC = [],

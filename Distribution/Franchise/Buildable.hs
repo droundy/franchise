@@ -132,6 +132,9 @@ build :: [OptDescr (C ())] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
     runC $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
+          mkbuild' = do b <- mkbuild
+                        b2 <- buildCreatedFiles
+                        return (b .& b2)
           runcommand "configure" = configure
           runcommand "clean" = do b <- mkbuild
                                   mapM_ rm $ clean' b
@@ -282,9 +285,20 @@ installBin (xs:<_) = do pref <- getBinDir
                         mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
 
 createFile :: String -> C ()
-createFile fn = do x <- cat (fn++".in")
-                   r <- replacements
-                   io $ writeFile fn $ repl r x
+createFile fn = do addCreatedFile fn
+                   actuallyCreateFile fn
+
+buildCreatedFiles :: C Buildable
+buildCreatedFiles = do cfs <- getCreatedFiles
+                       let bcfs = map bcf cfs
+                           bcf fn = [fn] :< [source $ fn++".in"]
+                                    :<- defaultRule { make = \_ -> actuallyCreateFile fn }
+                       return $ [] :< bcfs :<- defaultRule
+
+actuallyCreateFile :: String -> C ()
+actuallyCreateFile fn = do x <- cat (fn++".in")
+                           r <- replacements
+                           io $ writeFile fn $ repl r x
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
           r1 a b x@(x1:xs) | startsWith a x = b ++ r1 a b (drop (length a) x)
