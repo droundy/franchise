@@ -53,6 +53,7 @@ import System.Console.GetOpt ( OptDescr(..) )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.StringSet
 
 data Dependency = [String] :< [Buildable]
 data Buildable = Dependency :<- BuildRule
@@ -216,8 +217,8 @@ build' cms b =
            --  l -> putS $ unwords $ ["Need to recompile ",show l,"for"]
            --                            ++buildName b++["."]
            chan <- io $ newChan
-           buildthem chan [] w
-    where buildthem _ [] [] = return ()
+           buildthem chan emptyS w
+    where buildthem _ _ [] = return ()
           buildthem chan inprogress w =
               do --putS $ unwords ("I am now wanting to compile":concatMap buildName w)
                  loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
@@ -225,8 +226,8 @@ build' cms b =
                                ((n,_):_) -> max 0 (round (n :: Double))
                                _ -> 0
                  njobs <- (max 1 . (\x -> x-loadavg)) `fmap` getNumJobs
-                 let (canb',depb') = partition (canBuildNow (inprogress++w)) w
-                     jobs = max 0 (njobs - length inprogress)
+                 let (canb',depb') = partition (canBuildNow (w `addB` inprogress)) w
+                     jobs = max 0 (njobs - lengthS inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
                      buildone (d:<-how) =
@@ -253,8 +254,8 @@ build' cms b =
                  case md of
                    Left e -> fail $ "Failure building " ++ unwords (buildName b)
                                   ++"\n" ++ e
-                   Right d -> buildthem chan (delB d (inprogress++canb)) depb
-          delB done = filter (/= done)
+                   Right d -> buildthem chan (delB d (addB canb $ inprogress)) depb
+          delB done x = delsS (buildName done) x
 
 showBuild :: Buildable -> String
 showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
@@ -270,9 +271,15 @@ instance Eq Buildable where
               eqset _ [] = False
               eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
 
-canBuildNow :: [Buildable] -> Buildable -> Bool
+elemB :: Buildable -> StringSet -> Bool
+elemB b s = buildName b `anyElemS` s
+
+addB :: [Buildable] -> StringSet -> StringSet
+addB b s = addsS (concatMap buildName b) s
+
+canBuildNow :: StringSet -> Buildable -> Bool
 canBuildNow _ (Unknown _) = True
-canBuildNow needwork (_:<d:<-_) = not $ any (`elem` needwork) d
+canBuildNow needwork (_:<d:<-_) = not $ any (`elemB` needwork) d
 
 findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
