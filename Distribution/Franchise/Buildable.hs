@@ -278,8 +278,11 @@ findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
 findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
                   fw [] [] $ reverse $ mapBuildable id zzz
-    where fw nw _ [] = return nw
-          fw nw ok (Unknown x:r) = fw nw (Unknown x:ok) r
+    where -- The second and third arguments ought to be sets!
+          fw :: [Buildable] -> [Buildable] -> [Buildable] -> C [Buildable]
+          fw nw _ [] = return nw
+          fw nw ok (Unknown x:r) | Unknown x `elem` (ok++nw) = fw nw ok r
+                                 | otherwise = fw nw (Unknown x:ok) r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
               then do --putS $ "I already know about "++ unwords (buildName b)
