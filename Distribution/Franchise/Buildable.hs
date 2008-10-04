@@ -220,7 +220,11 @@ build' cms b =
     where buildthem _ [] [] = return ()
           buildthem chan inprogress w =
               do putS $ unwords ("I am now wanting to compile":concatMap buildName w)
-                 njobs <- max 1 `fmap` getNumJobs
+                 loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
+                 let loadavg = case reads loadavgstr of
+                               ((n,_):_) -> max 0 (round (n :: Double))
+                               _ -> 0
+                 njobs <- (max 1 . (\x -> x-loadavg)) `fmap` getNumJobs
                  let (canb',depb') = partition (canBuildNow (inprogress++w)) w
                      jobs = max 0 (njobs - length inprogress)
                      canb = take jobs canb'
