@@ -118,6 +118,10 @@ buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 buildName (Unknown d) = [d]
 
+buildDeps :: Buildable -> [Buildable]
+buildDeps (_:<ds:<-_) = ds
+buildDeps _ = []
+
 saveConf :: C ()
 saveConf = do s <- show `fmap` get
               io $ writeFile "conf.state" s
@@ -225,9 +229,10 @@ build' cms b =
                          forkC cms $
                          do stillneedswork <- needsWork d
                             if stillneedswork
-                              then do putS $ "I am making "++ unwords (depName d)
-                                      let _ :< xs = d
-                                      putS $ "This depends on "++ unwords (concatMap buildName xs)
+                              then do --putS $ "I am making "++ unwords (depName d)
+                                      --let _ :< xs = d
+                                      --putS $ "This depends on "++ unwords (concatMap buildName xs)
+                                      --putS $ "These depend on "++ unwords (concatMap (concatMap buildName . buildDeps) xs)
                                       make how d
                                                `catchC`
                                                (io . writeChan chan . Left)
