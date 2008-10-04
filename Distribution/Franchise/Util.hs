@@ -40,6 +40,7 @@ import System.Environment ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hFlush, stdout, hGetContents )
 import Control.Concurrent ( forkIO )
+import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 
@@ -80,13 +81,14 @@ indent :: Int -> String -> String
 indent n = unlines . map ((replicate n ' ')++) . lines
 
 systemErr :: String -> [String] -> C String
-systemErr c args = io $
-                   do (_,o,e,pid) <- runInteractiveProcess c args Nothing Nothing
-                      out <- hGetContents o
-                      err <- hGetContents e
-                      forkIO $ seq (length out) $ return ()
-                      forkIO $ seq (length err) $ return ()
-                      waitForProcess pid
+systemErr c args = do v <- amVerbose
+                      when v $ putS $ unwords (c:args)
+                      (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+                      out <- io $ hGetContents o
+                      err <- io $ hGetContents e
+                      io $ forkIO $ seq (length out) $ return ()
+                      io $ forkIO $ seq (length err) $ return ()
+                      io $ waitForProcess pid
                       return err
 
 systemOut :: String -> [String] -> C String
