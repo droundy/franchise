@@ -270,18 +270,22 @@ findWork (Unknown _) = return []
 findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
                   fw [] [] $ reverse $ mapBuildable id zzz
     where fw nw _ [] = return nw
-          fw nw ok (Unknown _:r) = fw nw ok r
+          fw nw ok (Unknown x:r) = fw nw (Unknown x:ok) r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
               then do putS $ "I already know about "++ unwords (buildName b)
                       fw nw ok r
-              else do ineedwork <- case nw `intersect` ds of
+              else
+                if all (`elem` (ok++nw)) ds
+                then
+                   do ineedwork <- case nw `intersect` ds of
                                    (_z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
                                                 --             " because of " ++ unwords (buildName z)
                                                 return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
                                    else fw nw (b:ok) r
+                else fw nw ok (ds++b:r)
 
 installBin :: Dependency -> C ()
 installBin (xs:<_) = do pref <- getBinDir

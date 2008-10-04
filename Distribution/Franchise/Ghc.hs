@@ -48,9 +48,8 @@ import Distribution.Franchise.ConfigureState
 
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
-x <: y | all (endsWithOneOf [".o",".hi"]) x &&
-         any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
-             = x :< y :<- defaultRule { make = ghc_hs_to_o }
+[x] <: y | endsWith ".o" x && any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
+             = [x] :< y :<- defaultRule { make = ghc_hs_to_o }
 [x] <: [y] | endsWith ".o" x && all (endsWith ".c") (buildName y)
                = [x] :< [y] :<- defaultRule { make = ghc_c }
 [x] <: [y] | endsWith ".hi" x && endsWith ".o" yy &&
