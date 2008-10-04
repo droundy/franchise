@@ -81,7 +81,7 @@ a ..& b = [] :< [a,b] :<- defaultRule
 
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&
-a .& b = [] :< [a',b'] :<- defaultRule
+a .& b = [unwords (buildName a++"and":buildName b)] :< [a',b'] :<- defaultRule
     where a' = fixbuild b a
           b' = fixbuild a b
           fixbuild x (Unknown y) = maybe (Unknown y) id $ lookupB y x
@@ -294,7 +294,7 @@ buildCreatedFiles = do cfs <- getCreatedFiles
                        let bcfs = map bcf cfs
                            bcf fn = [fn] :< [source $ fn++".in"]
                                     :<- defaultRule { make = \_ -> actuallyCreateFile fn }
-                       return $ [] :< bcfs :<- defaultRule
+                       return $ ["created files"] :< bcfs :<- defaultRule
 
 actuallyCreateFile :: String -> C ()
 actuallyCreateFile fn = do x <- cat (fn++".in")
