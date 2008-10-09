@@ -121,13 +121,13 @@ package pn modules =
        mods <- parseDeps `fmap` io (readFile depend)
        pre <- getLibDir
        ver <- getVersion
-       let cabal = [pn++".cabal"] :< [source depend] :<- defaultRule { make = makecabal }
+       let config = [pn++".config"] :< [source depend] :<- defaultRule { make = makeconfig }
            destination = pre++"/"++pn++"-"++ver++"/"
-           makecabal _ = do lic <- getLicense
+           makeconfig _ =do lic <- getLicense
                             cop <- getCopyright
                             mai <- getMaintainer
                             deps <- packages
-                            io $ writeFile (pn++".cabal") $ unlines
+                            io $ writeFile (pn++".config") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++lic,
@@ -150,11 +150,11 @@ package pn modules =
                                 his = filter (endsWith ".hi") $ concatMap buildName mods
                             mapM_ inst (("lib"++pn++".a") : his)
                             pkgflags <- getPkgFlags
-                            system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cabal"]
+                            system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".config"]
        --putS $ "LIBRARY DEPENDS:\n"
-       --printBuildableDeep (["lib"++pn++".a"] :< (cabal:mods) |<- defaultRule)
+       --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       return $ ["lib"++pn++".a"] :< (cabal:mods)
+       return $ ["lib"++pn++".a"] :< (config:mods)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
