@@ -40,6 +40,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 defaultRule, build', CanModifyState(..),
                                 -- Handy module-searching
                                 requireModule, lookForModule,
+                                -- Searching for an executable
+                                findAnExecutable,
                                 checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
@@ -53,7 +55,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- simplification of getopt data types
                                 flag,
                                 -- semi-automatic rule generation
-                                (<:), source, (.&), (..&) )
+                                (<:), source, (.&), combineBuildables )
     where
 
 import Distribution.Franchise.Util

@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
     ( build, installBin, replace, createFile, define, defineAs,
+      findAnExecutable,
       -- The constructors are exported so users
       -- can construct arbitrarily complex build
       -- systems, hopefully.
@@ -40,13 +41,14 @@ module Distribution.Franchise.Buildable
       -- useful for user-oriented messages.
       putS,
       -- semi-automatic rule generation
-      source, (.&), (..&) )
+      source, (.&), combineBuildables )
     where
 
 import Control.Monad ( when, msum )
 import Data.List ( nub, partition, delete, intersect )
 import System.Environment ( getProgName )
-import System.Directory ( doesFileExist, removeFile, copyFile, getModificationTime )
+import System.Directory ( doesFileExist, removeFile, copyFile,
+                          getModificationTime, findExecutable )
 import Control.Concurrent ( readChan, writeChan, newChan )
 
 import System.Console.GetOpt ( OptDescr(..) )
@@ -74,11 +76,8 @@ infix 1 :<-, |<-
 source :: String -> Buildable
 source = Unknown
 
-(..&) :: Buildable -> Buildable -> Buildable
-infixr 3 ..&
-([] :< ds :<- b) ..& z = [] :< (ds++[z]) :<- b
-a ..& ([] :< ds  :<- b) = [] :< (a:ds) :<- b
-a ..& b = [] :< [a,b] :<- defaultRule
+combineBuildables :: [Buildable] -> Buildable
+combineBuildables bs = [] :< bs :<- defaultRule
 
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&
@@ -341,3 +340,12 @@ define x = do ghcFlags ["-D"++x]
 defineAs :: String -> String -> C ()
 defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
                   cFlags ["-D"++x++"=\""++y++"\""]
+
+-- throw exception on failure to find something
+findAnExecutable :: String -> [String] -> C String
+findAnExecutable e xs = fe (e:xs)
+    where fe [] = fail $ "Couldn't find executable "++e
+          fe (y:ys) = do me <- io $ findExecutable y
+                         case me of
+                           Just _ -> return y
+                           Nothing -> fe ys
