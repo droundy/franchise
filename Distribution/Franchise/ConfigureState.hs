@@ -190,7 +190,7 @@ getPrefix =
          Nothing -> do pkgflgs <- getPkgFlags
                        if "--user" `elem` pkgflgs
                          then io $ getAppUserDataDirectory "cabal"
-                         else if os == "mingw"
+                         else if os == "mingw32"
                               then return "C:\\Program Files\\Haskell"
                               else return "/usr/local"
 
