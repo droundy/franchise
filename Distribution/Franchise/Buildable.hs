@@ -154,6 +154,7 @@ build opts doconf mkbuild =
                          doconf
                          saveConf
                          setConfigured
+                         putS "Configure successful."
           reconfigure = do restoreConf `catchC` \_ -> rm "conf.state"
                            setupname <- io $ getProgName
                            build' CanModifyState $ ["conf.state"] :< [source setupname]
