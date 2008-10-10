@@ -123,9 +123,15 @@ package pn modules =
        ver <- getVersion
        let config = [pn++".config"] :< [source depend] :<- defaultRule { make = makeconfig }
            destination = pre++"/"++pn++"-"++ver++"/"
+           guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
+           appendExtra f d = do mv <- getExtraData d
+                                case mv of
+                                  Nothing -> return ()
+                                  Just v -> io $ appendFile f $ d++": "++v++"\n"
            makeconfig _ =do lic <- getLicense
                             cop <- getCopyright
                             mai <- getMaintainer
+                            cat <- getExtraData "category"
                             deps <- packages
                             io $ writeFile (pn++".config") $ unlines
                                           ["name: "++pn,
@@ -140,6 +146,18 @@ package pn modules =
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
+                            io $ writeFile (pn++".cabal") $ unlines
+                                          ["name: "++pn,
+                                           "version: "++ver,
+                                           "license: "++lic,
+                                           "copyright: "++cop,
+                                           "maintainer: "++mai,
+                                           "exposed-modules: "++unwords modules,
+                                           "",
+                                           "build-type: Custom",
+                                           "build-depends: "++commaWords (map guessVersion deps)]
+                            mapM_ (appendExtra (pn++".cabal"))
+                                  ["category", "synopsis", "description"]
            installme _ = do io $ createDirectoryIfMissing True destination
                             let inst x =
                                     do case reverse $ dropWhile (/= '/') $ reverse x of

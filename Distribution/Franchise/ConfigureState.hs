@@ -39,6 +39,7 @@ module Distribution.Franchise.ConfigureState
       getLibDir, getBinDir,
       replace, replacements,
       getVersion, packages, getPackageVersion,
+      getExtraData, addExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
       flag,
@@ -59,7 +60,7 @@ import System.Exit ( exitWith, ExitCode(..) )
 import System ( getArgs, getProgName )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( (\\) )
+import List ( (\\) )
 
 flag :: String -> String -> C () -> OptDescr (C ())
 flag n h j = Option [] [n] (NoArg j) h
@@ -162,6 +163,12 @@ getMaintainer = do ema <- getEnv "EMAIL"
                    mai <- gets maintainerC
                    return $ maybe "???" id (mai `mplus` ema)
 
+getExtraData :: String -> C (Maybe String)
+getExtraData d = lookup d `fmap` gets extraDataC
+
+addExtraData :: String -> String -> C ()
+addExtraData d v = modify $ \c -> c { extraDataC = (d,v):extraDataC c }
+
 packageName :: String -> C ()
 packageName x = modify $ \c -> c { packageNameC = Just x }
 
@@ -204,6 +211,7 @@ data ConfigureState = CS { commandLine :: [String],
                            packageNameC :: Maybe String,
                            maintainerC :: Maybe String,
                            licenseC :: Maybe String,
+                           extraDataC :: [(String,String)],
                            copyrightC :: Maybe String }
                       deriving ( Read, Show )
 
@@ -283,6 +291,7 @@ defaultConfiguration = CS { commandLine = [],
                             packageNameC = Nothing,
                             maintainerC = Nothing,
                             licenseC = Nothing,
+                            extraDataC = [],
                             copyrightC = Nothing }
 
 whenNotConfigured :: C () -> C ()

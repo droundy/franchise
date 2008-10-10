@@ -46,6 +46,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
+                                addExtraData,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
