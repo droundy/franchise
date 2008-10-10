@@ -57,7 +57,9 @@ import Control.Monad ( when, mplus )
 import Control.Concurrent ( forkIO, Chan, readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
+import System.Directory ( getAppUserDataDirectory )
 import System ( getArgs, getProgName )
+import System.Info ( os )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import List ( (\\) )
@@ -181,7 +183,16 @@ getPackageVersion = do ver <- getVersion
                        return $ fmap (++("-"++ver)) pn
 
 getPrefix :: C String
-getPrefix = maybe "/usr/local/" id `fmap` gets prefixC
+getPrefix =
+    do prf <- gets prefixC
+       case prf of
+         Just x -> return x
+         Nothing -> do pkgflgs <- getPkgFlags
+                       if "--user" `elem` pkgflgs
+                         then io $ getAppUserDataDirectory "cabal"
+                         else if os == "mingw"
+                              then return "C:\\Program Files\\Haskell"
+                              else return "/usr/local"
 
 getLibDir :: C String
 getLibDir = do prefix <- getPrefix
