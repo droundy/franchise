@@ -53,11 +53,6 @@ endsWith x y = drop (length y - length x) y == x
 endsWithOneOf :: [String] -> String -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
-amVerbose :: C Bool
-amVerbose = io $ do v <- getEnv "VERBOSE"
-                    return (v /= "" && v /= "0")
-                 `catch` \_ -> return False
-
 system :: String -> [String] -> C ()
 system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
                    out <- io $ hGetContents o

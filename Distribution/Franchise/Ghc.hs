@@ -262,7 +262,7 @@ checkLib l h func =
                  e2 <- tryLib l h func
                  case e2 of
                    "" -> putS $ "found library "++l++" with -l"++l
-                   _ -> do putS e2
+                   _ -> do putV e2
                            fail $ "Couldn't find library "++l
 
 requireModule :: String -> C ()

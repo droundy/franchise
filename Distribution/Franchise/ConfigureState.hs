@@ -44,7 +44,8 @@ module Distribution.Franchise.ConfigureState
       flag,
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
-      C, ConfigureState(..), runC, io, catchC, forkC, putS,
+      C, ConfigureState(..), runC, io, catchC, forkC,
+      putS, putV, amVerbose,
       put, get, gets, modify )
         where
 
@@ -327,3 +328,12 @@ putS :: String -> C ()
 putS str = C $ \ts -> do writeChan (outputChan ts) str
                          readChan (syncChan ts)
                          return ((),ts)
+
+putV :: String -> C ()
+putV str = do amv <- amVerbose
+              if amv then putS str
+                     else return ()
+
+amVerbose :: C Bool
+amVerbose = do v <- getEnv "VERBOSE"
+               return (v /= Just "" && v /= Just "0" && v /= Nothing)
