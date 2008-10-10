@@ -30,7 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
-    ( build, installBin, replace, createFile, define, defineAs,
+    ( build, installBin, replace, createFile,
+      define, defineAs, isDefined,
       findAnExecutable,
       -- The constructors are exported so users
       -- can construct arbitrarily complex build
@@ -341,6 +342,9 @@ define x = do ghcFlags ["-D"++x]
 defineAs :: String -> String -> C ()
 defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
                   cFlags ["-D"++x++"=\""++y++"\""]
+
+isDefined :: String -> C Bool
+isDefined x = elem ("-D"++x) `fmap` getGhcFlags
 
 -- throw exception on failure to find something
 findAnExecutable :: String -> [String] -> C String

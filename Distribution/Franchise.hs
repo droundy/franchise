@@ -31,7 +31,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise ( build, executable, privateExecutable,
                                 installBin,
-                                replace, createFile, define, defineAs,
+                                replace, createFile,
+                                define, defineAs, isDefined,
                                 io, catchC,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
