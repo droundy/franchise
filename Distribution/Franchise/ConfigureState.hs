@@ -79,6 +79,9 @@ runWithArgs opts validCommands runCommand =
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
                         flag "user" "install as user" (pkgFlags ["--user"]),
+                        Option [] ["verbose"]
+                          (OptArg (const $ modify (\c -> c { amVerboseC = True })) "VERBOSITY")
+                          "be verbose",
                         Option [] ["prefix"]
                           (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
@@ -104,10 +107,18 @@ runWithArgs opts validCommands runCommand =
            showVersion = putAndExit "version 0.0"
            showUsage = putAndExit (usageInfo header options)
            options = opts++defaults
-       case getOpt Permute options args of
+           eviloptions = [ flag "ghc" "use ghc" $ return (),
+                           flag "global" "not --user" $ return (),
+                           Option [] ["constraint"] (ReqArg (const (return ())) "ugh")
+                                      "ignored"
+                         ]
+       case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) ->
              case commands \\ validCommands of
-               [] -> do sequence_ flags
+               [] -> do v <- getEnv "VERBOSE"
+                        when (v /= Just "" && v /= Just "0" && v /= Nothing) $
+                             modify $ \c -> c { amVerboseC = True }
+                        sequence_ flags
                         mapM_ runCommand commands
                invalid -> failNicely $ "unrecognized arguments: " ++ unwords invalid
          (_, _, msgs)   -> failNicely $ concat msgs ++ usageInfo header options
@@ -214,6 +225,7 @@ data ConfigureState = CS { commandLine :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
                            amConfigured :: Bool,
+                           amVerboseC :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -294,6 +306,7 @@ defaultConfiguration = CS { commandLine = [],
                             packagesC = [],
                             replacementsC = [],
                             amConfigured = False,
+                            amVerboseC = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -355,5 +368,4 @@ putV str = do amv <- amVerbose
                      else return ()
 
 amVerbose :: C Bool
-amVerbose = do v <- getEnv "VERBOSE"
-               return (v /= Just "" && v /= Just "0" && v /= Nothing)
+amVerbose = gets amVerboseC
