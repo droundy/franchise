@@ -16,7 +16,7 @@ configure = do copyright "David Roundy"
                     "        packages, libraries and tools are present."]
                findPackagesFor "Distribution.Franchise"
                ghcFlags ["-threaded","-O2"]
-               version "0.0"
+               version "0.0.2"
 
 buildable = do p <- package "franchise" ["Distribution.Franchise"]
                e <- privateExecutable "sample-setup" "Setup.hs" []
