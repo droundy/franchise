@@ -54,8 +54,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 putS,
                                 -- simplification of getopt data types
                                 flag,
-                                -- semi-automatic rule generation
-                                (<:), source, (.&), combineBuildables )
+                                -- combining buildables
+                                source, (.&), combineBuildables )
     where
 
 import Distribution.Franchise.Util
