@@ -273,7 +273,8 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
 
 checkLib :: String -> String -> String -> C ()
 checkLib l h func =
-    do e <- tryLib l h func
+    do checkMinimumPackages
+       e <- tryLib l h func
        case e of
          "" -> putS $ "found library "++l++" without any extra flags."
          _ -> do ldFlags ["-l"++l]
@@ -296,6 +297,14 @@ lookForModule m = do x <- seekPackages $ tryModule m
                      return True
                   `catchC` \e -> do putS e
                                     return False
+
+checkMinimumPackages :: C ()
+checkMinimumPackages =
+    unlessC (haveExtraData "MINCONFIG") $
+    do io $ writeFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
+       seekPackages (ghc systemErr ["-o","try-min","try-min.hs"])
+       mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
+       addExtraData "MINCONFIG" ""
 
 seekPackages :: C String -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages

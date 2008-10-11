@@ -92,8 +92,8 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       case err of
-                        [] -> return ()
-                        _ -> putS $ unwords (c:args) ++ '\n':err
+                        "" -> return ()
+                        _ -> putV $ unwords (c:args) ++ '\n':err
                       io $ waitForProcess pid
                       return out
 
