@@ -39,13 +39,14 @@ module Distribution.Franchise.ConfigureState
       getLibDir, getBinDir,
       replace, replacements,
       getVersion, packages, getPackageVersion,
-      getExtraData, addExtraData,
+      getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
       flag,
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
+      unlessC,
       putS, putV, amVerbose,
       put, get, gets, modify )
         where
@@ -53,7 +54,7 @@ module Distribution.Franchise.ConfigureState
 import qualified System.Environment as E ( getEnv )
 import Prelude hiding ( catch )
 import Control.Exception ( Exception(AssertionFailed), throw, catch )
-import Control.Monad ( when, mplus )
+import Control.Monad ( when, unless, mplus )
 import Control.Concurrent ( forkIO, Chan, readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
@@ -63,6 +64,7 @@ import System.Info ( os )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import List ( (\\) )
+import Maybe ( isJust )
 
 flag :: String -> String -> C () -> OptDescr (C ())
 flag n h j = Option [] [n] (NoArg j) h
@@ -178,6 +180,13 @@ getMaintainer = do ema <- getEnv "EMAIL"
 
 getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` gets extraDataC
+
+unlessC :: C Bool -> C () -> C ()
+unlessC predicate job = do doit <- predicate
+                           unless doit job
+
+haveExtraData :: String -> C Bool
+haveExtraData d = isJust `fmap` getExtraData d
 
 addExtraData :: String -> String -> C ()
 addExtraData d v = modify $ \c -> c { extraDataC = (d,v):extraDataC c }

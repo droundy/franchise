@@ -33,7 +33,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 installBin,
                                 replace, createFile,
                                 define, defineAs, isDefined,
-                                io, catchC,
+                                io, catchC, unlessC,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
@@ -46,7 +46,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 checkLib, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
-                                addExtraData,
+                                addExtraData, haveExtraData,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
