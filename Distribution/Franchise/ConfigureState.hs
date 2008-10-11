@@ -53,7 +53,7 @@ module Distribution.Franchise.ConfigureState
 
 import qualified System.Environment as E ( getEnv )
 import Prelude hiding ( catch )
-import Control.Exception ( Exception(AssertionFailed), throw, catch )
+import Control.Exception ( catch )
 import Control.Monad ( when, unless, mplus )
 import Control.Concurrent ( forkIO, Chan, readChan, writeChan, newChan )
 
@@ -122,12 +122,8 @@ runWithArgs opts validCommands runCommand =
                              modify $ \c -> c { amVerboseC = True }
                         sequence_ flags
                         mapM_ runCommand commands
-               invalid -> failNicely $ "unrecognized arguments: " ++ unwords invalid
-         (_, _, msgs)   -> failNicely $ concat msgs ++ usageInfo header options
-
-failNicely :: String -> C ()
-failNicely x = do io $ putStrLn $ "Error:  "++x
-                  io $ exitWith $ ExitFailure 1
+               invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
+         (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
 addPackages x = modify $ \c -> c { packagesC = packagesC c ++ x }
@@ -252,37 +248,39 @@ data TotalState = TS { numJobs :: Int,
                        syncChan :: Chan (),
                        configureState :: ConfigureState }
 
-newtype C a = C (TotalState -> IO (a,TotalState))
+newtype C a = C (TotalState -> IO (Either String (a,TotalState)))
 
-unC :: C a -> TotalState -> IO (a,TotalState)
+unC :: C a -> TotalState -> IO (Either String (a,TotalState))
 unC (C f) = f
 
 instance Functor C where
     f `fmap` x = x >>= (return . f)
 
 instance Monad C where
-    (C f) >>= g = C $ \cs -> do (a,cs') <- f cs
-                                unC (g a) cs'
-    return x = C (\cs -> return (x,cs))
-    fail e = C (\_ -> throw $ AssertionFailed e)
+    (C f) >>= g = C $ \cs -> do macs' <- f cs
+                                case macs' of
+                                  Left e -> return (Left e)
+                                  Right (a,cs') -> unC (g a) cs'
+    return x = C (\cs -> return $ Right (x, cs))
+    fail e = C (\_ -> return $ Left e)
 
 get :: C ConfigureState
-get = C $ \ts -> return (configureState ts,ts)
+get = C $ \ts -> return $ Right (configureState ts,ts)
 
 put :: ConfigureState -> C ()
-put cs = C $ \ts -> return ((),ts { configureState=cs })
+put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
-modify f = C $ \ts -> return ((),ts { configureState = f $ configureState ts })
+modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
 
 setNumJobs :: Int -> C ()
-setNumJobs n = C $ \ts -> return ((), ts { numJobs = n })
+setNumJobs n = C $ \ts -> return $ Right ((), ts { numJobs = n })
 
 getNumJobs :: C Int
-getNumJobs = C $ \ts -> return (numJobs ts, ts)
+getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
 
 addCreatedFile :: String -> C ()
 addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
@@ -300,10 +298,14 @@ runC (C a) =
                             writeChan ch2 ()
                             writethread
        forkIO writethread
-       fst `fmap` a (TS { outputChan = ch,
-                          syncChan = ch2,
-                          numJobs = 1,
-                          configureState = defaultConfiguration { commandLine = x } })
+       xxx <- a (TS { outputChan = ch,
+                      syncChan = ch2,
+                      numJobs = 1,
+                      configureState = defaultConfiguration { commandLine = x } })
+       case xxx of
+         Left e -> do putStrLn $ "Error:  "++e
+                      exitWith $ ExitFailure 1
+         Right (out,_) -> return out
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
@@ -337,14 +339,19 @@ setConfigured = modify $ \c -> c { amConfigured = True }
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x
-                     return (a,cs)
+                     return $ Right (a,cs)
 
 catchC :: C a -> (String -> C a) -> C a
-catchC (C a) b = C $ \ts -> a ts `catch` \err -> unC (b $ show err) ts
+catchC (C a) b = C $ \ts ->
+                 do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
+                    case out of
+                      Left e -> unC (b e) ts
+                      Right (Left e) -> unC (b e) ts
+                      Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()
 forkC CannotModifyState (C j) = C (\ts -> do forkIO (j ts >> return())
-                                             return ((),ts))
+                                             return $ Right ((),ts))
 forkC _ j = j
 
 getEnv :: String -> C (Maybe String)
@@ -369,7 +376,7 @@ replacements = gets replacementsC
 putS :: String -> C ()
 putS str = C $ \ts -> do writeChan (outputChan ts) str
                          readChan (syncChan ts)
-                         return ((),ts)
+                         return $ Right ((),ts)
 
 putV :: String -> C ()
 putV str = do amv <- amVerbose
