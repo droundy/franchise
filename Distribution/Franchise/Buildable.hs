@@ -195,7 +195,7 @@ needsWork ((x:_) :< ds) =
                                         then do --putS $ "Need work cuz "++y++" don't exist"
                                                 return True
                                         else do mty <- io $ getModificationTime y
-                                                --if (modificationTime sy > mt)
+                                                --if mty > mt
                                                 --   then putS $ "I need work since "++ y ++
                                                 --            " is too new versus " ++ x
                                                 --   else return ()
@@ -210,7 +210,7 @@ build' :: CanModifyState -> Buildable -> C ()
 build' _ (Unknown f) = do e <- io $ doesFileExist f
                           when (not e) $ fail $ "Source file "++f++" does not exist!"
 build' cms b =
-        do --putS $ unwords ("I'm thinking of recompiling...": buildName b)
+        do --put $S unwords ("I'm thinking of recompiling...": buildName b)
            w <- reverse `fmap` findWork b
            --putS $ "I want to recompile all of "++ unwords (concatMap buildName w)
            --case length w of
@@ -235,10 +235,14 @@ build' cms b =
                          forkC cms $
                          do stillneedswork <- needsWork d
                             if stillneedswork
-                              then do --putS $ "I am making "++ unwords (depName d)
-                                      --let _ :< xs = d
-                                      --putS $ "This depends on "++ unwords (concatMap buildName xs)
-                                      --putS $ "These depend on "++ unwords (concatMap (concatMap buildName . buildDeps) xs)
+                              then do --let _ :< xs = d
+                                      --putS $ unlines
+                                      --  ["I am making "++ unwords (depName d),
+                                      --   "  This depends on "++
+                                      --   unwords (concatMap buildName xs),
+                                      --   "  These depend on "++
+                                      --   unwords (concatMap
+                                      --        (concatMap buildName . buildDeps) xs)]
                                       make how d
                                                `catchC`
                                                (io . writeChan chan . Left)
@@ -255,7 +259,8 @@ build' cms b =
                  case md of
                    Left e -> fail $ "Failure building " ++ unwords (buildName b)
                                   ++"\n" ++ e
-                   Right d -> buildthem chan (delB d (addB canb $ inprogress)) depb
+                   Right d -> do --putS $ "Done building "++ unwords (buildName d)
+                                 buildthem chan (delB d (addB canb $ inprogress)) depb
           delB done x = delsS (buildName done) x
 
 showBuild :: Buildable -> String
@@ -293,14 +298,17 @@ findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName 
                                  | otherwise = fw nw (Unknown x:ok) r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
-              then do --putS $ "I already know about "++ unwords (buildName b)
+              then do --if b `elem` ok
+                      --   then putS $ "I already have "++ unwords (buildName b)
+                      --   else putS $ "I already know I must compile "++
+                      --                 unwords (buildName b)
                       fw nw ok r
               else
                 if all (`elem` (ok++nw)) ds
                 then
                    do ineedwork <- case nw `intersect` ds of
                                    (_z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
-                                                --             " because of " ++ unwords (buildName z)
+                                                --             " because of " ++ unwords (buildName _z)
                                                 return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
