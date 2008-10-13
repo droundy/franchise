@@ -55,7 +55,8 @@ import qualified System.Environment as E ( getEnv )
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
 import Control.Monad ( when, unless, mplus )
-import Control.Concurrent ( forkIO, Chan, killThread, readChan, writeChan, newChan )
+import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
+                            readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory )
@@ -303,7 +304,9 @@ runC (C a) =
                       numJobs = 1,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
-         Left e -> do killThread thid
+         Left e -> do -- give print thread a chance to do a bit more writing...
+                      threadDelay 1000000
+                      killThread thid
                       putStrLn $ "Error:  "++e
                       exitWith $ ExitFailure 1
          Right (out,_) -> return out
