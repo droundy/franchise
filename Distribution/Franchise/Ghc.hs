@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -81,7 +82,13 @@ ghcDeps dname src =
            notcomment ('#':_) = False
            notcomment _ = True
        return $ [dname] :< map source ("conf.state":cleandeps x) :<- defaultRule { make = builddeps }
-  where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M","-optdep-f","-optdep"++dname] ++ src)
+  where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M"
+#ifdef __GLASGOW_HASKELL__ >= 610
+                                                            ,"-dep-makefile"
+#else
+                                                            ,"-optdep-f"
+#endif
+                                                            ,"-optdep"++dname] ++ src)                                            
                          case x of
                            [] -> return ()
                            [_] -> putS $ "Added package "++ unwords x++"..."
