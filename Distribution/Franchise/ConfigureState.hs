@@ -378,9 +378,12 @@ replacements :: C [(String,String)]
 replacements = gets replacementsC
 
 putS :: String -> C ()
-putS str = C $ \ts -> do writeChan (outputChan ts) str
+putS str = C $ \ts -> do writeChan (outputChan ts) str'
                          readChan (syncChan ts)
                          return $ Right ((),ts)
+    where str' = case reverse str of
+                 '\n':rts -> reverse rts
+                 _ -> str
 
 putV :: String -> C ()
 putV str = do amv <- amVerbose
