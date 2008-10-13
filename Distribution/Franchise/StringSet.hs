@@ -24,11 +24,10 @@ anyElemS ss set = any (`elemS` set) ss
 addS "" (SS ls) = case lookup Nothing ls of
                   Nothing -> SS $ (Nothing, emptyS):ls
                   Just _ -> SS ls
-addS (c:cs) (SS ls) = case mapM repl ls of
-                      Just ls' -> SS ls'
-                      Nothing -> SS $ (Just c, addS cs emptyS) : ls
-    where repl (Just c', ss) | c == c' = Just (Just c', addS cs ss)
-          repl x = Just x
+addS (c:cs) (SS ls) = SS $ repl ls
+    where repl ((Just c', ss):r) | c == c' = (Just c', addS cs ss) : r
+          repl (x:r) = x : repl r
+          repl [] = [(Just c, addS cs emptyS)]
 
 delS "" (SS ls) = SS $ filter d ls
     where d (Nothing, _) = False
