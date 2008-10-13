@@ -245,7 +245,10 @@ build' cms b =
                                       --        (concatMap buildName . buildDeps) xs)]
                                       make how d
                                                `catchC`
-                                               (io . writeChan chan . Left)
+                                               \e -> do putS $ "Error building "++
+                                                                 unwords (depName d)
+                                                                 ++":\n"++e
+                                                        io $ writeChan chan $ Left e
                                       io $ writeChan chan (Right (d:<-how))
                               else do --putS $ "I get to skip one! " ++ unwords (depName d)
                                       io $ writeChan chan (Right (d:<-how))
