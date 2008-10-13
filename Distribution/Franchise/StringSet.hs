@@ -5,6 +5,15 @@ import Data.Maybe ( catMaybes )
 
 newtype StringSet = SS [(Maybe Char, StringSet)]
 
+instance Show StringSet where
+    showsPrec x ss = showsPrec x (toList ss)
+
+toList :: StringSet -> [String]
+toList (SS []) = []
+toList (SS ls) = concatMap toL ls
+    where toL (Nothing,_) = [""]
+          toL (Just c,ss) = map (c:) $ toList ss
+
 lengthS (SS []) = 0
 lengthS (SS ls) = sum $ map l ls
     where l (Nothing,_) = 1
