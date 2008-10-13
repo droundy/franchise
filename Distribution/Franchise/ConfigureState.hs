@@ -55,7 +55,7 @@ import qualified System.Environment as E ( getEnv )
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
 import Control.Monad ( when, unless, mplus )
-import Control.Concurrent ( forkIO, Chan, readChan, writeChan, newChan )
+import Control.Concurrent ( forkIO, Chan, killThread, readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory )
@@ -297,13 +297,14 @@ runC (C a) =
                             putStrLn s
                             writeChan ch2 ()
                             writethread
-       forkIO writethread
+       thid <- forkIO writethread
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
-         Left e -> do putStrLn $ "Error:  "++e
+         Left e -> do killThread thid
+                      putStrLn $ "Error:  "++e
                       exitWith $ ExitFailure 1
          Right (out,_) -> return out
 
