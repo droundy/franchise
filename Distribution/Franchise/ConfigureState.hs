@@ -52,8 +52,6 @@ module Distribution.Franchise.ConfigureState
         where
 
 import qualified System.Environment as E ( getEnv )
-import Prelude hiding ( catch )
-import Control.Exception ( catch )
 import Control.Monad ( when, unless, mplus )
 import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
