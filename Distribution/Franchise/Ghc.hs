@@ -83,7 +83,7 @@ ghcDeps dname src =
            notcomment _ = True
        return $ [dname] :< map source ("conf.state":cleandeps x) :<- defaultRule { make = builddeps }
   where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M"
-#ifdef __GLASGOW_HASKELL__ >= 610
+#if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"
 #else
                                                             ,"-optdep-f"
