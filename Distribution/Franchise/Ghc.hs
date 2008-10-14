@@ -33,7 +33,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
-      requireModule, lookForModule, checkLib, findPackagesFor,
+      requireModule, lookForModule, checkLib, checkHeader,
+      findPackagesFor,
       -- defining package properties
       package,
       (<:) ) where
@@ -256,6 +257,28 @@ tryModule m = do let fn = "Try"++m++".hs"
                  e <- ghc systemErr ["-c",fn]
                  mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
                  return e
+
+checkHeader :: String -> C ()
+checkHeader h =
+    do checkMinimumPackages
+       tryHeader
+    where tryHeader =
+              do io $ writeFile "try-header.h" $ unlines ["void foo();"]
+                 io $ writeFile "try-header.c" $ unlines ["#include \""++h++"\"",
+                                                          "void foo();",
+                                                          "void foo() { return; }"]
+                 io $ writeFile "try-header.hs" $ unlines
+                        ["foreign import ccall unsafe \"try-header.h foo\" foo :: IO ()",
+                         "main :: IO ()",
+                         "main = foo"]
+                 e1 <- ghc systemErr ["-c","-cpp","try-header.c"]
+                 e2 <- ghc systemErr ["-fffi","-o","try-header",
+                                      "try-header.hs","try-header.o"]
+                 mapM_ rm ["try-header.h", "try-header.o", "try-header.c",
+                           "try-header", "try-header.hs"]
+                 if null (e1++e2)
+                    then return ()
+                    else fail $ unlines [e1,e2]
 
 tryLib :: String -> String -> String -> C String
 tryLib l h func = do let fn = "try-lib"++l++".c"
