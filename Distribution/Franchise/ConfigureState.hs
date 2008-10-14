@@ -46,7 +46,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
-      unlessC,
+      unlessC, whenC,
       putS, putV, amVerbose,
       put, get, gets, modify )
         where
@@ -179,6 +179,10 @@ getExtraData d = lookup d `fmap` gets extraDataC
 unlessC :: C Bool -> C () -> C ()
 unlessC predicate job = do doit <- predicate
                            unless doit job
+
+whenC :: C Bool -> C () -> C ()
+whenC predicate job = do doit <- predicate
+                         when doit job
 
 haveExtraData :: String -> C Bool
 haveExtraData d = isJust `fmap` getExtraData d
