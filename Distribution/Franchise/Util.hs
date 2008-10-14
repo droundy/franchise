@@ -44,16 +44,28 @@ import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 
-beginsWith :: String -> String -> Bool
+-- | Checks if a string begins with a given string
+beginsWith :: String -- ^ Prefix that might be there
+           -> String -- ^ String to check against
+           -> Bool   
 beginsWith x y = take (length x) y == x
 
-endsWith :: String -> String -> Bool
+-- | Checks if a string ends with a given string
+endsWith :: String -- ^ Suffix that might be at the end of a string
+         -> String -- ^ String to check against
+         -> Bool
 endsWith x y = drop (length y - length x) y == x
 
-endsWithOneOf :: [String] -> String -> Bool
+-- | Checks if a string ends with any given suffix
+endsWithOneOf :: [String] -- ^ List of strings to check
+              -> String   -- ^ String to check against
+              -> Bool
 endsWithOneOf xs y = any (\x -> endsWith x y) xs
 
-system :: String -> [String] -> C ()
+-- | Run a command
+system :: String   -- ^ Command
+       -> [String] -- ^ Arguments
+       -> C ()
 system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
                    out <- io $ hGetContents o
                    err <- io $ hGetContents e
@@ -72,10 +84,14 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                      ExitSuccess -> return ()
                      ExitFailure _ -> fail $ indent 4 $ c ++ " failed with:" ++indent 2 (out++err)
 
+-- | Indent a string by so many spaces; can contain newlines.
 indent :: Int -> String -> String
 indent n = unlines . map ((replicate n ' ')++) . lines
 
-systemErr :: String -> [String] -> C String
+-- | Run a process with a list of arguments and return anything from /stderr/
+systemErr :: String   -- ^ Name
+          -> [String] -- ^ Arguments
+          -> C String -- ^ Output
 systemErr c args = do v <- amVerbose
                       when v $ putS $ unwords (c:args)
                       (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
@@ -86,7 +102,10 @@ systemErr c args = do v <- amVerbose
                       io $ waitForProcess pid
                       return err
 
-systemOut :: String -> [String] -> C String
+-- | Run a process with a list of arguments and get the resulting output from stdout.
+systemOut :: String   -- ^ Program name
+          -> [String] -- ^ Arguments
+          -> C String -- ^ Output
 systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
@@ -97,10 +116,11 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       io $ waitForProcess pid
                       return out
 
+-- | Change current directory
 cd :: String -> C ()
 cd = io . setCurrentDirectory
 
--- cat is just a strict readFile.
+-- | cat is just a strict readFile.
 cat :: String -> C String
 cat fn = do x <- io $ readFile fn
             length x `seq` return x
