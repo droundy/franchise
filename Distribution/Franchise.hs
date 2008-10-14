@@ -41,6 +41,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 defaultRule, build', CanModifyState(..),
                                 -- Handy module-searching
                                 requireModule, lookForModule,
+                                requireModuleExporting, lookForModuleExporting,
                                 -- Searching for an executable
                                 findAnExecutable,
                                 checkLib, checkHeader, findPackagesFor,

@@ -34,6 +34,7 @@ module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
       requireModule, lookForModule, checkLib, checkHeader,
+      requireModuleExporting, lookForModuleExporting,
       findPackagesFor,
       -- defining package properties
       package,
@@ -249,14 +250,15 @@ objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (endsWith ".o") (concatMap buildName ds))
 objects_to_a _ = error "bug in objects_to_a"
 
-tryModule :: String -> C String
-tryModule m = do let fn = "Try"++m++".hs"
-                 io $ writeFile fn $ unlines $ ["import "++m++" ()",
-                                                "main:: IO ()",
-                                                "main = undefined"]
-                 e <- ghc systemErr ["-c",fn]
-                 mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
-                 return e
+tryModule :: String -> String -> String -> C String
+tryModule m imports code =
+    do let fn = "Try"++m++".hs"
+       io $ writeFile fn $ unlines $ ["import "++m++" ("++imports++")",
+                                      "main:: IO ()",
+                                      "main = undefined ("++code++")"]
+       e <- ghc systemErr ["-c",fn]
+       mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
+       return e
 
 checkHeader :: String -> C ()
 checkHeader h =
@@ -319,14 +321,22 @@ requireModule m = do haveit <- lookForModule m
                      when (not haveit) $ fail $ "Can't use module "++m
 
 lookForModule :: String -> C Bool
-lookForModule m = do x <- seekPackages $ tryModule m
-                     case x of
-                       [] -> putS $ "found module "++m
-                       [_] -> putS $ "found module "++m++" in package "++unwords x
-                       _ -> putS $ "found module "++m++" in packages "++unwords x
-                     return True
-                  `catchC` \e -> do putS e
-                                    return False
+lookForModule m = lookForModuleExporting m "" ""
+
+lookForModuleExporting :: String -> String -> String -> C Bool
+lookForModuleExporting m i c =
+    do x <- seekPackages $ tryModule m i c
+       case x of
+         [] -> putS $ "found module "++m
+         [_] -> putS $ "found module "++m++" in package "++unwords x
+         _ -> putS $ "found module "++m++" in packages "++unwords x
+       return True
+    `catchC` \e -> do putV e
+                      return False
+
+requireModuleExporting :: String -> String -> String -> C ()
+requireModuleExporting m i c = unlessC (lookForModuleExporting m i c) $
+                               fail $ "Can't use module "++m
 
 checkMinimumPackages :: C ()
 checkMinimumPackages =
