@@ -88,7 +88,7 @@ ghcDeps dname src =
 #else
                                                             ,"-optdep-f"
 #endif
-                                                            ,"-optdep"++dname] ++ src)                                            
+                                                            ,"-optdep"++dname] ++ src)
                          case x of
                            [] -> return ()
                            [_] -> putS $ "Added package "++ unwords x++"..."
