@@ -1,5 +1,5 @@
 import Distribution.Franchise
 
-configure = do findPackagesFor "Main.hs"
+configure = return ()
 
 main = build [] configure $ executable "hello" "Main.hs" []

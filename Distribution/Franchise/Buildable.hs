@@ -153,6 +153,7 @@ build opts doconf mkbuild =
           runcommand x = fail $ "nonexistent command "++x
           configure = do putS "Configuring..."
                          doconf
+                         mkbuild
                          saveConf
                          setConfigured
                          putS "Configure successful."
