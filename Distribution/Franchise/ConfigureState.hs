@@ -58,12 +58,12 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory )
-import System ( getArgs, getProgName )
+import System.Environment ( getArgs, getProgName )
 import System.Info ( os )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import List ( (\\) )
-import Maybe ( isJust )
+import Data.List ( (\\) )
+import Data.Maybe ( isJust )
 
 flag :: String -> String -> C () -> OptDescr (C ())
 flag n h j = Option [] [n] (NoArg j) h
