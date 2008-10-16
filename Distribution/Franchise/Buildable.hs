@@ -133,7 +133,7 @@ restoreConf = do s <- cat "conf.state"
                    ((c,_):_) -> put c
                    _ -> fail "Couldn't read conf.state"
 
-build :: [OptDescr (C ())] -> C () -> C Buildable -> IO ()
+build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
     runC $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]

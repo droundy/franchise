@@ -42,7 +42,7 @@ module Distribution.Franchise.ConfigureState
       getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
-      flag,
+      flag, unlessFlag,
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
@@ -65,21 +65,27 @@ import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
 import Data.List ( (\\) )
 import Data.Maybe ( isJust )
 
-flag :: String -> String -> C () -> OptDescr (C ())
-flag n h j = Option [] [n] (NoArg j) h
+flag :: String -> String -> C () -> C (OptDescr (C ()))
+flag n h j = return $ Option [] [n] (NoArg j) h
 
-runWithArgs :: [OptDescr (C ())] -> [String] -> (String -> C ()) -> C ()
-runWithArgs opts validCommands runCommand =
+unlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
+unlessFlag n h j = do addHook n j
+                      flag n h (removeHook n)
+
+runWithArgs :: [C (OptDescr (C ()))] -> [String] -> (String -> C ()) -> C ()
+runWithArgs optsc validCommands runCommand =
     do args <- gets commandLine
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
+       opts <- sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
-                        flag "user" "install as user" (pkgFlags ["--user"]),
+                        Option [] ["user"]
+                          (NoArg (pkgFlags ["--user"])) "install as user",
                         Option [] ["verbose"]
                           (OptArg (const $ modify (\c -> c { amVerboseC = True })) "VERBOSITY")
                           "be verbose",
@@ -108,11 +114,10 @@ runWithArgs opts validCommands runCommand =
            showVersion = putAndExit "version 0.0"
            showUsage = putAndExit (usageInfo header options)
            options = opts++defaults
-           eviloptions = [ flag "ghc" "use ghc" $ return (),
-                           flag "global" "not --user" $ return (),
-                           Option [] ["constraint"] (ReqArg (const (return ())) "ugh")
-                                      "ignored"
-                         ]
+       eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
+                                 flag "global" "not --user" $ return (),
+                                 return $ Option [] ["constraint"]
+                                 (ReqArg (const (return ())) "ugh") "ignored" ]
        case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) ->
              case commands \\ validCommands of
@@ -120,6 +125,7 @@ runWithArgs opts validCommands runCommand =
                         when (v /= Just "" && v /= Just "0" && v /= Nothing) $
                              modify $ \c -> c { amVerboseC = True }
                         sequence_ flags
+                        runHooks
                         mapM_ runCommand commands
                invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
@@ -249,6 +255,7 @@ data ConfigureState = CS { commandLine :: [String],
 data TotalState = TS { numJobs :: Int,
                        outputChan :: Chan String,
                        syncChan :: Chan (),
+                       hooks :: [(String,C ())],
                        configureState :: ConfigureState }
 
 newtype C a = C (TotalState -> IO (Either String (a,TotalState)))
@@ -288,6 +295,17 @@ getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
 addCreatedFile :: String -> C ()
 addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
 
+addHook :: String -> C () -> C ()
+addHook n h = C $ \ts -> return $ Right ((), ts { hooks = (n,h): hooks ts })
+
+removeHook :: String -> C ()
+removeHook n =
+    C $ \ts -> return $ Right ((), ts { hooks = filter ((/=n).fst) $ hooks ts })
+
+runHooks :: C ()
+runHooks = do hks <- C $ \ts -> return $ Right (hooks ts, ts)
+              mapM_ snd hks
+
 getCreatedFiles :: C [String]
 getCreatedFiles = gets createdFiles
 
@@ -304,6 +322,7 @@ runC (C a) =
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
+                      hooks = [],
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...

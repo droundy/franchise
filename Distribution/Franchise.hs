@@ -56,7 +56,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- useful for user-oriented messages.
                                 putS, putV,
                                 -- simplification of getopt data types
-                                flag,
+                                flag, unlessFlag,
                                 -- combining buildables
                                 source, (.&), combineBuildables )
     where
