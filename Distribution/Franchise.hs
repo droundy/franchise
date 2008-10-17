@@ -44,7 +44,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 requireModuleExporting, lookForModuleExporting,
                                 -- Searching for an executable
                                 findAnExecutable,
-                                checkLib, checkHeader, findPackagesFor,
+                                checkLib, withLib, checkHeader, findPackagesFor,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 addExtraData, haveExtraData,

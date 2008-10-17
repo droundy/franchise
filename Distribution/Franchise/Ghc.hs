@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
-      requireModule, lookForModule, checkLib, checkHeader,
+      requireModule, lookForModule, checkLib, withLib, checkHeader,
       requireModuleExporting, lookForModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -302,6 +302,11 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
                      e2 <- ghc systemErr ["-fffi","-o","try-lib",fo,hf]
                      mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
                      return (e1++e2)
+
+withLib :: String -> String -> String -> C () -> C ()
+withLib l h func job = do checkLib l h func
+                          job
+                       `catchC` \_ -> putS $ "failed to fine library "++l
 
 checkLib :: String -> String -> String -> C ()
 checkLib l h func =
