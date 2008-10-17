@@ -33,7 +33,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
-      requireModule, lookForModule, checkLib, withLib, checkHeader,
+      requireModule, lookForModule, withModule,
+      checkLib, withLib, checkHeader,
       requireModuleExporting, lookForModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -306,7 +307,7 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
 withLib :: String -> String -> String -> C () -> C ()
 withLib l h func job = do checkLib l h func
                           job
-                       `catchC` \_ -> putS $ "failed to fine library "++l
+                       `catchC` \_ -> putS $ "failed to find library "++l
 
 checkLib :: String -> String -> String -> C ()
 checkLib l h func =
@@ -324,6 +325,11 @@ checkLib l h func =
 requireModule :: String -> C ()
 requireModule m = do haveit <- lookForModule m
                      when (not haveit) $ fail $ "Can't use module "++m
+
+withModule :: String -> C () -> C ()
+withModule m job = do requireModule m
+                      job
+                   `catchC` \_ -> putS $ "failed to find module "++m
 
 lookForModule :: String -> C Bool
 lookForModule m = lookForModuleExporting m "" ""

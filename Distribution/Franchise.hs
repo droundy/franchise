@@ -40,7 +40,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 defaultRule, build', CanModifyState(..),
                                 -- Handy module-searching
-                                requireModule, lookForModule,
+                                requireModule, lookForModule, withModule,
                                 requireModuleExporting, lookForModuleExporting,
                                 -- Searching for an executable
                                 findAnExecutable,
