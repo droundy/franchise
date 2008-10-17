@@ -216,7 +216,7 @@ getPrefix =
                        if "--user" `elem` pkgflgs
                          then io $ getAppUserDataDirectory "cabal"
                          else if os == "mingw32"
-                              then return "C:\\Program Files\\Haskell"
+                              then maybe "C:\\Program Files\\Haskell" (++ "\\Haskell") `fmap` getEnv "ProgramFiles"
                               else return "/usr/local"
 
 getLibDir :: C String
