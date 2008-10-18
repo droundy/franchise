@@ -102,7 +102,7 @@ ghcDeps dname src =
 
 privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  exname src cfiles =
-    do putV $ "configuring executable "++exname
+    do putV $ "finding dependencies of executable "++exname
        whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
        ghcDeps depend [src] >>= build' CanModifyState
@@ -126,7 +126,7 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 
 package :: String -> [String] -> C Buildable
 package pn modules =
-    do putV $ "configuring package "++pn
+    do putV $ "finding dependencies of package "++pn
        packageName pn
        let depend = pn++".depend"
        ghcDeps depend modules >>= build' CanModifyState

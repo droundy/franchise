@@ -88,8 +88,10 @@ runWithArgs optsc validCommands runCommand =
                         Option [] ["user"]
                           (NoArg (pkgFlags ["--user"])) "install as user",
                         Option [] ["verbose"]
-                          (OptArg (const $ modify (\c -> c { verbosityC = True })) "VERBOSITY")
-                          "be verbose",
+                          (OptArg (\v -> C $ \ts -> return $
+                                         Right ((), ts { verbosity = readVerbosity Verbose v }))
+                           "VERBOSITY")
+                          ("Control verbosity (default verbosity level is 1)"),
                         Option [] ["prefix"]
                           (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
@@ -122,10 +124,7 @@ runWithArgs optsc validCommands runCommand =
        case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) ->
              case commands \\ validCommands of
-               [] -> do v <- getEnv "VERBOSE"
-                        when (v /= Just "" && v /= Just "0" && v /= Nothing) $
-                             modify $ \c -> c { verbosityC = True }
-                        sequence_ flags
+               [] -> do sequence_ flags
                         runHooks
                         mapM_ runCommand commands
                invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
@@ -240,7 +239,6 @@ data ConfigureState = CS { commandLine :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
                            amConfigured :: Bool,
-                           verbosityC :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -254,9 +252,10 @@ data ConfigureState = CS { commandLine :: [String],
                       deriving ( Read, Show )
 
 data LogMessage = Stdout String | Logfile String
+data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 
 data TotalState = TS { numJobs :: Int,
-                       beVerbose :: Bool,
+                       verbosity :: Verbosity,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        hooks :: [(String,C ())],
@@ -327,13 +326,12 @@ runC (C a) =
                             writeChan ch2 ()
                             writethread
        thid <- forkIO writethread
-       v <- E.getEnv "VERBOSE" `catch` \_ -> return ""
-       let meVerbose = (v /= "" && v /= "0") || "--verbose" `elem` x
+       v <- Just `fmap` E.getEnv "VERBOSE" `catch` \_ -> return Nothing
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
                       hooks = [],
-                      beVerbose = meVerbose,
+                      verbosity = readVerbosity Normal v,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -353,7 +351,6 @@ defaultConfiguration = CS { commandLine = [],
                             packagesC = [],
                             replacementsC = [],
                             amConfigured = False,
-                            verbosityC = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -410,36 +407,37 @@ replacements :: C [(String,String)]
 replacements = gets replacementsC
 
 putS :: String -> C ()
-putS str = putSV str str
+putS str = whenC ((>= Normal) `fmap` getVerbosity) $
+           do putM Stdout str
+              putM Logfile str
 
 putV :: String -> C ()
-putV str = do amv <- amVerbose
+putV str = do amv <- (> Normal) `fmap` getVerbosity
               if amv then putS str
-                     else C $ \ts -> do writeChan (outputChan ts) (Logfile $ chomp str)
-                                        readChan (syncChan ts)
-                                        return $ Right ((),ts)
+                     else putM Logfile str
 
 putSV :: String -> String -> C ()
-putSV str vstr = do amv <- amVerbose
-                    if amv then C $ \ts -> do writeChan (outputChan ts) (Stdout $ chomp vstr)
-                                              writeChan (outputChan ts) (Logfile $ chomp vstr)
-                                              readChan (syncChan ts)
-                                              readChan (syncChan ts)
-                                              return $ Right ((),ts)
-                           else C $ \ts -> do writeChan (outputChan ts) (Stdout $ chomp str)
-                                              writeChan (outputChan ts) (Logfile $ chomp vstr)
-                                              readChan (syncChan ts)
-                                              readChan (syncChan ts)
-                                              return $ Right ((),ts)
+putSV str vstr = do v <- getVerbosity
+                    case v of
+                      Normal -> putM Stdout str
+                      Verbose -> putM Stdout vstr
+                      _ -> return ()
+                    putM Logfile vstr
 
-chomp x = case reverse x of '\n':rx -> reverse rx
-                            _ -> x
+putM :: (String -> LogMessage) -> String -> C ()
+putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
+                           readChan (syncChan ts)
+                           return $ Right ((),ts)
+    where chomp x = case reverse x of '\n':rx -> reverse rx
+                                      _ -> x
 
-normalVerbosity :: Int
-normalVerbosity = 2
+getVerbosity :: C Verbosity
+getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
 
-highVerbosity :: Int
-highVerbosity = normalVerbosity + 1
-
-amVerbose :: C Bool
-amVerbose = gets verbosityC
+readVerbosity :: Verbosity -> Maybe String -> Verbosity
+readVerbosity defaultV s = case reads `fmap` s of
+                           Just [(0,"")] -> Quiet
+                           Just [(1,"")] -> Debug
+                           Just [(2,"")] -> Verbose
+                           Just [(3,"")] -> Debug
+                           _ -> defaultV
