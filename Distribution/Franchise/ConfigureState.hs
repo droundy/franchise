@@ -87,8 +87,8 @@ runWithArgs optsc validCommands runCommand =
                         Option [] ["user"]
                           (NoArg (pkgFlags ["--user"])) "install as user",
                         Option [] ["verbose"]
-                          (OptArg (const $ modify (\c -> c { amVerboseC = True })) "VERBOSITY")
-                          "be verbose",
+                          (OptArg (const $ C $ \ts -> return $ Right ((), ts { beVerbose = True }))
+                                      "VERBOSITY") "be verbose",
                         Option [] ["prefix"]
                           (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
@@ -121,10 +121,7 @@ runWithArgs optsc validCommands runCommand =
        case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) ->
              case commands \\ validCommands of
-               [] -> do v <- getEnv "VERBOSE"
-                        when (v /= Just "" && v /= Just "0" && v /= Nothing) $
-                             modify $ \c -> c { amVerboseC = True }
-                        sequence_ flags
+               [] -> do sequence_ flags
                         runHooks
                         mapM_ runCommand commands
                invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
@@ -239,7 +236,6 @@ data ConfigureState = CS { commandLine :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
                            amConfigured :: Bool,
-                           amVerboseC :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -253,6 +249,7 @@ data ConfigureState = CS { commandLine :: [String],
                       deriving ( Read, Show )
 
 data TotalState = TS { numJobs :: Int,
+                       beVerbose :: Bool,
                        outputChan :: Chan String,
                        syncChan :: Chan (),
                        hooks :: [(String,C ())],
@@ -319,10 +316,13 @@ runC (C a) =
                             writeChan ch2 ()
                             writethread
        thid <- forkIO writethread
+       v <- E.getEnv "VERBOSE" `catch` \_ -> return ""
+       let meVerbose = (v /= "" && v /= "0") || "--verbose" `elem` x
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
                       hooks = [],
+                      beVerbose = meVerbose,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -342,7 +342,6 @@ defaultConfiguration = CS { commandLine = [],
                             packagesC = [],
                             replacementsC = [],
                             amConfigured = False,
-                            amVerboseC = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -412,4 +411,4 @@ putV str = do amv <- amVerbose
                      else return ()
 
 amVerbose :: C Bool
-amVerbose = gets amVerboseC
+amVerbose = C $ \ts -> return $ Right (beVerbose ts, ts)
