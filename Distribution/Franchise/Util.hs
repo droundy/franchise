@@ -36,11 +36,9 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
 
 import System.Directory ( setCurrentDirectory )
 import System.Exit ( ExitCode(..) )
-import System.Environment ( getEnv )
 import System.Process ( runInteractiveProcess, waitForProcess )
-import System.IO ( hFlush, stdout, hGetContents )
+import System.IO ( hGetContents )
 import Control.Concurrent ( forkIO )
-import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 

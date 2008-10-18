@@ -147,7 +147,6 @@ package pn modules =
            makeconfig _ =do lic <- getLicense
                             cop <- getCopyright
                             mai <- getMaintainer
-                            cat <- getExtraData "category"
                             deps <- packages
                             io $ writeFile (pn++".config") $ unlines
                                           ["name: "++pn,
