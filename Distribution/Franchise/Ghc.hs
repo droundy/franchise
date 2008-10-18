@@ -38,8 +38,7 @@ module Distribution.Franchise.Ghc
       requireModuleExporting, lookForModuleExporting,
       findPackagesFor,
       -- defining package properties
-      package,
-      (<:) ) where
+      package ) where
 
 import Control.Monad ( when )
 import Data.Maybe ( catMaybes, listToMaybe )
