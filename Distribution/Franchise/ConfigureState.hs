@@ -416,7 +416,11 @@ putV str = do amv <- amVerbose
 
 putSV :: String -> String -> C ()
 putSV str vstr = do amv <- amVerbose
-                    if amv then putS str
+                    if amv then C $ \ts -> do writeChan (outputChan ts) (Stdout $ chomp vstr)
+                                              writeChan (outputChan ts) (Logfile $ chomp vstr)
+                                              readChan (syncChan ts)
+                                              readChan (syncChan ts)
+                                              return $ Right ((),ts)
                            else C $ \ts -> do writeChan (outputChan ts) (Stdout $ chomp str)
                                               writeChan (outputChan ts) (Logfile $ chomp vstr)
                                               readChan (syncChan ts)
