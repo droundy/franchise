@@ -64,7 +64,7 @@ import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrL
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import Data.List ( (\\) )
-import Data.Maybe ( isJust )
+import Data.Maybe ( isJust, fromMaybe )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
 flag n h j = return $ Option [] [n] (NoArg j) h
@@ -88,8 +88,8 @@ runWithArgs optsc validCommands runCommand =
                         Option [] ["user"]
                           (NoArg (pkgFlags ["--user"])) "install as user",
                         Option [] ["verbose"]
-                          (OptArg (const $ C $ \ts -> return $ Right ((), ts { beVerbose = True }))
-                                      "VERBOSITY") "be verbose",
+                          (OptArg (const $ modify (\c -> c { verbosityC = True })) "VERBOSITY")
+                          "be verbose",
                         Option [] ["prefix"]
                           (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
@@ -122,7 +122,10 @@ runWithArgs optsc validCommands runCommand =
        case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) ->
              case commands \\ validCommands of
-               [] -> do sequence_ flags
+               [] -> do v <- getEnv "VERBOSE"
+                        when (v /= Just "" && v /= Just "0" && v /= Nothing) $
+                             modify $ \c -> c { verbosityC = True }
+                        sequence_ flags
                         runHooks
                         mapM_ runCommand commands
                invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
@@ -237,6 +240,7 @@ data ConfigureState = CS { commandLine :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
                            amConfigured :: Bool,
+                           verbosityC :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -349,6 +353,7 @@ defaultConfiguration = CS { commandLine = [],
                             packagesC = [],
                             replacementsC = [],
                             amConfigured = False,
+                            verbosityC = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -430,5 +435,11 @@ putSV str vstr = do amv <- amVerbose
 chomp x = case reverse x of '\n':rx -> reverse rx
                             _ -> x
 
+normalVerbosity :: Int
+normalVerbosity = 2
+
+highVerbosity :: Int
+highVerbosity = normalVerbosity + 1
+
 amVerbose :: C Bool
-amVerbose = C $ \ts -> return $ Right (beVerbose ts, ts)
+amVerbose = gets verbosityC
