@@ -75,10 +75,9 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    io $ forkIO $ seq (length out) $ return ()
                    io $ forkIO $ seq (length err) $ return ()
                    ec <- io $ waitForProcess pid
-                   v <- amVerbose
-                   let cl = if v then unwords (c:args)
-                                 else unwords (c:"...":drop (length args-1) args)
-                   putS cl
+                   let cl = unwords (c:"...":drop (length args-1) args)
+                       clv = unwords (c:args)
+                   putSV cl clv
                    --putS (out++err)
                    case ec of
                      ExitSuccess -> return ()
@@ -92,8 +91,7 @@ indent n = unlines . map ((replicate n ' ')++) . lines
 systemErr :: String   -- ^ Name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
-systemErr c args = do v <- amVerbose
-                      when v $ putS $ unwords (c:args)
+systemErr c args = do putV $ unwords (c:args)
                       (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e

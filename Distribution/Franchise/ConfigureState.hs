@@ -47,7 +47,7 @@ module Distribution.Franchise.ConfigureState
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
       unlessC, whenC,
-      putS, putV, amVerbose,
+      putS, putV, putSV,
       put, get, gets, modify )
         where
 
@@ -60,6 +60,7 @@ import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory )
 import System.Environment ( getArgs, getProgName )
 import System.Info ( os )
+import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import Data.List ( (\\) )
@@ -248,9 +249,11 @@ data ConfigureState = CS { commandLine :: [String],
                            copyrightC :: Maybe String }
                       deriving ( Read, Show )
 
+data LogMessage = Stdout String | Logfile String
+
 data TotalState = TS { numJobs :: Int,
                        beVerbose :: Bool,
-                       outputChan :: Chan String,
+                       outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        hooks :: [(String,C ())],
                        configureState :: ConfigureState }
@@ -311,8 +314,12 @@ runC (C a) =
     do x <- getArgs
        ch <- newChan
        ch2 <- newChan
-       let writethread = do s <- readChan ch
-                            putStrLn s
+       h <- if "configure" `elem` x then openFile "config.log" WriteMode
+                                    else openFile "build.log" WriteMode
+       hSetBuffering h LineBuffering
+       let writethread = do mess <- readChan ch
+                            case mess of Stdout s -> putStrLn s
+                                         Logfile s -> hPutStrLn h s
                             writeChan ch2 ()
                             writethread
        thid <- forkIO writethread
@@ -398,17 +405,26 @@ replacements :: C [(String,String)]
 replacements = gets replacementsC
 
 putS :: String -> C ()
-putS str = C $ \ts -> do writeChan (outputChan ts) str'
-                         readChan (syncChan ts)
-                         return $ Right ((),ts)
-    where str' = case reverse str of
-                 '\n':rts -> reverse rts
-                 _ -> str
+putS str = putSV str str
 
 putV :: String -> C ()
 putV str = do amv <- amVerbose
               if amv then putS str
-                     else return ()
+                     else C $ \ts -> do writeChan (outputChan ts) (Logfile $ chomp str)
+                                        readChan (syncChan ts)
+                                        return $ Right ((),ts)
+
+putSV :: String -> String -> C ()
+putSV str vstr = do amv <- amVerbose
+                    if amv then putS str
+                           else C $ \ts -> do writeChan (outputChan ts) (Stdout $ chomp str)
+                                              writeChan (outputChan ts) (Logfile $ chomp vstr)
+                                              readChan (syncChan ts)
+                                              readChan (syncChan ts)
+                                              return $ Right ((),ts)
+
+chomp x = case reverse x of '\n':rx -> reverse rx
+                            _ -> x
 
 amVerbose :: C Bool
 amVerbose = C $ \ts -> return $ Right (beVerbose ts, ts)

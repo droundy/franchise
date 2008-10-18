@@ -54,7 +54,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- utility for running external code
                                 system, systemOut, cd,
                                 -- useful for user-oriented messages.
-                                putS, putV,
+                                putS, putV, putSV,
                                 -- simplification of getopt data types
                                 flag, unlessFlag,
                                 -- combining buildables

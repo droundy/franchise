@@ -102,7 +102,8 @@ ghcDeps dname src =
 
 privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  exname src cfiles =
-    do whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
+    do putV $ "configuring executable "++exname
+       whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
        ghcDeps depend [src] >>= build' CanModifyState
        mods <- parseDeps `fmap` io (readFile depend)
@@ -125,7 +126,8 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 
 package :: String -> [String] -> C Buildable
 package pn modules =
-    do packageName pn
+    do putV $ "configuring package "++pn
+       packageName pn
        let depend = pn++".depend"
        ghcDeps depend modules >>= build' CanModifyState
        mods <- parseDeps `fmap` io (readFile depend)
