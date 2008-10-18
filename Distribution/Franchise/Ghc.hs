@@ -98,7 +98,7 @@ ghcDeps dname src =
                            _ -> putS $ "Added packages "++ unwords x++"..."
 
 -- privateExecutable is used for executables used by the build system but
--- not to be installed.
+-- not to be installed.  It's also used internally by executable.
 
 privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  exname src cfiles =
