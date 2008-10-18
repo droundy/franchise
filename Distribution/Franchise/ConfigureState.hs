@@ -47,7 +47,7 @@ module Distribution.Franchise.ConfigureState
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
       unlessC, whenC,
-      putS, putV, putSV,
+      putS, putV, putD, putSV,
       put, get, gets, modify )
         where
 
@@ -415,6 +415,9 @@ putV :: String -> C ()
 putV str = do amv <- (> Normal) `fmap` getVerbosity
               if amv then putS str
                      else putM Logfile str
+
+putD :: String -> C ()
+putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
 
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
