@@ -101,8 +101,13 @@ ghcDeps dname src =
 -- not to be installed.  It's also used internally by executable.
 
 privateExecutable :: String -> String -> [String] -> C Buildable
-privateExecutable  exname src cfiles =
-    do putV $ "finding dependencies of executable "++exname
+privateExecutable  simpleexname src cfiles =
+    do putV $ "finding dependencies of executable "++simpleexname
+       aminwin <- amInWindows
+       exname <- if aminwin
+                 then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
+                         return (simpleexname++".exe")
+                 else return simpleexname
        whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
        ghcDeps depend [src] >>= build' CanModifyState
