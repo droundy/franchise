@@ -247,9 +247,8 @@ build' cms b =
                                               (concatMap buildName . buildDeps) xs)]
                                       make how d
                                                `catchC`
-                                               \e -> do putS $ "Error building "++
-                                                                 unwords (depName d)
-                                                                 ++":\n"++e
+                                               \e -> do putS $ "Error building "++unwords(depName d)
+                                                        putV e
                                                         io $ writeChan chan $ Left e
                                       io $ writeChan chan (Right (d:<-how))
                               else do putD $ "I get to skip one! " ++ unwords (depName d)
@@ -262,8 +261,8 @@ build' cms b =
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
-                   Left e -> fail $ "Failure building " ++ unwords (buildName b)
-                                  ++"\n" ++ e
+                   Left e -> do putV ("Failure building "++unwords (buildName b)++'\n':e)
+                                fail $ "Failure building " ++ unwords (buildName b)
                    Right d -> do putD $ "Done building "++ unwords (buildName d)
                                  buildthem chan (delB d (addB canb $ inprogress)) depb
           delB done x = delsS (buildName done) x
