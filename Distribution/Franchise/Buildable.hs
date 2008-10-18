@@ -39,8 +39,6 @@ module Distribution.Franchise.Buildable
       Dependency(..), Buildable(..), (|<-), BuildRule(..),
       defaultRule, buildName, build', cleanIt, rm,
       printBuildableDeep,
-      -- useful for user-oriented messages.
-      putS,
       -- semi-automatic rule generation
       source, (.&), combineBuildables )
     where
