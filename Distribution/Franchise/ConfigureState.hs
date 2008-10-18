@@ -42,7 +42,8 @@ module Distribution.Franchise.ConfigureState
       getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
-      flag, unlessFlag,
+      flag, unlessFlag, configureFlag, configureUnlessFlag,
+      runConfigureHooks, runPostConfigureHooks,
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
@@ -66,11 +67,18 @@ import Data.List ( (\\) )
 import Data.Maybe ( isJust )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
-flag n h j = return $ Option [] [n] (NoArg j) h
+flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j) h
 
 unlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
-unlessFlag n h j = do addHook n j
-                      flag n h (removeHook n)
+unlessFlag n h j = do addHook Postconfigure n j
+                      flag n h (removeHook Postconfigure n)
+
+configureFlag :: String -> String -> C () -> C (OptDescr (C ()))
+configureFlag n h j = return $ Option [] [n] (NoArg $ addHook Preconfigure n j) h
+
+configureUnlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
+configureUnlessFlag n h j = do addHook Preconfigure n j
+                               flag n h (removeHook Preconfigure n) 
 
 runWithArgs :: [C (OptDescr (C ()))] -> [String] -> (String -> C ()) -> C ()
 runWithArgs optsc validCommands runCommand =
@@ -85,23 +93,28 @@ runWithArgs optsc validCommands runCommand =
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
                         Option [] ["user"]
-                          (NoArg (pkgFlags ["--user"])) "install as user",
+                          (NoArg $ do let m = pkgFlags ["--user"]
+                                      m; addHook Postconfigure "user" m) "install as user",
                         Option [] ["verbose"]
                           (OptArg (\v -> C $ \ts -> return $
                                          Right ((), ts { verbosity = readVerbosity Verbose v }))
                            "VERBOSITY")
                           ("Control verbosity (default verbosity level is 1)"),
                         Option [] ["prefix"]
-                          (ReqArg (\v -> modify (\c -> c { prefixC = Just v })) "PATH")
+                          (ReqArg (\v -> addHook Postconfigure "prefix" $
+                                         modify (\c -> c { prefixC = Just v })) "PATH")
                           "install under prefix",
                         Option [] ["bindir"]
-                          (ReqArg (\v -> modify (\c -> c { bindirC = Just v })) "PATH")
+                          (ReqArg (\v -> do let m = modify (\c -> c { bindirC = Just v })
+                                            m; addHook Postconfigure "bindir" m) "PATH")
                           "install in bindir",
                         Option [] ["libdir"]
-                          (ReqArg (\v -> modify (\c -> c { libdirC = Just v })) "PATH")
+                          (ReqArg (\v -> do let m = modify (\c -> c { libdirC = Just v })
+                                            m; addHook Postconfigure "libdir" m) "PATH")
                           "install in libdir",
                         Option [] ["libsubdir"]
-                          (ReqArg (\v -> modify (\c -> c { libsubdirC = Just v })) "PATH")
+                          (ReqArg (\v -> do let m = modify (\c -> c { libsubdirC = Just v })
+                                            m; addHook Postconfigure "libsubdir" m) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
                           (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
@@ -124,7 +137,6 @@ runWithArgs optsc validCommands runCommand =
          (flags, commands, []) ->
              case commands \\ validCommands of
                [] -> do sequence_ flags
-                        runHooks
                         mapM_ runCommand commands
                invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
@@ -258,14 +270,45 @@ data ConfigureState = CS { commandLine :: [String],
                       deriving ( Read, Show )
 
 data LogMessage = Stdout String | Logfile String
+data HookTime = Preconfigure | Postconfigure
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
-                       hooks :: [(String,C ())],
+                       configureHooks :: [(String,C ())],
+                       postConfigureHooks :: [(String,C ())],
                        configureState :: ConfigureState }
+
+tsHook :: HookTime -> TotalState -> [(String,C ())]
+tsHook Preconfigure = configureHooks
+tsHook Postconfigure = postConfigureHooks
+
+getHooks :: HookTime -> C [(String,C ())]
+getHooks ht = C $ \ts -> return $ Right (tsHook ht ts, ts)
+
+modifyHooks :: HookTime -> ([(String,C ())] -> [(String,C ())]) -> C ()
+modifyHooks Preconfigure f =
+    C $ \ts -> return $ Right ((), ts { configureHooks = f $ configureHooks ts })
+modifyHooks Postconfigure f =
+    C $ \ts -> return $ Right ((), ts { postConfigureHooks = f $ postConfigureHooks ts })
+
+addHook :: HookTime -> String -> C () -> C ()
+addHook ht n h = modifyHooks ht ((n,h):)
+
+removeHook :: HookTime -> String -> C ()
+removeHook ht n = modifyHooks ht $ filter ((/=n) . fst)
+
+runHooks :: HookTime -> C ()
+runHooks ht = do hks <- getHooks ht
+                 mapM_ snd hks
+
+runConfigureHooks :: C ()
+runConfigureHooks = runHooks Preconfigure
+
+runPostConfigureHooks :: C ()
+runPostConfigureHooks = runHooks Postconfigure
 
 newtype C a = C (TotalState -> IO (Either String (a,TotalState)))
 
@@ -304,17 +347,6 @@ getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
 addCreatedFile :: String -> C ()
 addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
 
-addHook :: String -> C () -> C ()
-addHook n h = C $ \ts -> return $ Right ((), ts { hooks = (n,h): hooks ts })
-
-removeHook :: String -> C ()
-removeHook n =
-    C $ \ts -> return $ Right ((), ts { hooks = filter ((/=n).fst) $ hooks ts })
-
-runHooks :: C ()
-runHooks = do hks <- C $ \ts -> return $ Right (hooks ts, ts)
-              mapM_ snd hks
-
 getCreatedFiles :: C [String]
 getCreatedFiles = gets createdFiles
 
@@ -336,7 +368,8 @@ runC (C a) =
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
-                      hooks = [],
+                      configureHooks = [],
+                      postConfigureHooks = [],
                       verbosity = readVerbosity Normal v,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of

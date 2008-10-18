@@ -149,16 +149,19 @@ build opts doconf mkbuild =
                                     build' CannotModifyState b
                                     install' b
           runcommand x = fail $ "nonexistent command "++x
-          configure = do putS "Configuring..."
+          configure = do putS "configuring..."
+                         runConfigureHooks
                          doconf
                          mkbuild
+                         runPostConfigureHooks
                          saveConf
                          setConfigured
-                         putS "Configure successful."
+                         putS "configure successful."
           reconfigure = do restoreConf `catchC` \_ -> rm "conf.state"
                            setupname <- io $ getProgName
                            build' CanModifyState $ ["conf.state"] :< [source setupname]
                                       :<- defaultRule { make = makeConfState }
+                           runPostConfigureHooks
           makeConfState _ = do fs <- gets commandLine
                                runWithArgs opts myargs (const configure)
                                modify $ \s -> s { commandLine=fs }

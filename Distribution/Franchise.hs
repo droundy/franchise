@@ -59,6 +59,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 putS, putV, putSV,
                                 -- simplification of getopt data types
                                 flag, unlessFlag,
+                                configureFlag, configureUnlessFlag,
                                 -- combining buildables
                                 source, (.&), combineBuildables )
     where
