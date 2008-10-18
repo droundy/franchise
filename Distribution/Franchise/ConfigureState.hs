@@ -289,9 +289,6 @@ tsHook :: HookTime -> TotalState -> [(String,C ())]
 tsHook Preconfigure = configureHooks
 tsHook Postconfigure = postConfigureHooks
 
-getHooks :: HookTime -> C [(String,C ())]
-getHooks ht = C $ \ts -> return $ Right (tsHook ht ts, ts)
-
 modifyHooks :: HookTime -> ([(String,C ())] -> [(String,C ())]) -> C ()
 modifyHooks Preconfigure f =
     C $ \ts -> return $ Right ((), ts { configureHooks = f $ configureHooks ts })
@@ -305,8 +302,8 @@ removeHook :: HookTime -> String -> C ()
 removeHook ht n = modifyHooks ht $ filter ((/=n) . fst)
 
 runHooks :: HookTime -> C ()
-runHooks ht = do hks <- getHooks ht
-                 mapM_ snd hks
+runHooks ht = do hks <- C $ \ts -> return $ Right (tsHook ht ts, ts)
+                 mapM_ snd $ reverse hks
 
 runConfigureHooks :: C ()
 runConfigureHooks = runHooks Preconfigure
