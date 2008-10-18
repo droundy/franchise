@@ -19,10 +19,5 @@ configure = do copyright "David Roundy"
                ghcFlags ["-threaded","-O2"]
                version "0.0.3"
 
-buildable = do p <- package "franchise" ["Distribution.Franchise"]
-               e <- privateExecutable "sample-setup" "Setup.hs" []
-               --return (p .& e)
-               return p
-
-main = build [] configure buildable
+main = build [] configure $ package "franchise" ["Distribution.Franchise"]
 
