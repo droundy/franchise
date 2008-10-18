@@ -44,7 +44,7 @@ module Distribution.Franchise.Buildable
     where
 
 import Control.Monad ( when, msum )
-import Data.List ( nub, partition, delete, intersect, isPrefixOf )
+import Data.List ( nub, partition, delete, intersect, isPrefixOf, isSuffixOf )
 import System.Environment ( getProgName )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
@@ -108,7 +108,7 @@ printBuildableDeep b@(xs :< ds:<-_) =
 printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 
 rm :: String -> C ()
-rm f | endsWith "/" f = return ()
+rm f | "/" `isSuffixOf` f = return ()
 rm f = do io $ removeFile f
           putV $ "rm "++f
        `catchC` \_ -> return ()

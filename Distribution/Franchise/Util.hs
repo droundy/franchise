@@ -31,7 +31,6 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
-                                     inDarcs,
                                      beginsWith, endsWith, endsWithOneOf )
     where
 
@@ -47,7 +46,7 @@ import Distribution.Franchise.ConfigureState
 -- | Checks if a string begins with a given string
 beginsWith :: String -- ^ Prefix that might be there
            -> String -- ^ String to check against
-           -> Bool
+           -> Bool   
 beginsWith = isPrefixOf
 
 -- | Checks if a string ends with a given string
@@ -60,7 +59,7 @@ endsWith = isSuffixOf
 endsWithOneOf :: [String] -- ^ List of strings to check
               -> String   -- ^ String to check against
               -> Bool
-endsWithOneOf xs y = any (\x -> endsWith x y) xs
+endsWithOneOf xs y = any (\x -> x `isSuffixOf` y) xs
 
 -- | Run a command
 system :: String   -- ^ Command
