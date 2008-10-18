@@ -40,6 +40,7 @@ import System.Exit ( ExitCode(..) )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hGetContents )
 import Control.Concurrent ( forkIO )
+import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 
@@ -47,13 +48,13 @@ import Distribution.Franchise.ConfigureState
 beginsWith :: String -- ^ Prefix that might be there
            -> String -- ^ String to check against
            -> Bool
-beginsWith x y = take (length x) y == x
+beginsWith = isPrefixOf
 
 -- | Checks if a string ends with a given string
 endsWith :: String -- ^ Suffix that might be at the end of a string
          -> String -- ^ String to check against
          -> Bool
-endsWith x y = drop (length y - length x) y == x
+endsWith = isSuffixOf
 
 -- | Checks if a string ends with any given suffix
 endsWithOneOf :: [String] -- ^ List of strings to check

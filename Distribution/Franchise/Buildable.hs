@@ -44,7 +44,7 @@ module Distribution.Franchise.Buildable
     where
 
 import Control.Monad ( when, msum )
-import Data.List ( nub, partition, delete, intersect )
+import Data.List ( nub, partition, delete, intersect, isPrefixOf )
 import System.Environment ( getProgName )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
@@ -352,12 +352,9 @@ actuallyCreateFile fn = do x <- cat (fn++".in")
                            io $ writeFile fn $ repl r x
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
-          r1 a b x@(x1:xs) | startsWith a x = b ++ r1 a b (drop (length a) x)
+          r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
                            | otherwise = x1 : r1 a b xs
           r1 _ _ "" = ""
-          startsWith [] _ = True
-          startsWith (c:cs) (d:ds) = c == d && startsWith cs ds
-          startsWith _ _ = False
 
 define :: String -> C ()
 define x = do ghcFlags ["-D"++x]
