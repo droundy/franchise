@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -445,8 +444,8 @@ getVerbosity :: C Verbosity
 getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
-readVerbosity defaultV s = case reads `fmap` s of
-                           Just [(0 :: Int,"")] -> Quiet
+readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of
+                           Just [(0,"")] -> Quiet
                            Just [(1,"")] -> Debug
                            Just [(2,"")] -> Verbose
                            Just [(3,"")] -> Debug
