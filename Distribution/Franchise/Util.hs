@@ -77,7 +77,7 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    ec <- io $ waitForProcess pid
                    let cl = unwords (c:"...":drop (length args-1) args)
                        clv = unwords (c:args)
-                   putSV cl (clv++'\n':out++err)
+                   putSV (cl++'\n':out++err) (clv++'\n':out++err)
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure _ -> fail $ indent 4 $ c ++ " failed with:" ++indent 2 (out++err)
