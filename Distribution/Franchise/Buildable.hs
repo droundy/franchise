@@ -280,7 +280,7 @@ instance Eq Buildable where
               eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
 
 elemB :: Buildable -> StringSet -> Bool
-elemB b s = buildName b `anyElemS` s
+elemB b s = any (`elemS` s) $ buildName b
 
 addB :: [Buildable] -> StringSet -> StringSet
 addB b s = addsS (concatMap buildName b) s

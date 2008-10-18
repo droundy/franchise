@@ -64,7 +64,7 @@ import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrL
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import Data.List ( (\\) )
-import Data.Maybe ( isJust, fromMaybe )
+import Data.Maybe ( isJust )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
 flag n h j = return $ Option [] [n] (NoArg j) h
@@ -446,7 +446,7 @@ getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case reads `fmap` s of
-                           Just [(0,"")] -> Quiet
+                           Just [(0 :: Int,"")] -> Quiet
                            Just [(1,"")] -> Debug
                            Just [(2,"")] -> Verbose
                            Just [(3,"")] -> Debug
