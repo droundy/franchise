@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ConfigureState
     ( runWithArgs, whenNotConfigured, setConfigured,
+      amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, packageName,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
@@ -57,9 +58,8 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
-import System.Directory ( getAppUserDataDirectory )
+import System.Directory ( getAppUserDataDirectory, getCurrentDirectory )
 import System.Environment ( getArgs, getProgName )
-import System.Info ( os )
 import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
@@ -207,15 +207,22 @@ getPackageVersion = do ver <- getVersion
                        pn <- getPackageName
                        return $ fmap (++("-"++ver)) pn
 
+-- | amInWindows is a hokey function to identify windows systems.  It's
+-- probably more portable than checking System.Info.os, which isn't saying
+-- much.
+amInWindows :: C Bool
+amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
+
 getPrefix :: C String
 getPrefix =
     do prf <- gets prefixC
+       amwindows <- amInWindows
        case prf of
          Just x -> return x
          Nothing -> do pkgflgs <- getPkgFlags
                        if "--user" `elem` pkgflgs
                          then io $ getAppUserDataDirectory "cabal"
-                         else if os == "mingw32"
+                         else if amwindows
                               then maybe "C:\\Program Files\\Haskell" (++ "\\Haskell") `fmap` getEnv "ProgramFiles"
                               else return "/usr/local"
 
