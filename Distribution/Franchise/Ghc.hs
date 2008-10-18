@@ -35,7 +35,7 @@ module Distribution.Franchise.Ghc
       -- Handy module-searching
       requireModule, lookForModule, withModule,
       checkLib, withLib, checkHeader,
-      requireModuleExporting, lookForModuleExporting,
+      requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
       package ) where
@@ -353,6 +353,12 @@ lookForModuleExporting m i c =
 requireModuleExporting :: String -> String -> String -> C ()
 requireModuleExporting m i c = unlessC (lookForModuleExporting m i c) $
                                fail $ "Can't use module "++m
+
+withModuleExporting :: String -> String -> String -> C () -> C ()
+withModuleExporting m i c j =
+    do requireModuleExporting m i c
+       j
+    `catchC` \_ -> putS $ "failed to find an adequate module "++m
 
 checkMinimumPackages :: C ()
 checkMinimumPackages =
