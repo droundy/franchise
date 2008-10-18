@@ -48,6 +48,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 addExtraData, haveExtraData,
+                                -- Some common platform tests
+                                amInWindows, amLittleEndian,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
@@ -65,3 +67,4 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.Endian
