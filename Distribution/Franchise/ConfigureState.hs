@@ -67,18 +67,22 @@ import Data.List ( (\\) )
 import Data.Maybe ( isJust )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
-flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j) h
+flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j') h
+    where j' = do putV $ "handling flag --"++n; j
 
 unlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
-unlessFlag n h j = do addHook Postconfigure n j
+unlessFlag n h j = do addHook Postconfigure n j'
                       flag n h (removeHook Postconfigure n)
+    where j' = do putV $ "handling missing flag --"++n; j
 
 configureFlag :: String -> String -> C () -> C (OptDescr (C ()))
-configureFlag n h j = return $ Option [] [n] (NoArg $ addHook Preconfigure n j) h
+configureFlag n h j = return $ Option [] [n] (NoArg $ addHook Preconfigure n j') h
+    where j' = do putV $ "handling configure flag --"++n; j
 
 configureUnlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
-configureUnlessFlag n h j = do addHook Preconfigure n j
-                               flag n h (removeHook Preconfigure n) 
+configureUnlessFlag n h j = do addHook Preconfigure n j'
+                               flag n h (removeHook Preconfigure n)
+    where j' = do putV $ "handling missing configure flag --"++n; j
 
 runWithArgs :: [C (OptDescr (C ()))] -> [String] -> (String -> C ()) -> C ()
 runWithArgs optsc validCommands runCommand =
