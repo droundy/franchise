@@ -186,12 +186,12 @@ needsWork ([]:<_) = return True
 needsWork ((x:_) :< ds) =
     do fe <- io $ doesFileExist x
        if not fe
-         then do --putS $ "need work because " ++ x ++ " doesn't exist"
+         then do putD $ "need work because " ++ x ++ " doesn't exist"
                  return True
          else do mt <- io $ getModificationTime x
                  let latertime y = do ye <- io $ doesFileExist y
                                       if not ye
-                                        then do --putS $ "Need work cuz "++y++" don't exist"
+                                        then do putD $ "Need work cuz "++y++" don't exist"
                                                 return True
                                         else do mty <- io $ getModificationTime y
                                                 --if mty > mt
@@ -211,16 +211,16 @@ build' _ (Unknown f) = do e <- io $ doesFileExist f
 build' cms b =
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
            w <- reverse `fmap` findWork b
-           --putS $ "I want to recompile all of "++ unwords (concatMap buildName w)
-           --case length w of
-           --  0 -> putS $ "Nothing to recompile for "++unwords (buildName b)++"."
-           --  l -> putS $ unwords $ ["Need to recompile ",show l,"for"]
-           --                            ++buildName b++["."]
+           putD $ "I want to recompile all of "++ unwords (concatMap buildName w)
+           case length w of
+             0 -> putD $ "Nothing to recompile for "++unwords (buildName b)++"."
+             l -> putD $ unwords $ ["Need to recompile ",show l,"for"]
+                                       ++buildName b++["."]
            chan <- io $ newChan
            buildthem chan emptyS w
     where buildthem _ _ [] = return ()
           buildthem chan inprogress w =
-              do --putS $ unwords ("I am now wanting to compile":concatMap buildName w)
+              do putD $ unwords ("I am now wanting to compile":concatMap buildName w)
                  loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
                  let loadavg = case reads loadavgstr of
                                ((n,_):_) -> max 0 (round (n :: Double))
@@ -234,14 +234,14 @@ build' cms b =
                          forkC cms $
                          do stillneedswork <- needsWork d
                             if stillneedswork
-                              then do --let _ :< xs = d
-                                      --putS $ unlines
-                                      --  ["I am making "++ unwords (depName d),
-                                      --   "  This depends on "++
-                                      --   unwords (concatMap buildName xs),
-                                      --   "  These depend on "++
-                                      --   unwords (concatMap
-                                      --        (concatMap buildName . buildDeps) xs)]
+                              then do let _ :< xs = d
+                                      putD $ unlines
+                                        ["I am making "++ unwords (depName d),
+                                         "  This depends on "++
+                                         unwords (concatMap buildName xs),
+                                         "  These depend on "++
+                                         unwords (concatMap
+                                              (concatMap buildName . buildDeps) xs)]
                                       make how d
                                                `catchC`
                                                \e -> do putS $ "Error building "++
@@ -249,19 +249,19 @@ build' cms b =
                                                                  ++":\n"++e
                                                         io $ writeChan chan $ Left e
                                       io $ writeChan chan (Right (d:<-how))
-                              else do --putS $ "I get to skip one! " ++ unwords (depName d)
+                              else do putD $ "I get to skip one! " ++ unwords (depName d)
                                       io $ writeChan chan (Right (d:<-how))
                      buildone (Unknown _) = error "bug in buildone"
-                 --case filter (endsWith ".o") $ concatMap buildName canb of
-                 --  [] -> return ()
-                 --  [_] -> return ()
-                 --  tb -> putS $ "I can now build "++ unwords tb
+                 case filter (endsWith ".o") $ concatMap buildName canb of
+                   [] -> return ()
+                   [_] -> return ()
+                   tb -> putD $ "I can now build "++ unwords tb
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
                    Left e -> fail $ "Failure building " ++ unwords (buildName b)
                                   ++"\n" ++ e
-                   Right d -> do --putS $ "Done building "++ unwords (buildName d)
+                   Right d -> do putD $ "Done building "++ unwords (buildName d)
                                  buildthem chan (delB d (addB canb $ inprogress)) depb
           delB done x = delsS (buildName done) x
 
@@ -291,7 +291,7 @@ canBuildNow needwork (_:<d:<-_) = not $ any (`elemB` needwork) d
 
 findWork :: Buildable -> C [Buildable]
 findWork (Unknown _) = return []
-findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
+findWork zzz = do putD $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
                   fw [] [] $ reverse $ mapBuildable id zzz
     where -- The second and third arguments ought to be sets!
           fw :: [Buildable] -> [Buildable] -> [Buildable] -> C [Buildable]
@@ -300,17 +300,17 @@ findWork zzz = do -- putS $ "findWork called on "++unwords (concatMap buildName 
                                  | otherwise = fw nw (Unknown x:ok) r
           fw nw ok (b@(xs:<ds:<-_):r) =
               if b `elem` (ok++nw)
-              then do --if b `elem` ok
-                      --   then putS $ "I already have "++ unwords (buildName b)
-                      --   else putS $ "I already know I must compile "++
-                      --                 unwords (buildName b)
+              then do if b `elem` ok
+                         then putD $ "I already have "++ unwords (buildName b)
+                         else putD $ "I already know I must compile "++
+                                       unwords (buildName b)
                       fw nw ok r
               else
                 if all (`elem` (ok++nw)) ds
                 then
                    do ineedwork <- case nw `intersect` ds of
-                                   (_z:_) -> do --putS $ "Must compile "++ unwords (buildName b) ++
-                                                --             " because of " ++ unwords (buildName _z)
+                                   (_z:_) -> do putD $ "Must compile "++ unwords (buildName b) ++
+                                                             " because of " ++ unwords (buildName _z)
                                                 return True
                                    [] -> needsWork (xs:<ds)
                       if ineedwork then fw (b:nw) ok r
