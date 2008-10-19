@@ -78,11 +78,8 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    putSV (cl++'\n':out++err) (clv++'\n':out++err)
                    case ec of
                      ExitSuccess -> return ()
-                     ExitFailure _ -> fail $ indent 4 $ c ++ " failed with:" ++indent 2 (out++err)
-
--- | Indent a string by so many spaces; can contain newlines.
-indent :: Int -> String -> String
-indent n = unlines . map ((replicate n ' ')++) . lines
+                     ExitFailure 127 -> fail $ c ++ ": command not found"
+                     ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
 
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String   -- ^ Name
@@ -93,8 +90,11 @@ systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
-                      io $ waitForProcess pid
+                      ec <- io $ waitForProcess pid
                       putV $ unwords (c:args)++'\n':out++err
+                      case ec of
+                        ExitFailure 127 -> fail $ c ++ ": command not found"
+                        _ -> return ()
                       return err
 
 -- | Run a process with a list of arguments and get the resulting output from stdout.
@@ -108,9 +108,12 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       case err of
                         "" -> return ()
                         _ -> putV $ unwords (c:args) ++ '\n':err
-                      io $ waitForProcess pid
+                      ec <- io $ waitForProcess pid
                       putV $ unwords (c:args)++'\n':out++err
-                      return out
+                      case ec of
+                        ExitSuccess -> return out
+                        ExitFailure 127 -> fail $ c ++ ": command not found"
+                        ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
 
 -- | Change current directory
 cd :: String -> C ()
