@@ -121,16 +121,6 @@ buildDeps :: Buildable -> [Buildable]
 buildDeps (_:<ds:<-_) = ds
 buildDeps _ = []
 
-saveConf :: C ()
-saveConf = do s <- show `fmap` get
-              io $ writeFile "conf.state" s
-
-restoreConf :: C ()
-restoreConf = do s <- cat "conf.state"
-                 case reads s of
-                   ((c,_):_) -> put c
-                   _ -> fail "Couldn't read conf.state"
-
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
     runC $ runWithArgs opts myargs runcommand
@@ -154,17 +144,25 @@ build opts doconf mkbuild =
                          doconf
                          mkbuild
                          runPostConfigureHooks
-                         saveConf
+                         s <- show `fmap` get
+                         io $ writeFile "conf.state" s
                          setConfigured
                          putS "configure successful."
-          reconfigure = do restoreConf `catchC` \_ -> rm "conf.state"
+          reconfigure = do fs <- gets commandLine
+                           do s <- cat "conf.state"
+                              case reads s of
+                                ((c,_):_) -> put c
+                                _ -> do putV "Couldn't read conf.state"
+                                        rm "conf.state"
                            setupname <- io $ getProgName
+                           putV "checking whether we need to reconfigure"
                            build' CanModifyState $ ["conf.state"] :< [source setupname]
                                       :<- defaultRule { make = makeConfState }
                            runPostConfigureHooks
+                           modify $ \s -> s { commandLine=fs }
           makeConfState _ = do fs <- gets commandLine
+                               putV $ "reconfiguring with flags " ++ unwords fs
                                runWithArgs opts myargs (const configure)
-                               modify $ \s -> s { commandLine=fs }
 
 install' :: Buildable -> C ()
 install' ((x :< ds) :<- how) = do mapM_ install' ds
