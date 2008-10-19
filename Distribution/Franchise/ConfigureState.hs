@@ -323,7 +323,8 @@ instance Monad C where
                                   Left e -> return (Left e)
                                   Right (a,cs') -> unC (g a) cs'
     return x = C (\cs -> return $ Right (x, cs))
-    fail e = C (\_ -> return $ Left e)
+    fail e = do putV $ "failure: "++ e
+                C (\_ -> return $ Left e)
 
 get :: C ConfigureState
 get = C $ \ts -> return $ Right (configureState ts,ts)
