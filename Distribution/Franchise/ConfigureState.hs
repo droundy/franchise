@@ -296,7 +296,8 @@ modifyHooks Postconfigure f =
     C $ \ts -> return $ Right ((), ts { postConfigureHooks = f $ postConfigureHooks ts })
 
 addHook :: HookTime -> String -> C () -> C ()
-addHook ht n h = modifyHooks ht ((n,h):)
+addHook ht n h = do removeHook ht n
+                    modifyHooks ht ((n,h):)
 
 removeHook :: HookTime -> String -> C ()
 removeHook ht n = modifyHooks ht $ filter ((/=n) . fst)
