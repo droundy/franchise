@@ -138,7 +138,7 @@ build opts doconf mkbuild =
                                     b <- mkbuild'
                                     build' CannotModifyState b
                                     install' b
-          runcommand x = fail $ "nonexistent command "++x
+          runcommand x = fail $ "unrecognized command "++x
           configure = do putS "configuring..."
                          runConfigureHooks
                          doconf

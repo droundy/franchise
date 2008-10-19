@@ -138,11 +138,8 @@ runWithArgs optsc validCommands runCommand =
                                  return $ Option [] ["constraint"]
                                  (ReqArg (const (return ())) "ugh") "ignored" ]
        case getOpt Permute (options++eviloptions) args of
-         (flags, commands, []) ->
-             case commands \\ validCommands of
-               [] -> do sequence_ flags
-                        mapM_ runCommand commands
-               invalid -> fail $ "unrecognized arguments: " ++ unwords invalid
+         (flags, commands, []) -> do sequence_ flags
+                                     mapM_ runCommand commands
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
