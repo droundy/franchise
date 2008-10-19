@@ -60,7 +60,7 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory, getCurrentDirectory )
 import System.Environment ( getArgs, getProgName )
-import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn )
+import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import Data.List ( (\\) )
@@ -360,6 +360,7 @@ runC (C a) =
        h <- if "configure" `elem` x then openFile "config.log" WriteMode
                                     else openFile "build.log" WriteMode
        hSetBuffering h LineBuffering
+       hSetBuffering stdout LineBuffering
        let writethread = do mess <- readChan ch
                             case mess of Stdout s -> putStrLn s
                                          Logfile s -> hPutStrLn h s
