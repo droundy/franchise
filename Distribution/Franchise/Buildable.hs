@@ -233,9 +233,14 @@ build' cms b =
               do putD $ unwords ("I am now wanting to compile":concatMap buildName w)
                  loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
                  let loadavg = case reads loadavgstr of
-                               ((n,_):_) -> max 0 (round (n :: Double))
-                               _ -> 0
-                 njobs <- (max 1 . (\x -> x-loadavg)) `fmap` getNumJobs
+                               ((n,_):_) -> max 0.0 (n :: Double)
+                               _ -> 0.0
+                     fixNumJobs nj =
+                         if nj > 1 && loadavg >= 0.5+fromIntegral nj
+                         then do putV $ "Throttling jobs with load "++show loadavg
+                                 return 1
+                         else return nj
+                 njobs <- getNumJobs >>= fixNumJobs
                  let (canb',depb') = partition (canBuildNow (w `addB` inprogress)) w
                      jobs = max 0 (njobs - lengthS inprogress)
                      canb = take jobs canb'
