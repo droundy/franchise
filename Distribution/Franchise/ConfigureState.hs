@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ConfigureState
-    ( runWithArgs, whenNotConfigured, setConfigured,
+    ( runWithArgs,
       amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, packageName,
       rmGhcFlags,
@@ -257,7 +257,6 @@ data ConfigureState = CS { commandLine :: [String],
                            ldFlagsC :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
-                           amConfigured :: Bool,
                            prefixC :: Maybe String,
                            bindirC :: Maybe String,
                            libdirC :: Maybe String,
@@ -390,7 +389,6 @@ defaultConfiguration = CS { commandLine = [],
                             ldFlagsC = [],
                             packagesC = [],
                             replacementsC = [],
-                            amConfigured = False,
                             prefixC = Nothing,
                             bindirC = Nothing,
                             libdirC = Nothing,
@@ -401,14 +399,6 @@ defaultConfiguration = CS { commandLine = [],
                             licenseC = Nothing,
                             extraDataC = [],
                             copyrightC = Nothing }
-
-whenNotConfigured :: C () -> C ()
-whenNotConfigured j = do amc <- gets amConfigured
-                         when (not amc) $ j
-
-
-setConfigured :: C ()
-setConfigured = modify $ \c -> c { amConfigured = True }
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x

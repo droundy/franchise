@@ -146,7 +146,6 @@ build opts doconf mkbuild =
                          runPostConfigureHooks
                          s <- show `fmap` get
                          io $ writeFile "conf.state" s
-                         setConfigured
                          putS "configure successful."
           reconfigure = do fs <- gets commandLine
                            do ((c,_):_) <- reads `fmap` cat "conf.state"
