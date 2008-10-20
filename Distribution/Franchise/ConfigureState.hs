@@ -475,7 +475,7 @@ getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of
                            Just [(0,"")] -> Quiet
-                           Just [(1,"")] -> Debug
+                           Just [(1,"")] -> Normal
                            Just [(2,"")] -> Verbose
                            Just [(3,"")] -> Debug
                            _ -> defaultV
