@@ -121,6 +121,10 @@ buildDeps :: Buildable -> [Buildable]
 buildDeps (_:<ds:<-_) = ds
 buildDeps _ = []
 
+findSubBuildable :: String -> Buildable -> Maybe Buildable
+findSubBuildable t b | t `elem` buildName b = Just b
+                     | otherwise = msum $ map (findSubBuildable t) $ buildDeps b
+
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
     runC $ runWithArgs opts myargs runcommand
@@ -138,7 +142,11 @@ build opts doconf mkbuild =
                                     b <- mkbuild'
                                     build' CannotModifyState b
                                     install' b
-          runcommand x = fail $ "unrecognized command "++x
+          runcommand t = do reconfigure
+                            b <- mkbuild
+                            case findSubBuildable t b of
+                              Just b' -> build' CannotModifyState b'
+                              Nothing -> fail $ "unrecognized target "++t
           configure = do putS "configuring..."
                          runConfigureHooks
                          doconf
