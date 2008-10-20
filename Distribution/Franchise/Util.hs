@@ -34,7 +34,7 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
                                      endsWithOneOf )
     where
 
-import System.Directory ( setCurrentDirectory, doesDirectoryExist )
+import System.Directory ( setCurrentDirectory )
 import System.Exit ( ExitCode(..) )
 import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
