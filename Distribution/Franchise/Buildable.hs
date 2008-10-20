@@ -179,9 +179,9 @@ install' ((x :< ds) :<- how) = do mapM_ install' ds
 install' (Unknown _) = return ()
 
 mapBuildable :: (Buildable -> a) -> Buildable -> [a]
-mapBuildable f b = reverse $ mb [] [b]
-    where mb done (x:xs) | x `elem` done = mb done xs
-                         | otherwise = mb (x:done) (requirements x ++ xs) ++ [f x]
+mapBuildable f b = reverse $ mb emptyS [b]
+    where mb done (x:xs) | x `elemB` done = mb done xs
+                         | otherwise = mb ([x] `addB` done) (requirements x ++ xs) ++ [f x]
           mb _ [] = []
           requirements (_:<ds:<-_) = ds
           requirements _ = []
