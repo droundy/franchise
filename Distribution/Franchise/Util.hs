@@ -31,10 +31,11 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
+                                     inDarcs,
                                      beginsWith, endsWith, endsWithOneOf )
     where
 
-import System.Directory ( setCurrentDirectory )
+import System.Directory ( setCurrentDirectory, doesDirectoryExist )
 import System.Exit ( ExitCode(..) )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hGetContents )
@@ -123,3 +124,7 @@ cd = io . setCurrentDirectory
 cat :: String -> C String
 cat fn = do x <- io $ readFile fn
             length x `seq` return x
+
+inDarcs :: C Bool
+inDarcs = io $ doesDirectoryExist "_darcs"
+

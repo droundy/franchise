@@ -50,6 +50,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 addExtraData, haveExtraData,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
+                                -- To run a command only in a darcs repository
+                                inDarcs,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
