@@ -31,7 +31,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
-                                     beginsWith, endsWith, endsWithOneOf )
+                                     endsWithOneOf )
     where
 
 import System.Directory ( setCurrentDirectory, doesDirectoryExist )
@@ -39,21 +39,9 @@ import System.Exit ( ExitCode(..) )
 import System.Process ( runInteractiveProcess, waitForProcess )
 import System.IO ( hGetContents )
 import Control.Concurrent ( forkIO )
-import Control.Monad ( when )
+import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
-
--- | Checks if a string begins with a given string
-beginsWith :: String -- ^ Prefix that might be there
-           -> String -- ^ String to check against
-           -> Bool   
-beginsWith = isPrefixOf
-
--- | Checks if a string ends with a given string
-endsWith :: String -- ^ Suffix that might be at the end of a string
-         -> String -- ^ String to check against
-         -> Bool
-endsWith = isSuffixOf
 
 -- | Checks if a string ends with any given suffix
 endsWithOneOf :: [String] -- ^ List of strings to check
@@ -124,7 +112,3 @@ cd = io . setCurrentDirectory
 cat :: String -> C String
 cat fn = do x <- io $ readFile fn
             length x `seq` return x
-
-inDarcs :: C Bool
-inDarcs = io $ doesDirectoryExist "_darcs"
-

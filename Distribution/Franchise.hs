@@ -71,3 +71,4 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
+import Distribution.Franchise.Darcs

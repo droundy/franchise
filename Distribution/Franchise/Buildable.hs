@@ -266,7 +266,7 @@ build' cms b =
                               else do putD $ "I get to skip one! " ++ unwords (depName d)
                                       io $ writeChan chan (Right (d:<-how))
                      buildone (Unknown _) = error "bug in buildone"
-                 case filter (endsWith ".o") $ concatMap buildName canb of
+                 case filter (".o" `isSuffixOf`) $ concatMap buildName canb of
                    [] -> return ()
                    [_] -> return ()
                    tb -> putD $ "I can now build "++ unwords tb
