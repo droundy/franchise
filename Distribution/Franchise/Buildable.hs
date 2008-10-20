@@ -149,11 +149,10 @@ build opts doconf mkbuild =
                          setConfigured
                          putS "configure successful."
           reconfigure = do fs <- gets commandLine
-                           do s <- cat "conf.state"
-                              case reads s of
-                                ((c,_):_) -> put c
-                                _ -> do putV "Couldn't read conf.state"
-                                        rm "conf.state"
+                           do ((c,_):_) <- reads `fmap` cat "conf.state"
+                              put c
+                             `catchC` \_ ->  do putV "Couldn't read conf.state"
+                                                rm "conf.state"
                            setupname <- io $ getProgName
                            putV "checking whether we need to reconfigure"
                            build' CanModifyState $ ["conf.state"] :< [source setupname]
