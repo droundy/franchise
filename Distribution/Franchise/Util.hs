@@ -46,7 +46,7 @@ import Distribution.Franchise.ConfigureState
 -- | Checks if a string begins with a given string
 beginsWith :: String -- ^ Prefix that might be there
            -> String -- ^ String to check against
-           -> Bool   
+           -> Bool
 beginsWith x y = take (length x) y == x
 
 -- | Checks if a string ends with a given string
