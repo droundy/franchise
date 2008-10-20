@@ -87,9 +87,10 @@ a .& b = [unwords (buildName a++"and":buildName b)] :< [a',b'] :<- defaultRule
           fixbuild x (xs:<xds:<-h) = xs :< map (fixbuild x) xds :<- h
 
 lookupB :: String -> Buildable -> Maybe Buildable
-lookupB _ (Unknown _) = Nothing
-lookupB f (xs:<xds:<-h) | f `elem` xs = Just (xs:<xds:<-h)
-                        | otherwise = msum (map (lookupB f) xds)
+lookupB f b0 = msum $ mapBuildable lu b0
+    where lu (Unknown _) = Nothing
+          lu b | f `elem` buildName b = Just b
+               | otherwise = Nothing
 
 cleanIt :: Dependency -> [String]
 cleanIt (_:<[]) = []
