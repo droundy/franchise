@@ -144,16 +144,16 @@ runWithArgs optsc validCommands runCommand =
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
-addPackages x = modify $ \c -> c { packagesC = packagesC c ++ x }
+addPackages x = modify $ \c -> c { packagesC = (packagesC c \\ x) ++ x }
 
 pkgFlags :: [String] -> C ()
-pkgFlags x = modify $ \c -> c { pkgFlagsC = pkgFlagsC c ++ x }
+pkgFlags x = modify $ \c -> c { pkgFlagsC = (pkgFlagsC c \\ x) ++ x }
 
 ghcFlags :: [String] -> C ()
-ghcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c ++ x }
+ghcFlags x = modify $ \c -> c { ghcFlagsC = (ghcFlagsC c \\ x) ++ x }
 
 cFlags :: [String] -> C ()
-cFlags x = modify $ \c -> c { cFlagsC = cFlagsC c ++ x }
+cFlags x = modify $ \c -> c { cFlagsC = (cFlagsC c \\ x) ++ x }
 
 rmGhcFlags :: [String] -> C ()
 rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
