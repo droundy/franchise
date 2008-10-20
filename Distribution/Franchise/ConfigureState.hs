@@ -53,7 +53,8 @@ module Distribution.Franchise.ConfigureState
         where
 
 import qualified System.Environment as E ( getEnv )
-import Control.Monad ( when, unless, mplus )
+import Control.Monad ( mplus )
+import Data.Monoid ( Monoid, mempty )
 import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
 
@@ -194,13 +195,13 @@ getMaintainer = do ema <- getEnv "EMAIL"
 getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` gets extraDataC
 
-unlessC :: C Bool -> C () -> C ()
+unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate
-                           unless doit job
+                           if doit then return mempty else job
 
-whenC :: C Bool -> C () -> C ()
+whenC :: Monoid a => C Bool -> C a -> C a
 whenC predicate job = do doit <- predicate
-                         when doit job
+                         if doit then job else return mempty
 
 haveExtraData :: String -> C Bool
 haveExtraData d = isJust `fmap` getExtraData d
