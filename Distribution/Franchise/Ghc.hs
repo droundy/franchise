@@ -237,7 +237,7 @@ ghc sys args = do pn <- getPackageVersion
                   let opts = fl ++ (if "-c" `elem` args then [] else ld)
                                 ++ (if any (isSuffixOf ".c") args then cf else packs)
                   case pn of
-                    Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++args
+                    Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++packs++args
                     Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
 
 ghc_hs_to_o :: Dependency -> C ()
