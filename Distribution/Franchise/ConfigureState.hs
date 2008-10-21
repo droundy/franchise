@@ -47,7 +47,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
-      unlessC, whenC,
+      unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV,
       put, get, gets, modify )
         where
@@ -106,6 +106,10 @@ runWithArgs optsc validCommands runCommand =
                                          Right ((), ts { verbosity = readVerbosity Verbose v }))
                            "VERBOSITY")
                           ("Control verbosity (default verbosity level is 1)"),
+                        Option [] ["no-remove"]
+                          (NoArg (C $ \ts -> return $
+                                      Right ((), ts { noRemove = True })))
+                          ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
                           (ReqArg (\v -> addHook Postconfigure "prefix" $
                                          modify (\c -> c { prefixC = Just v })) "PATH")
@@ -280,6 +284,7 @@ data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
+                       noRemove :: Bool,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        configureHooks :: [(String,C ())],
@@ -376,6 +381,7 @@ runC (C a) =
                       configureHooks = [],
                       postConfigureHooks = [],
                       verbosity = readVerbosity Normal v,
+                      noRemove = False,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -453,6 +459,9 @@ putV str = do amv <- (> Normal) `fmap` getVerbosity
 
 putD :: String -> C ()
 putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
+
+getNoRemove :: C Bool
+getNoRemove = C $ \ts -> return $ Right (noRemove ts, ts)
 
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity

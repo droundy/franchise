@@ -109,9 +109,11 @@ printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 
 rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
-rm f = do io $ removeFile f
-          putV $ "rm "++f
-       `catchC` \_ -> return ()
+rm f = do noRm <- getNoRemove
+          if noRm then putV $ "#rm "++f
+                  else do io $ removeFile f
+                          putV $ "rm "++f
+                         `catchC` \_ -> return ()
 
 depName :: Dependency -> [String]
 depName (n :< _) = n
