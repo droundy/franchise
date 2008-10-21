@@ -61,10 +61,10 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    -- output (or error) to be consumed.
                    io $ forkIO $ seq (length out) $ return ()
                    io $ forkIO $ seq (length err) $ return ()
-                   ec <- io $ waitForProcess pid
                    let cl = unwords (('[':c++"]"):drop (length args-1) args)
                        clv = unwords (c:args)
                    putSV (cl++'\n':out++err) (clv++'\n':out++err)
+                   ec <- io $ waitForProcess pid
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -79,8 +79,8 @@ systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
-                      ec <- io $ waitForProcess pid
                       putV $ unwords (c:args)++'\n':out++err
+                      ec <- io $ waitForProcess pid
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         _ -> return ()
@@ -94,11 +94,9 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
-                      case err of
-                        "" -> return ()
-                        _ -> putV $ unwords (c:args) ++ '\n':err
-                      ec <- io $ waitForProcess pid
+                      io $ forkIO $ seq (length err) $ return ()
                       putV $ unwords (c:args)++'\n':out++err
+                      ec <- io $ waitForProcess pid
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
