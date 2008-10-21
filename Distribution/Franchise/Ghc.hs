@@ -289,7 +289,7 @@ checkHeader h =
                     then return ()
                     else fail $ unlines [e1,e2]
 
-tryLib :: String -> String -> String -> C String
+tryLib :: String -> String -> String -> C ()
 tryLib l h func = do let fn = "try-lib"++l++".c"
                          fo = "try-lib"++l++".o"
                          fh = "try-lib"++l++".h"
@@ -305,10 +305,11 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
                                              "void foo() {",
                                              "  "++func++";",
                                              "}"]
-                     e1 <- ghc systemErr ["-c","-cpp",fn]
-                     e2 <- ghc systemErr ["-fffi","-o","try-lib",fo,hf]
-                     mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
-                     return (e1++e2)
+                     let rmfiles = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
+                     do ghc systemV ["-c","-cpp",fn]
+                        ghc systemV ["-fffi","-o","try-lib",fo,hf]
+                       `catchC` (\e -> rmfiles >> fail e)
+                     rmfiles
 
 withLib :: String -> String -> String -> C () -> C ()
 withLib l h func job = do checkLib l h func
@@ -318,15 +319,13 @@ withLib l h func job = do checkLib l h func
 checkLib :: String -> String -> String -> C ()
 checkLib l h func =
     do checkMinimumPackages
-       e <- tryLib l h func
-       case e of
-         "" -> putS $ "found library "++l++" without any extra flags."
-         _ -> do ldFlags ["-l"++l]
-                 e2 <- tryLib l h func
-                 case e2 of
-                   "" -> putS $ "found library "++l++" with -l"++l
-                   _ -> do putV e2
-                           fail $ "Couldn't find library "++l
+       do tryLib l h func
+          putS $ "found library "++l++" without any extra flags."
+          `catchC` \_ ->
+              do ldFlags ["-l"++l]
+                 tryLib l h func
+                 putS $ "found library "++l++" with -l"++l
+                 `catchC` \_ -> fail $ "Couldn't find library "++l
 
 requireModule :: String -> C ()
 requireModule m = do haveit <- lookForModule m
