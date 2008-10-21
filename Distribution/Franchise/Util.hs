@@ -30,8 +30,8 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
-                                     endsWithOneOf )
+module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
+                                     cd, cat, endsWithOneOf )
     where
 
 import System.Directory ( setCurrentDirectory )
@@ -90,6 +90,25 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                      ExitSuccess -> return ()
                      ExitFailure 127 -> fail $ c ++ ": command not found"
                      ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+
+-- | Run a command silently, unless we're verbose
+systemV :: String   -- ^ Command
+        -> [String] -- ^ Arguments
+        -> C ()
+systemV c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+                    out <- io $ hGetContents o
+                    err <- io $ hGetContents e
+                    -- now we ensure that out and err are consumed, so that
+                    -- the code we're running won't hang waiting for its
+                    -- output (or error) to be consumed.
+                    io $ forkIO $ seq (length out) $ return ()
+                    io $ forkIO $ seq (length err) $ return ()
+                    putV $ unwords (c:args)++'\n':out++err
+                    ec <- io $ waitForProcessNonBlocking pid
+                    case ec of
+                      ExitSuccess -> return ()
+                      ExitFailure 127 -> fail $ c ++ ": command not found"
+                      ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
 
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String   -- ^ Name
