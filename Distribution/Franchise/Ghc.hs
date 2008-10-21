@@ -41,6 +41,7 @@ module Distribution.Franchise.Ghc
       package ) where
 
 import Control.Monad ( when )
+import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\), isSuffixOf )
 import System.Directory ( createDirectoryIfMissing, copyFile )
@@ -257,7 +258,7 @@ objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (isSuffixOf ".o") (concatMap buildName ds))
 objects_to_a _ = error "bug in objects_to_a"
 
-tryModule :: String -> String -> String -> C String
+tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
     do let fn = "Try"++m++".hs"
        io $ writeFile fn $ unlines $ ["import "++m++" ("++imports++")",
@@ -367,18 +368,18 @@ checkMinimumPackages =
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
        addExtraData "MINCONFIG" ""
 
-seekPackages :: C String -> C [String]
+seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
-    where lookForPackages "" = return []
-          lookForPackages e =
+    where lookForPackages (ExitSuccess,_) = return []
+          lookForPackages x@(_,e) =
               case catMaybes $ map findOption $ lines e of
               [] -> fail e
               ps -> do addPackages ps
-                       e2 <- runghcErr
-                       if e2 == e
+                       x2 <- runghcErr
+                       if x2 == x
                           then fail e
-                          else do x <- lookForPackages e2
-                                  return (ps++x)
+                          else do ps2 <- lookForPackages x2
+                                  return (ps++ps2)
 
 findOption :: String -> Maybe String
 findOption x | take (length foo) x == foo = listToMaybe $

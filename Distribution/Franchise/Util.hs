@@ -111,9 +111,7 @@ systemV c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Not
                       ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
 
 -- | Run a process with a list of arguments and return anything from /stderr/
-systemErr :: String   -- ^ Name
-          -> [String] -- ^ Arguments
-          -> C String -- ^ Output
+systemErr :: String -> [String] -> C (ExitCode, String)
 systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
@@ -123,8 +121,7 @@ systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       ec <- io $ waitForProcessNonBlocking pid
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
-                        _ -> return ()
-                      return err
+                        _ -> return (ec, err)
 
 -- | Run a process with a list of arguments and get the resulting output from stdout.
 systemOut :: String   -- ^ Program name
