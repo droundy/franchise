@@ -90,6 +90,7 @@ runWithArgs optsc validCommands runCommand =
     do args <- gets commandLine
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
+       withEnv "PACKAGES" (addPackages . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
        opts <- sequence optsc
@@ -123,7 +124,10 @@ runWithArgs optsc validCommands runCommand =
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
                           (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
-                          "Allow N jobs at once; infinite jobs with no arg.",
+                          "run N jobs in parallel; infinite jobs with no arg.",
+                        Option [] ["package"]
+                                 (ReqArg (\p -> addPackages [p]) "PACKAGE-NAME")
+                          "use a particular ghc package",
                         Option ['V'] ["version"] (NoArg showVersion)
                                    "show version number"
                       ]
