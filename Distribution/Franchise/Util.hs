@@ -36,12 +36,33 @@ module Distribution.Franchise.Util ( system, systemOut, systemErr, cd, cat,
 
 import System.Directory ( setCurrentDirectory, doesDirectoryExist )
 import System.Exit ( ExitCode(..) )
-import System.Process ( runInteractiveProcess, waitForProcess )
+import System.Process ( ProcessHandle, runInteractiveProcess,
+                        waitForProcess, getProcessExitCode )
+import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads )
 import System.IO ( hGetContents )
 import Control.Concurrent ( forkIO )
 import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
+
+-- | A version of waitForProcess that is non-blocking even when linked with
+-- the non-threaded runtime.
+
+--
+-- waitForProcess uses a very hokey heuristic to try to avoid burning too
+-- much CPU time in a busy wait, while also not adding too much extra
+-- latency.
+
+waitForProcessNonBlocking :: ProcessHandle -> IO ExitCode
+waitForProcessNonBlocking = if rtsSupportsBoundThreads
+                            then waitForProcess
+                            else wfp 0
+    where wfp n pid = do mec <- getProcessExitCode pid
+                         case mec of
+                           Just ec -> return ec
+                           Nothing -> do threadDelay n
+                                         putStrLn $ "Waiting for process... " ++ show n
+                                         wfp (min 100000 (n+1+n`div`4)) pid
 
 -- | Checks if a string ends with any given suffix
 endsWithOneOf :: [String] -- ^ List of strings to check
@@ -64,7 +85,7 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
                    let cl = unwords (('[':c++"]"):drop (length args-1) args)
                        clv = unwords (c:args)
                    putSV (cl++'\n':out++err) (clv++'\n':out++err)
-                   ec <- io $ waitForProcess pid
+                   ec <- io $ waitForProcessNonBlocking pid
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -80,7 +101,7 @@ systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
                       putV $ unwords (c:args)++'\n':out++err
-                      ec <- io $ waitForProcess pid
+                      ec <- io $ waitForProcessNonBlocking pid
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         _ -> return ()
@@ -96,7 +117,7 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
                       putV $ unwords (c:args)++'\n':out++err
-                      ec <- io $ waitForProcess pid
+                      ec <- io $ waitForProcessNonBlocking pid
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
