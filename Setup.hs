@@ -19,5 +19,5 @@ configure = do copyright "David Roundy"
                ghcFlags ["-threaded","-O2","-Wall"]
                version "0.0.3"
 
-main = build [] configure $ package "franchise" ["Distribution.Franchise"]
+main = build [] configure $ package "franchise" ["Distribution.Franchise"] []
 

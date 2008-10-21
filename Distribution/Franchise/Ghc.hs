@@ -128,8 +128,8 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
-package :: String -> [String] -> C Buildable
-package pn modules =
+package :: String -> [String] -> [String] -> C Buildable
+package pn modules cfiles =
     do putV $ "finding dependencies of package "++pn
        packageName pn
        let depend = pn++".depend"
@@ -144,6 +144,7 @@ package pn modules =
                                 case mv of
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
+           cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
            makeconfig _ =do lic <- getLicense
                             cop <- getCopyright
                             mai <- getMaintainer
@@ -187,7 +188,7 @@ package pn modules =
        --putS $ "LIBRARY DEPENDS:\n"
        --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       return $ ["lib"++pn++".a"] :< (config:mods)
+       return $ ["lib"++pn++".a"] :< (config:mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
