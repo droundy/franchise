@@ -164,7 +164,7 @@ package pn modules cfiles =
                             cop <- getCopyright
                             mai <- getMaintainer
                             deps <- packages
-                            io $ writeFile (pn++".config") $ unlines
+                            mkFile (pn++".config") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++lic,
@@ -177,7 +177,7 @@ package pn modules cfiles =
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
-                            io $ writeFile (pn++".cabal") $ unlines
+                            mkFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++lic,
@@ -275,9 +275,9 @@ objects_to_a _ = error "bug in objects_to_a"
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
     do let fn = "Try"++m++".hs"
-       io $ writeFile fn $ unlines $ ["import "++m++" ("++imports++")",
-                                      "main:: IO ()",
-                                      "main = undefined ("++code++")"]
+       mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
+                              "main:: IO ()",
+                              "main = undefined ("++code++")"]
        e <- ghc systemErr ["-c",fn]
        mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
        return e
@@ -287,11 +287,11 @@ checkHeader h =
     do checkMinimumPackages
        tryHeader
     where tryHeader =
-              do io $ writeFile "try-header-ffi.h" $ unlines ["void foo();"]
-                 io $ writeFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
-                                                              "void foo();",
-                                                              "void foo() { return; }"]
-                 io $ writeFile "try-header.hs" $ unlines
+              do mkFile "try-header-ffi.h" $ unlines ["void foo();"]
+                 mkFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
+                                                      "void foo();",
+                                                      "void foo() { return; }"]
+                 mkFile "try-header.hs" $ unlines
                         ["foreign import ccall unsafe \"try-header-ffi.h foo\" foo :: IO ()",
                          "main :: IO ()",
                          "main = foo"]
@@ -308,17 +308,17 @@ tryLib l h func = do let fn = "try-lib"++l++".c"
                          fo = "try-lib"++l++".o"
                          fh = "try-lib"++l++".h"
                          hf = "try-lib.hs"
-                     io $ writeFile fh $ unlines ["void foo();"]
-                     io $ writeFile hf $ unlines ["foreign import ccall unsafe \""++
-                                             fh++" foo\" foo :: IO ()",
-                                             "main :: IO ()",
-                                             "main = foo"]
-                     io $ writeFile fn $ unlines ["#include <stdio.h>",
-                                             "#include \""++h++"\"",
-                                             "void foo();",
-                                             "void foo() {",
-                                             "  "++func++";",
-                                             "}"]
+                     mkFile fh $ unlines ["void foo();"]
+                     mkFile hf $ unlines ["foreign import ccall unsafe \""++
+                                          fh++" foo\" foo :: IO ()",
+                                          "main :: IO ()",
+                                          "main = foo"]
+                     mkFile fn $ unlines ["#include <stdio.h>",
+                                          "#include \""++h++"\"",
+                                          "void foo();",
+                                          "void foo() {",
+                                          "  "++func++";",
+                                          "}"]
                      let rmfiles = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
                      do ghc systemV ["-c","-cpp",fn]
                         ghc systemV ["-fffi","-o","try-lib",fo,hf]
@@ -377,7 +377,7 @@ withModuleExporting m i c j =
 checkMinimumPackages :: C ()
 checkMinimumPackages =
     unlessC (haveExtraData "MINCONFIG") $
-    do io $ writeFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
+    do mkFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
        seekPackages (ghc systemErr ["-o","try-min","try-min.hs"])
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
        addExtraData "MINCONFIG" ""
