@@ -132,7 +132,12 @@ findSubBuildable t b | t `elem` buildName b = Just b
 
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
-    runC $ runWithArgs opts myargs runcommand
+    runC $ do do ((c,_):_) <- reads `fmap` cat "config.state"
+                 putOld c
+                `catchC` \_ -> do putV "Couldn't read old config.state"
+                                  rm "config.state"
+
+              runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           mkbuild' = do b <- mkbuild
                         b2 <- buildCreatedFiles
@@ -152,22 +157,26 @@ build opts doconf mkbuild =
                             case findSubBuildable t b of
                               Just b' -> build' CannotModifyState b'
                               Nothing -> fail $ "unrecognized target "++t
+          considerCleaning b = do dirty <- getCleaning
+                                  case dirty of
+                                    Nothing -> return ()
+                                    Just filthy -> do putV "looks like we've got some cleaning to do..."
+                                                      mapM_ rm $ filter filthy $ clean' b
+                                  retireOld -- now that we've cleaned up, forget about that old config!
           configure = do putS "configuring..."
                          runConfigureHooks
                          doconf
-                         mkbuild
+                         b <- mkbuild
                          runPostConfigureHooks
                          s <- show `fmap` get
-                         io $ writeFile "conf.state" s
+                         io $ writeFile "config.state" s
+                         considerCleaning b
                          putS "configure successful."
           reconfigure = do fs <- gets commandLine
-                           do ((c,_):_) <- reads `fmap` cat "conf.state"
-                              put c
-                             `catchC` \_ ->  do putV "Couldn't read conf.state"
-                                                rm "conf.state"
+                           rejuvenateOld -- use contents of config.state
                            setupname <- io $ getProgName
                            putV "checking whether we need to reconfigure"
-                           build' CanModifyState $ ["conf.state"] :< [source setupname]
+                           build' CanModifyState $ ["config.state"] :< [source setupname]
                                       :<- defaultRule { make = makeConfState }
                            runPostConfigureHooks
                            modify $ \s -> s { commandLine=fs }

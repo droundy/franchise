@@ -103,6 +103,10 @@ ghcDeps dname src =
 privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  simpleexname src cfiles =
     do putV $ "finding dependencies of executable "++simpleexname
+       requestCleaningFor $
+           do isch <- ghcFlagsChanged
+              if isch then return $ Just $ endsWithOneOf [".o",".hi",".a"]
+                      else return Nothing
        aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
@@ -132,6 +136,16 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 package :: String -> [String] -> [String] -> C Buildable
 package pn modules cfiles =
     do putV $ "finding dependencies of package "++pn
+       requestCleaningFor $
+           do isch <- versionChanged
+              if isch then do putV "need to clean because the package version changed..."
+                              return $ Just $ endsWithOneOf [".o",".hi",".a",".config",".cabal"]
+                      else return Nothing
+       requestCleaningFor $
+           do isch <- ghcFlagsChanged
+              if isch then do putV "need to clean because the ghc flags changed..."
+                              return $ Just $ endsWithOneOf [".o",".hi",".a"]
+                      else return Nothing
        packageName pn
        let depend = pn++".depend"
        ghcDeps depend modules >>= build' CanModifyState
