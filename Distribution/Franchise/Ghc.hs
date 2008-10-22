@@ -300,7 +300,7 @@ checkHeader h =
                  do ghc systemV ["-c","-cpp","try-header-ffi.c"]
                     ghc systemV ["-fffi","-o","try-header",
                                  "try-header.hs","try-header-ffi.o"]
-                            `catchC` \_ -> rmfiles
+                  `catchC` \e -> rmfiles >> fail e
                  rmfiles
 
 tryLib :: String -> String -> String -> C ()
