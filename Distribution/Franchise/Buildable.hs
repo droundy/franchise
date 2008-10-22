@@ -33,18 +33,15 @@ module Distribution.Franchise.Buildable
     ( build, installBin, replace, createFile,
       define, defineAs, isDefined,
       findAnExecutable,
-      -- The constructors are exported so users
-      -- can construct arbitrarily complex build
-      -- systems, hopefully.
-      Dependency(..), Buildable(..), (|<-), BuildRule(..),
       defaultRule, buildName, build', cleanIt, rm,
-      printBuildableDeep,
+      addTarget,
+      printBuildableDeep, (|<-),
       -- semi-automatic rule generation
       source, (.&), combineBuildables )
     where
 
 import Control.Monad ( when, msum )
-import Data.List ( nub, partition, delete, intersect, isPrefixOf, isSuffixOf )
+import Data.List ( nub, partition, intersect, isPrefixOf, isSuffixOf )
 import System.Environment ( getProgName )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
@@ -56,21 +53,13 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 
-data Dependency = [String] :< [Buildable]
-data Buildable = Dependency :<- BuildRule
-               | Unknown String
 (|<-) :: Dependency -> BuildRule -> Buildable
 (|<-) = (:<-)
 
-data BuildRule = BuildRule { make :: Dependency -> C (),
-                             install :: Dependency -> C (),
-                             clean :: Dependency -> [String] }
+infix 1 |<-
 
 defaultRule :: BuildRule
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
-
-infix 2 :<
-infix 1 :<-, |<-
 
 source :: String -> Buildable
 source = Unknown
@@ -81,6 +70,10 @@ combineBuildables bs = [] :< bs :<- defaultRule
 (.&) :: Buildable -> Buildable -> Buildable
 infixr 3 .&
 a .& b = [unwords (buildName a++"and":buildName b)] :< [a',b'] :<- defaultRule
+    where (a',b') = fixDependenciesBetweenPair a b
+
+fixDependenciesBetweenPair :: Buildable -> Buildable -> (Buildable, Buildable)
+fixDependenciesBetweenPair a b = (a', b')
     where a' = fixbuild b a
           b' = fixbuild a b
           fixbuild x (Unknown y) = maybe (Unknown y) id $ lookupB y x
@@ -126,10 +119,6 @@ buildDeps :: Buildable -> [Buildable]
 buildDeps (_:<ds:<-_) = ds
 buildDeps _ = []
 
-findSubBuildable :: String -> Buildable -> Maybe Buildable
-findSubBuildable t b | t `elem` buildName b = Just b
-                     | otherwise = msum $ map (findSubBuildable t) $ buildDeps b
-
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
     runC $ do do ((c,_):_) <- reads `fmap` cat "config.state"
@@ -154,7 +143,8 @@ build opts doconf mkbuild =
                                     install' b
           runcommand t = do reconfigure
                             b <- mkbuild
-                            case findSubBuildable t b of
+                            ts <- getTargets
+                            case msum $ map (lookupB t) $ b : ts of
                               Just b' -> build' CannotModifyState b'
                               Nothing -> fail $ "unrecognized target "++t
           considerCleaning b = do dirty <- getCleaning
@@ -294,16 +284,6 @@ showBuild :: Buildable -> String
 showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
 showBuild _ = error "bug in showBuild"
 
-instance Eq Buildable where
-    Unknown x == Unknown y = x == y
-    Unknown x == (ys:<_:<-_) = x `elem` ys
-    (ys:<_:<-_) == Unknown x = x `elem` ys
-    (xs:<_:<-_) == (ys:<_:<-_) = eqset xs ys
-        where eqset [] [] = True
-              eqset [] _ = False
-              eqset _ [] = False
-              eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
-
 elemB :: Buildable -> StringSet -> Bool
 elemB b s = any (`elemS` s) $ buildName b
 
@@ -386,3 +366,10 @@ findAnExecutable e xs = fe (e:xs)
                          case me of
                            Just _ -> return y
                            Nothing -> fe ys
+
+addTarget :: Buildable -> C ()
+addTarget b0 = modifyTargets $ addb b0
+    where addb b [] = [b]
+          addb b (x:xs) = x' : addb b' xs
+              where (b',x') = fixDependenciesBetweenPair b x
+

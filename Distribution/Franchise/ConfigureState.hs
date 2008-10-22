@@ -47,6 +47,8 @@ module Distribution.Franchise.ConfigureState
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
+      Dependency(..), Buildable(..), BuildRule(..),
+      getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       cd, getCurrentSubdir, processFilePath,
       versionChanged, ghcFlagsChanged,
@@ -67,7 +69,7 @@ import System.Environment ( getArgs, getProgName )
 import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( (\\) )
+import Data.List ( delete, (\\) )
 import Data.Maybe ( isJust, catMaybes )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
@@ -285,6 +287,14 @@ data ConfigureState = CS { commandLine :: [String],
 data LogMessage = Stdout String | Logfile String
 data HookTime = Preconfigure | Postconfigure
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
+data Dependency = [String] :< [Buildable]
+data Buildable = Dependency :<- BuildRule
+               | Unknown String
+infix 2 :<
+infix 1 :<-
+data BuildRule = BuildRule { make :: Dependency -> C (),
+                             install :: Dependency -> C (),
+                             clean :: Dependency -> [String] }
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
@@ -294,6 +304,7 @@ data TotalState = TS { numJobs :: Int,
                        syncChan :: Chan (),
                        configureHooks :: [(String,C ())],
                        postConfigureHooks :: [(String,C ())],
+                       targets :: [Buildable],
                        oldConfigureState :: Maybe ConfigureState,
                        configureState :: ConfigureState }
 
@@ -428,6 +439,7 @@ runC (C a) =
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
                       needCleaning = [],
+                      targets = [],
                       oldConfigureState = Nothing,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
@@ -468,6 +480,22 @@ getCleaning = do planners <- C $ \ts -> return $ Right (needCleaning ts, ts { ne
                  return (fixup $ catMaybes plans)
     where fixup [] = Nothing
           fixup ncs = Just $ \fn -> any (\nc -> nc fn) ncs
+
+getTargets :: C [Buildable]
+getTargets = C $ \ts -> return $ Right (targets ts, ts)
+
+modifyTargets :: ([Buildable] -> [Buildable]) -> C ()
+modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
+
+instance Eq Buildable where
+    Unknown x == Unknown y = x == y
+    Unknown x == (ys:<_:<-_) = x `elem` ys
+    (ys:<_:<-_) == Unknown x = x `elem` ys
+    (xs:<_:<-_) == (ys:<_:<-_) = eqset xs ys
+        where eqset [] [] = True
+              eqset [] _ = False
+              eqset _ [] = False
+              eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x
