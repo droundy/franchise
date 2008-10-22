@@ -283,71 +283,67 @@ tryModule m imports code =
        return e
 
 checkHeader :: String -> C ()
-checkHeader h =
-    do checkMinimumPackages
-       tryHeader
-    where tryHeader =
-              do mkFile "try-header-ffi.h" $ unlines ["void foo();"]
-                 mkFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
-                                                      "void foo();",
-                                                      "void foo() { return; }"]
-                 mkFile "try-header.hs" $ unlines
-                        ["foreign import ccall unsafe \"try-header-ffi.h foo\" foo :: IO ()",
-                         "main :: IO ()",
-                         "main = foo"]
-                 let rmfiles = mapM_ rm ["try-header-ffi.h", "try-header-ffi.o", "try-header-ffi.c",
-                                         "try-header", "try-header.hs"]
-                 do ghc systemV ["-c","-cpp","try-header-ffi.c"]
+checkHeader h = do checkMinimumPackages
+                   bracketC_ create remove test
+    where create = do
+            mkFile "try-header-ffi.h" $ unlines ["void foo();"]
+            mkFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
+                                                 "void foo();",
+                                                 "void foo() { return; }"]
+            mkFile "try-header.hs" $ unlines [foreign,
+                                              "main :: IO ()",
+                                              "main = foo"]
+          foreign = "foreign import ccall unsafe "++
+                    "\"try-header-ffi.h foo\" foo :: IO ()"
+          test = do ghc systemV ["-c","-cpp","try-header-ffi.c"]
                     ghc systemV ["-fffi","-o","try-header",
                                  "try-header.hs","try-header-ffi.o"]
-                  `catchC` \e -> rmfiles >> fail e
-                 rmfiles
+          remove = mapM_ rm ["try-header-ffi.h","try-header-ffi.o",
+                             "try-header-ffi.c","try-header","try-header.hs"]
 
 getConstant :: String -> String -> C String
-getConstant h code =
-    do checkMinimumPackages
-       mkFile "get-const-ffi.h" $ unlines ["void foo();"]
-       mkFile "get-const-ffi.c" $ unlines ["#include \""++h++"\"",
-                                           "void foo();",
-                                           "void foo() { "++code++"; }"]
-       mkFile "get-const.hs" $ unlines ["foreign import ccall unsafe \"get-const-ffi.h foo\" foo :: IO ()",
-                                        "main :: IO ()",
-                                        "main = foo"]
-       let rmfiles = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
-                               "get-const-ffi.c","get-const","get-const.hs"]
-       output <- do ghc systemV ["-c","-cpp","get-const-ffi.c"]
+getConstant h code = do checkMinimumPackages
+                        bracketC_ create remove test
+    where create = do
+            mkFile "get-const-ffi.h" $ unlines ["void foo();"]
+            mkFile "get-const-ffi.c" $ unlines ["#include \""++h++"\"",
+                                                "void foo();",
+                                                "void foo() { "++code++"; }"]
+            mkFile "get-const.hs" $ unlines [foreign,
+                                             "main :: IO ()",
+                                             "main = foo"]
+          foreign = "foreign import ccall unsafe "++
+                    "\"get-const-ffi.h foo\" foo :: IO ()"
+          test = do ghc systemV ["-c","-cpp","get-const-ffi.c"]
                     ghc systemV ["-fffi","-o","get-const",
                                  "get-const.hs","get-const-ffi.o"]
                     systemOut "./get-const" []
-                 `catchC` \e -> rmfiles >> fail e
-       rmfiles
-       return output
+          remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
+                             "get-const-ffi.c","get-const","get-const.hs"]
 
 tryLib :: String -> String -> String -> C ()
-tryLib l h func = do let fn = "try-lib"++l++".c"
-                         fo = "try-lib"++l++".o"
-                         fh = "try-lib"++l++".h"
-                         hf = "try-lib.hs"
-                     mkFile fh $ unlines ["void foo();"]
-                     mkFile hf $ unlines ["foreign import ccall unsafe \""++
-                                          fh++" foo\" foo :: IO ()",
-                                          "main :: IO ()",
-                                          "main = foo"]
-                     mkFile fn $ unlines ["#include <stdio.h>",
-                                          "#include \""++h++"\"",
-                                          "void foo();",
-                                          "void foo() {",
-                                          "  "++func++";",
-                                          "}"]
-                     let rmfiles = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi","try-lib","try-lib.o",hf]
-                     do ghc systemV ["-c","-cpp",fn]
-                        ghc systemV ["-fffi","-o","try-lib",fo,hf]
-                       `catchC` (\e -> rmfiles >> fail e)
-                     rmfiles
+tryLib l h func = do checkMinimumPackages
+                     bracketC_ create remove test
+    where fn = "try-lib"++l++".c"
+          fo = "try-lib"++l++".o"
+          fh = "try-lib"++l++".h"
+          hf = "try-lib.hs"
+          create = do mkFile fh $ unlines ["void foo();"]
+                      mkFile hf $ unlines ["foreign import ccall unsafe \""++
+                                            fh++" foo\" foo :: IO ()",
+                                            "main :: IO ()",
+                                            "main = foo"]
+                      mkFile fn $ unlines ["#include <stdio.h>",
+                                           "#include \""++h++"\"",
+                                           "void foo();",
+                                           "void foo() { "++func++"; }"]
+          test = do ghc systemV ["-c","-cpp",fn]
+                    ghc systemV ["-fffi","-o","try-lib",fo,hf]
+          remove = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi",
+                             "try-lib","try-lib.o",hf]
 
 withLib :: String -> String -> String -> C () -> C ()
-withLib l h func job = do checkLib l h func
-                          job
+withLib l h func job = (checkLib l h func >> job)
                        `catchC` \_ -> putS $ "failed to find library "++l
 
 checkLib :: String -> String -> String -> C ()
@@ -355,19 +351,18 @@ checkLib l h func =
     do checkMinimumPackages
        do tryLib l h func
           putS $ "found library "++l++" without any extra flags."
-          `catchC` \_ ->
-              do ldFlags ["-l"++l]
-                 tryLib l h func
-                 putS $ "found library "++l++" with -l"++l
-                 `catchC` \_ -> fail $ "Couldn't find library "++l
+        `catchC` \_ ->
+            do ldFlags ["-l"++l]
+               tryLib l h func
+               putS $ "found library "++l++" with -l"++l
+             `catchC` \_ -> fail $ "Couldn't find library "++l
 
 requireModule :: String -> C ()
 requireModule m = do haveit <- lookForModule m
                      when (not haveit) $ fail $ "Can't use module "++m
 
 withModule :: String -> C () -> C ()
-withModule m job = do requireModule m
-                      job
+withModule m job = (requireModule m >> job)
                    `catchC` \_ -> putS $ "failed to find module "++m
 
 lookForModule :: String -> C Bool
@@ -390,8 +385,7 @@ requireModuleExporting m i c = unlessC (lookForModuleExporting m i c) $
 
 withModuleExporting :: String -> String -> String -> C () -> C ()
 withModuleExporting m i c j =
-    do requireModuleExporting m i c
-       j
+    (requireModuleExporting m i c >> j)
     `catchC` \_ -> putS $ "failed to find an adequate module "++m
 
 checkMinimumPackages :: C ()
