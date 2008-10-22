@@ -56,7 +56,7 @@ module Distribution.Franchise.ConfigureState
         where
 
 import qualified System.Environment as E ( getEnv )
-import Control.Monad ( mplus )
+import Control.Monad ( MonadPlus, mplus, mzero )
 import Data.Monoid ( Monoid, mempty )
 import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
@@ -340,6 +340,10 @@ instance Monad C where
     return x = C (\cs -> return $ Right (x, cs))
     fail e = do putV $ "failure: "++ e
                 C (\_ -> return $ Left e)
+
+instance MonadPlus C where
+    mplus f g = catchC f $ \_ -> g
+    mzero = fail "mzero"
 
 get :: C ConfigureState
 get = C $ \ts -> return $ Right (configureState ts,ts)
