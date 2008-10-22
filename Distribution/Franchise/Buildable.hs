@@ -128,17 +128,14 @@ build opts doconf mkbuild =
 
               runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
-          mkbuild' = do b <- mkbuild
-                        b2 <- buildCreatedFiles
-                        return (b .& b2)
           runcommand "configure" = configure
-          runcommand "clean" = do b <- mkbuild'
+          runcommand "clean" = do b <- mkbuild
                                   mapM_ rm $ clean' b
           runcommand "build" = do reconfigure
                                   b <- mkbuild
                                   build' CannotModifyState b
           runcommand "install" = do reconfigure
-                                    b <- mkbuild'
+                                    b <- mkbuild
                                     build' CannotModifyState b
                                     install' b
           runcommand t = do reconfigure
@@ -327,15 +324,9 @@ installBin (xs:<_) = do pref <- getBinDir
                         mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
 
 createFile :: String -> C ()
-createFile fn = do addCreatedFile fn
+createFile fn = do addTarget $ [fn] :< [source $ fn++".in"] :<-
+                             defaultRule { make = \_ -> actuallyCreateFile fn }
                    actuallyCreateFile fn
-
-buildCreatedFiles :: C Buildable
-buildCreatedFiles = do cfs <- getCreatedFiles
-                       let bcfs = map bcf cfs
-                           bcf fn = [fn] :< [source $ fn++".in"]
-                                    :<- defaultRule { make = \_ -> actuallyCreateFile fn }
-                       return $ ["created files"] :< bcfs :<- defaultRule
 
 actuallyCreateFile :: String -> C ()
 actuallyCreateFile fn = do x <- cat (fn++".in")
@@ -367,9 +358,11 @@ findAnExecutable e xs = fe (e:xs)
                            Just _ -> return y
                            Nothing -> fe ys
 
-addTarget :: Buildable -> C ()
-addTarget b0 = modifyTargets $ addb b0
+addTarget :: Buildable -> C Buildable
+addTarget b0 = do modifyTargets $ addb b0
+                  last `fmap` getTargets
     where addb b [] = [b]
+          addb b (x:xs) | b == x = b:xs -- override targets with same name
           addb b (x:xs) = x' : addb b' xs
               where (b',x') = fixDependenciesBetweenPair b x
 

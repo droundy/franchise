@@ -45,7 +45,7 @@ module Distribution.Franchise.ConfigureState
       getCleaning, requestCleaningFor,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
       runConfigureHooks, runPostConfigureHooks,
-      getNumJobs, addCreatedFile, getCreatedFiles,
+      getNumJobs,
       CanModifyState(..),
       Dependency(..), Buildable(..), BuildRule(..),
       getTargets, modifyTargets,
@@ -264,7 +264,6 @@ ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
 data ConfigureState = CS { commandLine :: [String],
-                           createdFiles :: [String],
                            currentSubDirectory :: Maybe String,
                            ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
@@ -396,12 +395,6 @@ setNumJobs n = C $ \ts -> return $ Right ((), ts { numJobs = n })
 getNumJobs :: C Int
 getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
 
-addCreatedFile :: String -> C ()
-addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
-
-getCreatedFiles :: C [String]
-getCreatedFiles = gets createdFiles
-
 -- | Change current subdirectory
 cd :: String -> C ()
 cd d = modify (\cs -> cs { currentSubDirectory = cdd $ currentSubDirectory cs })
@@ -452,7 +445,6 @@ runC (C a) =
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
-                            createdFiles = [],
                             currentSubDirectory = Nothing,
                             ghcFlagsC = [],
                             pkgFlagsC = [],

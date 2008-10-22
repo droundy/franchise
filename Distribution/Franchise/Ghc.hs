@@ -66,7 +66,7 @@ xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (
 executable :: String -> String -> [String] -> C Buildable
 executable exname src cfiles =
     do x :< y :<- b <- privateExecutable exname src cfiles
-       return $ x :< y :<- b { install = installBin }
+       addTarget $ x :< y :<- b { install = installBin }
 
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
@@ -121,7 +121,7 @@ privateExecutable  simpleexname src cfiles =
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
        --putS $ "privateExecutable: "++exname
        --printBuildableDeep ([exname] :< (source src:mods++cobjs) |<- defaultRule)
-       return $ [exname] :< (source src:mods++cobjs)
+       addTarget $ [exname] :< (source src:mods++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
@@ -203,7 +203,7 @@ package pn modules cfiles =
        --putS $ "LIBRARY DEPENDS:\n"
        --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       return $ ["lib"++pn++".a"] :< (config:mods++cobjs)
+       addTarget $ ["lib"++pn++".a"] :< (config:mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
