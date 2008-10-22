@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
