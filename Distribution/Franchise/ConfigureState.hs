@@ -111,6 +111,9 @@ runWithArgs optsc validCommands runCommand =
                         Option [] ["user"]
                           (NoArg $ do let m = pkgFlags ["--user"]
                                       m; addHook Postconfigure "user" m) "install as user",
+                        Option [] ["disable-optimization"]
+                          (NoArg $ addHook Postconfigure "disable-optimization" $
+                                 rmGhcFlags ["-O2","-O"]) "disable optimization",
                         Option [] ["verbose"]
                           (OptArg (\v -> C $ \ts -> return $
                                          Right ((), ts { verbosity = readVerbosity Verbose v }))
@@ -154,6 +157,8 @@ runWithArgs optsc validCommands runCommand =
            options = opts++defaults
        eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
                                  flag "global" "not --user" $ return (),
+                                 flag "disable-optimize" "disable optimization" $
+                                      rmGhcFlags ["-O2","-O"],
                                  return $ Option [] ["constraint"]
                                  (ReqArg (const (return ())) "ugh") "ignored" ]
        case getOpt Permute (options++eviloptions) args of
