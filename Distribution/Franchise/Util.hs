@@ -31,7 +31,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
-                                     cd, cat, endsWithOneOf )
+                                     mkFile, cd, cat, endsWithOneOf )
     where
 
 import System.Directory ( setCurrentDirectory )
@@ -142,6 +142,11 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs
                     indent' "" = ""
+
+mkFile :: FilePath -> String -> C ()
+mkFile f s = do io $ writeFile f s
+                putL $ "wrote file "++f++":\n"
+                putL $ unlines $ map (\l->('|':' ':l)) $ lines s
 
 -- | Change current directory
 cd :: String -> C ()
