@@ -65,7 +65,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 flag, unlessFlag,
                                 configureFlag, configureUnlessFlag,
                                 -- combining buildables
-                                source, (.&), combineBuildables )
+                                source, extraData, combineBuildables )
     where
 
 import Distribution.Franchise.Util

@@ -36,8 +36,7 @@ module Distribution.Franchise.Buildable
       defaultRule, buildName, build', cleanIt, rm,
       addTarget,
       printBuildableDeep, (|<-),
-      -- semi-automatic rule generation
-      source, (.&), combineBuildables )
+      source, extraData, combineBuildables )
     where
 
 import Control.Monad ( when, msum )
@@ -64,13 +63,11 @@ defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 source :: String -> Buildable
 source = Unknown
 
+extraData :: String -> Buildable
+extraData x = Unknown ("config.d/X-"++x)
+
 combineBuildables :: [Buildable] -> Buildable
 combineBuildables bs = [] :< bs :<- defaultRule
-
-(.&) :: Buildable -> Buildable -> Buildable
-infixr 3 .&
-a .& b = [unwords (buildName a++"and":buildName b)] :< [a',b'] :<- defaultRule
-    where (a',b') = fixDependenciesBetweenPair a b
 
 fixDependenciesBetweenPair :: Buildable -> Buildable -> (Buildable, Buildable)
 fixDependenciesBetweenPair a b = (a', b')
