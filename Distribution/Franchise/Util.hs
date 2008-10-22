@@ -132,12 +132,16 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
-                      putV $ unwords (c:args)++'\n':out++err
+                      putV $ unwords (c:args)++'\n': indent "\t" (out++err)
                       ec <- io $ waitForProcessNonBlocking pid
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+    where indent ind s = ind ++ indent' s
+              where indent' ('\n':r) = '\n':ind++ indent' r
+                    indent' (x:xs) = x : indent' xs
+                    indent' "" = ""
 
 -- | Change current directory
 cd :: String -> C ()
