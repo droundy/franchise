@@ -318,7 +318,7 @@ writeConfigureState :: String -> C ()
 writeConfigureState d =
     do cs <- get
        io (createDirectory d) `catchC` \_ -> return ()
-       io $ writeFile (d'++"commandLine") $ show $ commandLine cs
+       writeF (d'++"commandLine") $ show $ commandLine cs
        writeF (d'++"ghcFlags") $ show $ ghcFlagsC cs
        writeF (d'++"pkgFlags") $ show $ pkgFlagsC cs
        writeF (d'++"cFlags") $ show $ cFlagsC cs

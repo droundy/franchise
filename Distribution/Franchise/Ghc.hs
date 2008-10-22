@@ -85,7 +85,8 @@ ghcDeps dname src =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       return $ [dname] :< map source ("config.d/ghcFlags":cleandeps x) :<- defaultRule { make = builddeps }
+       return $ [dname] :< map source ("config.d/commandLine":cleandeps x)
+                  :<- defaultRule { make = builddeps }
   where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M"
 #if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"

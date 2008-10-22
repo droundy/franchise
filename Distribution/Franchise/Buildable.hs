@@ -146,6 +146,7 @@ build opts doconf mkbuild =
                                                       mapM_ rm $ filter filthy $ clean' b
                                   retireOld -- now that we've cleaned up, forget about that old config!
           configure = do putS "configuring..."
+                         rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
                          b <- mkbuild
