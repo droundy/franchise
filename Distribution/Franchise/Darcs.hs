@@ -75,12 +75,12 @@ getRelease =
 versionFromDarcs :: C ()
 versionFromDarcs = do r <- getRelease
                       version r
-                      whenC versionChanged $ putS $ "version is now "++r
+                      putS $ "version is "++r
 
 patchVersionFromDarcs :: C ()
 patchVersionFromDarcs = do r <- getRelease
                            p <- patchLevel r
                            let vers = if p == 0 then r else r++'.':show p
                            version vers
-                           whenC versionChanged $ putS $ "version is now "++vers
+                           putS $ "version is "++vers
 

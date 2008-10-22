@@ -118,10 +118,7 @@ buildDeps _ = []
 
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
-    runC $ do (readConfigureState "config.d" >>= putOld)
-                `catchC` \_ -> do putV "Couldn't read old config.d"
-                                  rm_rf "config.d"
-              runWithArgs opts myargs runcommand
+    runC $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
           runcommand "clean" = do b <- mkbuild
@@ -139,23 +136,18 @@ build opts doconf mkbuild =
                             case msum $ map (lookupB t) $ b : ts of
                               Just b' -> build' CannotModifyState b'
                               Nothing -> fail $ "unrecognized target "++t
-          considerCleaning b = do dirty <- getCleaning
-                                  case dirty of
-                                    Nothing -> return ()
-                                    Just filthy -> do putV "looks like we've got some cleaning to do..."
-                                                      mapM_ rm $ filter filthy $ clean' b
-                                  retireOld -- now that we've cleaned up, forget about that old config!
           configure = do putS "configuring..."
                          rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
-                         b <- mkbuild
+                         mkbuild
                          runPostConfigureHooks
                          writeConfigureState "config.d"
-                         considerCleaning b
                          putS "configure successful."
           reconfigure = do fs <- gets commandLine
-                           rejuvenateOld -- use contents of config.d
+                           do (readConfigureState "config.d" >>= put)
+                              `catchC` \_ -> do putV "Couldn't read old config.d"
+                                                rm_rf "config.d"
                            setupname <- io $ getProgName
                            putV "checking whether we need to reconfigure"
                            build' CanModifyState $ ["config.d/commandLine"]
@@ -215,7 +207,9 @@ build' _ (Unknown f) = do e <- io $ doesFileExist f
 build' cms b =
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
            w <- reverse `fmap` findWork b
-           putD $ "I want to recompile all of "++ unwords (concatMap buildName w)
+           case w of
+             [] -> putD "I see nothing here to recompile"
+             _ -> putD $ "I want to recompile all of "++ unwords (concatMap buildName w)
            case length w of
              0 -> putD $ "Nothing to recompile for "++unwords (buildName b)++"."
              l -> putD $ unwords $ ["Need to recompile ",show l,"for"]

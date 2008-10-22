@@ -105,10 +105,6 @@ ghcDeps dname src =
 privateExecutable :: String -> String -> [String] -> C Buildable
 privateExecutable  simpleexname src cfiles =
     do putV $ "finding dependencies of executable "++simpleexname
-       requestCleaningFor $
-           do isch <- ghcFlagsChanged
-              if isch then return $ Just $ endsWithOneOf [".o",".hi",".a"]
-                      else return Nothing
        aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
@@ -117,7 +113,7 @@ privateExecutable  simpleexname src cfiles =
        whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
        ghcDeps depend [src] >>= build' CanModifyState
-       mods <- parseDeps `fmap` io (readFile depend)
+       mods <- parseDeps [] `fmap` io (readFile depend)
        let objs = filter (isSuffixOf ".o") $ concatMap buildName mods
            mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
            cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
@@ -138,20 +134,10 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 package :: String -> [String] -> [String] -> C Buildable
 package pn modules cfiles =
     do putV $ "finding dependencies of package "++pn
-       requestCleaningFor $
-           do isch <- versionChanged
-              if isch then do putV "need to clean because the package version changed..."
-                              return $ Just $ endsWithOneOf [".o",".hi",".a",".config",".cabal"]
-                      else return Nothing
-       requestCleaningFor $
-           do isch <- ghcFlagsChanged
-              if isch then do putV "need to clean because the ghc flags changed..."
-                              return $ Just $ endsWithOneOf [".o",".hi",".a"]
-                      else return Nothing
        packageName pn
        let depend = pn++".depend"
        ghcDeps depend modules >>= build' CanModifyState
-       mods <- parseDeps `fmap` io (readFile depend)
+       mods <- parseDeps [extraData "version"] `fmap` io (readFile depend)
        pre <- getLibDir
        ver <- getVersion
        let config = [pn++".config"] :< [source depend] :<- defaultRule { make = makeconfig }
@@ -222,8 +208,8 @@ modName (xs :< _ :<- _) = map toMod $ filter (isSuffixOf ".o") xs
           todots x = x
 modName _ = error "bug in modName"
 
-parseDeps :: String -> [Buildable]
-parseDeps x = builds
+parseDeps :: [Buildable] -> String -> [Buildable]
+parseDeps extradeps x = builds
     where builds = map makeBuild $ pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
           notcomm ('#':_) = False
           notcomm _ = True
@@ -238,7 +224,9 @@ parseDeps x = builds
               where (ys,r') = partition ((==z).fst) r
           pd _ = error "bug in parseDeps pd"
           makeBuild :: ([String],[String]) -> Buildable
-          makeBuild (xs,xds) = xs <: map (fb builds) xds
+          makeBuild (xs,xds) = case xs <: map (fb builds) xds of
+                               a :< b :<- c -> a :< b++extradeps :<- c
+                               a -> a
           fb _ z | endsWithOneOf [".c",".lhs",".hs"] z = source z
           fb [] z = error $ "Couldn't find build for "++ z
           fb ((xs:<xds:<-h):r) z | z `elem` xs = xs :< xds :<- h

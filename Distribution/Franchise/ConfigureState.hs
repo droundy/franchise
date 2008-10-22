@@ -42,7 +42,6 @@ module Distribution.Franchise.ConfigureState
       getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
-      getCleaning, requestCleaningFor,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs,
@@ -52,10 +51,9 @@ module Distribution.Franchise.ConfigureState
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
       cd, rm_rf, getCurrentSubdir, processFilePath,
-      versionChanged, ghcFlagsChanged,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
-      put, get, putOld, rejuvenateOld, retireOld, gets, modify )
+      put, get, gets, modify )
         where
 
 import qualified System.Environment as E ( getEnv )
@@ -366,13 +364,11 @@ data BuildRule = BuildRule { make :: Dependency -> C (),
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
                        noRemove :: Bool,
-                       needCleaning :: [C (Maybe (String -> Bool))],
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        configureHooks :: [(String,C ())],
                        postConfigureHooks :: [(String,C ())],
                        targets :: [Buildable],
-                       oldConfigureState :: Maybe ConfigureState,
                        configureState :: ConfigureState }
 
 tsHook :: HookTime -> TotalState -> [(String,C ())]
@@ -429,28 +425,6 @@ get = C $ \ts -> return $ Right (configureState ts,ts)
 put :: ConfigureState -> C ()
 put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
-putOld :: ConfigureState -> C ()
-putOld cs = C $ \ts -> return $ Right ((),ts { oldConfigureState=Just cs })
-
-rejuvenateOld :: C ()
-rejuvenateOld = C $ \ts ->
-   return $ Right ((), ts { configureState= maybe (configureState ts) id (oldConfigureState ts) })
-
-retireOld :: C ()
-retireOld = C $ \ts -> return $ Right ((), ts { oldConfigureState = Just (configureState ts) })
-
-isChanged :: Eq a => (ConfigureState -> a) -> C Bool
-isChanged f =
-    C $ \ts -> return $ Right (Just (f $ configureState ts) /= fmap f (oldConfigureState ts),ts)
-
-ghcFlagsChanged :: C Bool
-ghcFlagsChanged = do x <- isChanged ghcFlagsC
-                     y <- isChanged packagesC
-                     return (x || y)
-
-versionChanged :: C Bool
-versionChanged = isChanged (lookup "version" . extraDataC)
-
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
 
@@ -499,9 +473,7 @@ runC (C a) =
                       postConfigureHooks = [],
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
-                      needCleaning = [],
                       targets = [],
-                      oldConfigureState = Nothing,
                       configureState = defaultConfiguration { commandLine = x } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -521,16 +493,6 @@ defaultConfiguration = CS { commandLine = [],
                             packagesC = [],
                             replacementsC = [],
                             extraDataC = [] }
-
-requestCleaningFor :: (C (Maybe (String -> Bool))) -> C ()
-requestCleaningFor j = C $ \ts -> return $ Right ((), ts { needCleaning = j:needCleaning ts })
-
-getCleaning :: C (Maybe (String -> Bool))
-getCleaning = do planners <- C $ \ts -> return $ Right (needCleaning ts, ts { needCleaning = [] })
-                 plans <- sequence planners
-                 return (fixup $ catMaybes plans)
-    where fixup [] = Nothing
-          fixup ncs = Just $ \fn -> any (\nc -> nc fn) ncs
 
 getTargets :: C [Buildable]
 getTargets = C $ \ts -> return $ Right (targets ts, ts)
