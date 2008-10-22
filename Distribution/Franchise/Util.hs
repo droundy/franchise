@@ -163,7 +163,7 @@ bracketC :: C a         -- ^ computation to run first (\"make files\")
          -> (a -> C b)  -- ^ computation to run last (\"delete files\")
          -> (a -> C c)  -- ^ computation to run in-between
          -> C c         -- returns the value from the in-between computation
-bracketC before after thing = do a <- before 
+bracketC before after thing = do a <- before
                                  r <- (thing a) `catchC`
                                         (\e -> do { after a; fail e })
                                  after a
@@ -172,7 +172,7 @@ bracketC before after thing = do a <- before
 -- | A specialised variant of 'bracketC' with just a computation to run
 -- afterward.
 finallyC :: C a         -- ^ computation to run first
-         -> C b         -- ^ computation to run afterward (even if an exception 
+         -> C b         -- ^ computation to run afterward (even if an exception
                         -- was raised)
          -> C a         -- returns the value from the first computation
 a `finallyC` sequel = do r <- a `catchC` (\e -> do { sequel; fail e })
