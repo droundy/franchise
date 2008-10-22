@@ -116,19 +116,19 @@ runWithArgs optsc validCommands runCommand =
                                       Right ((), ts { noRemove = True })))
                           ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
-                          (ReqArg (\v -> addHook Postconfigure "prefix" $
-                                         modify (\c -> c { prefixC = Just v })) "PATH")
+                          (ReqArg (addHook Postconfigure "prefix"
+                                   . addExtraData "prefix") "PATH")
                           "install under prefix",
                         Option [] ["bindir"]
-                          (ReqArg (\v -> do let m = modify (\c -> c { bindirC = Just v })
+                          (ReqArg (\v -> do let m = addExtraData "bindir" v
                                             m; addHook Postconfigure "bindir" m) "PATH")
                           "install in bindir",
                         Option [] ["libdir"]
-                          (ReqArg (\v -> do let m = modify (\c -> c { libdirC = Just v })
+                          (ReqArg (\v -> do let m = addExtraData "libdir" v
                                             m; addHook Postconfigure "libdir" m) "PATH")
                           "install in libdir",
                         Option [] ["libsubdir"]
-                          (ReqArg (\v -> do let m = modify (\c -> c { libsubdirC = Just v })
+                          (ReqArg (\v -> do let m = addExtraData "libsubdir" v
                                             m; addHook Postconfigure "libsubdir" m) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
@@ -172,9 +172,9 @@ rmGhcFlags :: [String] -> C ()
 rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
 
 copyright, license, version :: String -> C ()
-copyright x = modify $ \c -> c { copyrightC = Just x }
-license x = modify $ \c -> c { licenseC = Just x }
-version x = modify $ \c -> c { versionC = x }
+copyright = addExtraData "copyright"
+license = addExtraData "license"
+version = addExtraData "version"
 
 getGhcFlags :: C [String]
 getGhcFlags = gets ghcFlagsC
@@ -192,17 +192,17 @@ getPkgFlags :: C [String]
 getPkgFlags = gets pkgFlagsC
 
 getVersion :: C String
-getVersion = gets versionC
+getVersion = maybe "0.0" id `fmap` getExtraData "version"
 
 getLicense :: C String
-getLicense = maybe "OtherLicense" id `fmap` gets licenseC
+getLicense = maybe "OtherLicense" id `fmap` getExtraData "license"
 
 getCopyright :: C String
-getCopyright = maybe "???" id `fmap` gets copyrightC
+getCopyright = maybe "???" id `fmap` getExtraData "license"
 
 getMaintainer :: C String
 getMaintainer = do ema <- getEnv "EMAIL"
-                   mai <- gets maintainerC
+                   mai <- getExtraData "maintainer"
                    return $ maybe "???" id (mai `mplus` ema)
 
 getExtraData :: String -> C (Maybe String)
@@ -223,10 +223,10 @@ addExtraData :: String -> String -> C ()
 addExtraData d v = modify $ \c -> c { extraDataC = (d,v):extraDataC c }
 
 packageName :: String -> C ()
-packageName x = modify $ \c -> c { packageNameC = Just x }
+packageName = addExtraData "packageName"
 
 getPackageName :: C (Maybe String)
-getPackageName = gets packageNameC
+getPackageName = getExtraData "packageName"
 
 getPackageVersion :: C (Maybe String)
 getPackageVersion = do ver <- getVersion
@@ -241,7 +241,7 @@ amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
 
 getPrefix :: C String
 getPrefix =
-    do prf <- gets prefixC
+    do prf <- getExtraData "prefix"
        amwindows <- amInWindows
        case prf of
          Just x -> return x
@@ -254,11 +254,11 @@ getPrefix =
 
 getLibDir :: C String
 getLibDir = do prefix <- getPrefix
-               maybe (prefix++"/lib") id `fmap` gets libdirC
+               maybe (prefix++"/lib") id `fmap` getExtraData "libdir"
 
 getBinDir :: C String
 getBinDir = do prefix <- getPrefix
-               maybe (prefix++"/bin") id `fmap` gets bindirC
+               maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
 
 ldFlags :: [String] -> C ()
 ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
@@ -271,16 +271,7 @@ data ConfigureState = CS { commandLine :: [String],
                            ldFlagsC :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
-                           prefixC :: Maybe String,
-                           bindirC :: Maybe String,
-                           libdirC :: Maybe String,
-                           libsubdirC :: Maybe String,
-                           versionC :: String,
-                           packageNameC :: Maybe String,
-                           maintainerC :: Maybe String,
-                           licenseC :: Maybe String,
-                           extraDataC :: [(String,String)],
-                           copyrightC :: Maybe String }
+                           extraDataC :: [(String,String)] }
                       deriving ( Read, Show )
 
 data LogMessage = Stdout String | Logfile String
@@ -381,7 +372,7 @@ ghcFlagsChanged = do x <- isChanged ghcFlagsC
                      return (x || y)
 
 versionChanged :: C Bool
-versionChanged = isChanged versionC
+versionChanged = isChanged (lookup "version" . extraDataC)
 
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
@@ -452,16 +443,7 @@ defaultConfiguration = CS { commandLine = [],
                             ldFlagsC = [],
                             packagesC = [],
                             replacementsC = [],
-                            prefixC = Nothing,
-                            bindirC = Nothing,
-                            libdirC = Nothing,
-                            libsubdirC = Nothing,
-                            versionC = "0.0",
-                            packageNameC = Nothing,
-                            maintainerC = Nothing,
-                            licenseC = Nothing,
-                            extraDataC = [],
-                            copyrightC = Nothing }
+                            extraDataC = [] }
 
 requestCleaningFor :: (C (Maybe (String -> Bool))) -> C ()
 requestCleaningFor j = C $ \ts -> return $ Right ((), ts { needCleaning = j:needCleaning ts })
