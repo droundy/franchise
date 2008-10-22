@@ -34,7 +34,7 @@ module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
       requireModule, lookForModule, withModule,
-      checkLib, withLib, checkHeader,
+      checkLib, withLib, checkHeader, getConstant,
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -302,6 +302,26 @@ checkHeader h =
                                  "try-header.hs","try-header-ffi.o"]
                   `catchC` \e -> rmfiles >> fail e
                  rmfiles
+
+getConstant :: String -> String -> C String
+getConstant h code =
+    do checkMinimumPackages
+       mkFile "get-const-ffi.h" $ unlines ["void foo();"]
+       mkFile "get-const-ffi.c" $ unlines ["#include \""++h++"\"",
+                                           "void foo();",
+                                           "void foo() { "++code++"; }"]
+       mkFile "get-const.hs" $ unlines ["foreign import ccall unsafe \"get-const-ffi.h foo\" foo :: IO ()",
+                                        "main :: IO ()",
+                                        "main = foo"]
+       let rmfiles = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
+                               "get-const-ffi.c","get-const","get-const.hs"]
+       output <- do ghc systemV ["-c","-cpp","get-const-ffi.c"]
+                    ghc systemV ["-fffi","-o","get-const",
+                                 "get-const.hs","get-const-ffi.o"]
+                    systemOut "./get-const" []
+                 `catchC` \e -> rmfiles >> fail e
+       rmfiles
+       return output
 
 tryLib :: String -> String -> String -> C ()
 tryLib l h func = do let fn = "try-lib"++l++".c"
