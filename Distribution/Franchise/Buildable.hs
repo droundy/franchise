@@ -144,8 +144,7 @@ build opts doconf mkbuild =
                          runPostConfigureHooks
                          writeConfigureState "config.d"
                          putS "configure successful."
-          reconfigure = do fs <- gets commandLine
-                           do (readConfigureState "config.d" >>= put)
+          reconfigure = do (readConfigureState "config.d" >>= put)
                               `catchC` \_ -> do putV "Couldn't read old config.d"
                                                 rm_rf "config.d"
                            setupname <- io $ getProgName
@@ -154,7 +153,6 @@ build opts doconf mkbuild =
                                       :< [source setupname]
                                       :<- defaultRule { make = makeConfState }
                            runPostConfigureHooks
-                           modify $ \s -> s { commandLine=fs }
           makeConfState _ = do fs <- gets commandLine
                                putV $ "reconfiguring with flags " ++ unwords fs
                                runWithArgs opts myargs (const configure)
