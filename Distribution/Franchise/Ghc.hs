@@ -53,9 +53,10 @@ import Distribution.Franchise.ConfigureState
 infix 2 <:
 (<:) :: [String] -> [Buildable] -> Buildable
 [x] <: y | isSuffixOf ".o" x && any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
-             = [x] :< y :<- defaultRule { make = ghc_hs_to_o }
+             = [x] :< (y++[source "config.d/ghcFlags"])
+               :<- defaultRule { make = ghc_hs_to_o }
 [x] <: [y] | isSuffixOf ".o" x && all (isSuffixOf ".c") (buildName y)
-               = [x] :< [y] :<- defaultRule { make = ghc_c }
+               = [x] :< [y,source "config.d/ghcFlags"] :<- defaultRule { make = ghc_c }
 [x] <: [y] | isSuffixOf ".hi" x && isSuffixOf ".o" yy &&
              drop 3 (reverse x) == drop 2 (reverse yy)
                  = [x] :< [y] :<- defaultRule -- hokey trick
@@ -84,7 +85,7 @@ ghcDeps dname src =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       return $ [dname] :< map source ("conf.state":cleandeps x) :<- defaultRule { make = builddeps }
+       return $ [dname] :< map source ("config.d/ghcFlags":cleandeps x) :<- defaultRule { make = builddeps }
   where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M"
 #if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"

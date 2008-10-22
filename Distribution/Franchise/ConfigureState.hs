@@ -50,7 +50,8 @@ module Distribution.Franchise.ConfigureState
       Dependency(..), Buildable(..), BuildRule(..),
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
-      cd, getCurrentSubdir, processFilePath,
+      writeConfigureState, readConfigureState,
+      cd, rm_rf, getCurrentSubdir, processFilePath,
       versionChanged, ghcFlagsChanged,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
@@ -64,9 +65,13 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
-import System.Directory ( getAppUserDataDirectory, getCurrentDirectory )
+import System.Directory ( getAppUserDataDirectory, getCurrentDirectory,
+                          doesDirectoryExist,
+                          removeFile, removeDirectory, createDirectory,
+                          getDirectoryContents )
 import System.Environment ( getArgs, getProgName )
-import System.IO ( BufferMode(..), IOMode(..), openFile, hSetBuffering, hPutStrLn, stdout )
+import System.IO ( BufferMode(..), IOMode(..), openFile,
+                   hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
 import Data.List ( delete, (\\) )
@@ -272,7 +277,72 @@ data ConfigureState = CS { commandLine :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
                            extraDataC :: [(String,String)] }
-                      deriving ( Read, Show )
+
+readConfigureState :: String -> C ConfigureState
+readConfigureState d =
+    do cl <- readf "commandLine"
+       ghc <- readf "ghcFlags"
+       pkg <- readf "pkgFlags"
+       c <- readf "cFlags"
+       ld <- readf "ldFlags"
+       packs <- readf "packages"
+       repl <- readf "replacements"
+       alles <- io $ actualContents d'
+       let es = catMaybes $ map afterX alles
+           afterX ('X':'-':r) = Just r
+           afterX _ = Nothing
+       vs <- mapM (\e -> io $ readFile (d'++"X-"++e)) es
+       let extr = zip es vs
+       seq (length $ concat vs) $ return $
+           defaultConfiguration { commandLine = cl,
+                                  ghcFlagsC = ghc,
+                                  pkgFlagsC = pkg,
+                                  cFlagsC = c,
+                                  ldFlagsC = ld,
+                                  packagesC = packs,
+                                  replacementsC = repl,
+                                  extraDataC = extr }
+      where d' = case reverse d of ('/':_) -> d
+                                   _ -> d++"/"
+            readf x = do s <- io $ readFile (d'++x)
+                         case reads s of
+                           [(dat,"")] -> return dat
+                           _ -> fail $ "couldn't read "++x
+
+writeConfigureState :: String -> C ()
+writeConfigureState d =
+    do cs <- get
+       rm_rf d
+       io $ createDirectory d
+       io $ writeFile (d'++"commandLine") $ show $ commandLine cs
+       writeF (d'++"ghcFlags") $ show $ ghcFlagsC cs
+       writeF (d'++"pkgFlags") $ show $ pkgFlagsC cs
+       writeF (d'++"cFlags") $ show $ cFlagsC cs
+       writeF (d'++"ldFlags") $ show $ ldFlagsC cs
+       writeF (d'++"packages") $ show $ packagesC cs
+       writeF (d'++"replacements") $ show $ replacementsC cs
+       mapM_ writeExtra $ extraDataC cs
+    where d' = case reverse d of ('/':_) -> d
+                                 _ -> d++"/"
+          writeExtra (e,v) = writeF (d'++"X-"++e) v
+
+writeF :: String -> String -> C ()
+writeF x y = do y' <- io (readFile x) `catchC` \_ -> return ('x':y)
+                whenC (return $ y /= y') $ io $ writeFile x y
+
+actualContents :: String -> IO [String]
+actualContents d = filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d
+
+rm_rf :: FilePath -> C ()
+rm_rf d =
+    do isd <- io $ doesDirectoryExist d
+       if not isd
+          then io $ removeFile d
+          else do fs <- io $ actualContents d
+                  mapM_ (rm_rf . ((d++"/")++)) fs
+                  putV $ "rm -rf "++d
+                  io $ removeDirectory d
+   `catchC` \e -> putV $ "rm -rf failed: "++e
 
 data LogMessage = Stdout String | Logfile String
 data HookTime = Preconfigure | Postconfigure

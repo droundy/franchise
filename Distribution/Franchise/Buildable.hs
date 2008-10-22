@@ -121,11 +121,9 @@ buildDeps _ = []
 
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
-    runC $ do do ((c,_):_) <- reads `fmap` cat "config.state"
-                 putOld c
-                `catchC` \_ -> do putV "Couldn't read old config.state"
-                                  rm "config.state"
-
+    runC $ do (readConfigureState "config.d" >>= putOld)
+                `catchC` \_ -> do putV "Couldn't read old config.d"
+                                  rm_rf "config.d"
               runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
@@ -155,15 +153,15 @@ build opts doconf mkbuild =
                          doconf
                          b <- mkbuild
                          runPostConfigureHooks
-                         s <- show `fmap` get
-                         io $ writeFile "config.state" s
+                         writeConfigureState "config.d"
                          considerCleaning b
                          putS "configure successful."
           reconfigure = do fs <- gets commandLine
-                           rejuvenateOld -- use contents of config.state
+                           rejuvenateOld -- use contents of config.d
                            setupname <- io $ getProgName
                            putV "checking whether we need to reconfigure"
-                           build' CanModifyState $ ["config.state"] :< [source setupname]
+                           build' CanModifyState $ ["config.d/commandLine"]
+                                      :< [source setupname]
                                       :<- defaultRule { make = makeConfState }
                            runPostConfigureHooks
                            modify $ \s -> s { commandLine=fs }
