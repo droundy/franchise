@@ -48,6 +48,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs, addCreatedFile, getCreatedFiles,
       CanModifyState(..),
       C, ConfigureState(..), runC, io, catchC, forkC,
+      cd, getCurrentSubdir, processFilePath,
       versionChanged, ghcFlagsChanged,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
@@ -262,6 +263,7 @@ ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
 
 data ConfigureState = CS { commandLine :: [String],
                            createdFiles :: [String],
+                           currentSubDirectory :: Maybe String,
                            ghcFlagsC :: [String],
                            pkgFlagsC :: [String],
                            cFlagsC :: [String],
@@ -385,6 +387,19 @@ addCreatedFile f = modify (\cs -> cs { createdFiles = f:createdFiles cs })
 getCreatedFiles :: C [String]
 getCreatedFiles = gets createdFiles
 
+-- | Change current subdirectory
+cd :: String -> C ()
+cd d = modify (\cs -> cs { currentSubDirectory = cdd $ currentSubDirectory cs })
+    where cdd Nothing = Just d
+          cdd (Just oldd) = Just (oldd++"/"++d)
+
+getCurrentSubdir :: C (Maybe String)
+getCurrentSubdir = gets currentSubDirectory
+
+processFilePath :: String -> C String
+processFilePath f = do sd <- gets currentSubDirectory
+                       return $ maybe f (++('/':f)) sd
+
 runC :: C a -> IO a
 runC (C a) =
     do x <- getArgs
@@ -422,6 +437,7 @@ runC (C a) =
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
                             createdFiles = [],
+                            currentSubDirectory = Nothing,
                             ghcFlagsC = [],
                             pkgFlagsC = [],
                             cFlagsC = [],

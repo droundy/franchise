@@ -31,12 +31,12 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
-                                     mkFile, cd, cat, endsWithOneOf,
+                                     mkFile, cat, pwd, ls, endsWithOneOf,
                                      bracketC, finallyC, bracketC_ )
     where
 
-import System.Directory ( setCurrentDirectory )
 import System.Exit ( ExitCode(..) )
+import System.Directory ( getCurrentDirectory, getDirectoryContents )
 import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads )
@@ -75,7 +75,8 @@ endsWithOneOf xs y = any (\x -> x `isSuffixOf` y) xs
 system :: String   -- ^ Command
        -> [String] -- ^ Arguments
        -> C ()
-system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+system c args = do sd <- getCurrentSubdir
+                   (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
                    out <- io $ hGetContents o
                    err <- io $ hGetContents e
                    -- now we ensure that out and err are consumed, so that
@@ -96,7 +97,8 @@ system c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Noth
 systemV :: String   -- ^ Command
         -> [String] -- ^ Arguments
         -> C ()
-systemV c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+systemV c args = do sd <- getCurrentSubdir
+                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
                     out <- io $ hGetContents o
                     err <- io $ hGetContents e
                     -- now we ensure that out and err are consumed, so that
@@ -113,7 +115,8 @@ systemV c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Not
 
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String -> [String] -> C (ExitCode, String)
-systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+systemErr c args = do sd <- getCurrentSubdir
+                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
@@ -128,7 +131,8 @@ systemErr c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
 systemOut :: String   -- ^ Program name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
-systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing Nothing
+systemOut c args = do sd <- getCurrentSubdir
+                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
@@ -145,18 +149,32 @@ systemOut c args = do (_,o,e,pid) <- io $ runInteractiveProcess c args Nothing N
                     indent' "" = ""
 
 mkFile :: FilePath -> String -> C ()
-mkFile f s = do io $ writeFile f s
+mkFile f s = do f' <- processFilePath f
+                io $ writeFile f' s
                 putL $ "wrote file "++f++":\n"
                 putL $ unlines $ map (\l->('|':' ':l)) $ lines s
 
--- | Change current directory
-cd :: String -> C ()
-cd = io . setCurrentDirectory
-
 -- | cat is just a strict readFile.
 cat :: String -> C String
-cat fn = do x <- io $ readFile fn
+cat fn = do fn' <- processFilePath fn
+            x <- io $ readFile fn'
             length x `seq` return x
+
+-- | Return the current franchise working directory.  This might not
+-- be the same thing as the true working directory, as franchise
+-- maintains its own internal concept of a working directory, so as to
+-- allow separate build threads to have separate working directories
+-- in order to build in parallel.
+
+pwd :: C String
+pwd = do x <- io $ getCurrentDirectory
+         sd <- getCurrentSubdir
+         return $ case sd of Nothing -> x
+                             Just d -> x++"/"++d
+
+ls :: String -> C [String]
+ls d = do d' <- processFilePath d
+          io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
 
 -- | Just like 'Control.Exception.bracket', except we're in the C monad.
 bracketC :: C a         -- ^ computation to run first (\"make files\")
