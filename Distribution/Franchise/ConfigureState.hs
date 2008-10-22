@@ -50,7 +50,7 @@ module Distribution.Franchise.ConfigureState
       C, ConfigureState(..), runC, io, catchC, forkC,
       versionChanged, ghcFlagsChanged,
       unlessC, whenC, getNoRemove,
-      putS, putV, putD, putSV,
+      putS, putV, putD, putSV, putL,
       put, get, putOld, rejuvenateOld, retireOld, gets, modify )
         where
 
@@ -515,6 +515,8 @@ putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
                            return $ Right ((),ts)
     where chomp x = case reverse x of '\n':rx -> reverse rx
                                       _ -> x
+
+putL = putM Logfile
 
 getVerbosity :: C Verbosity
 getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
