@@ -228,7 +228,8 @@ haveExtraData :: String -> C Bool
 haveExtraData d = isJust `fmap` getExtraData d
 
 addExtraData :: String -> String -> C ()
-addExtraData d v = modify $ \c -> c { extraDataC = (d,v):extraDataC c }
+addExtraData d v =
+    modify $ \c -> c { extraDataC = (d,v): filter ((/=d).fst) (extraDataC c) }
 
 packageName :: String -> C ()
 packageName = addExtraData "packageName"
