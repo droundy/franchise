@@ -287,19 +287,19 @@ checkHeader h =
     do checkMinimumPackages
        tryHeader
     where tryHeader =
-              do io $ writeFile "try-header.h" $ unlines ["void foo();"]
-                 io $ writeFile "try-header.c" $ unlines ["#include \""++h++"\"",
-                                                          "void foo();",
-                                                          "void foo() { return; }"]
+              do io $ writeFile "try-header-ffi.h" $ unlines ["void foo();"]
+                 io $ writeFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
+                                                              "void foo();",
+                                                              "void foo() { return; }"]
                  io $ writeFile "try-header.hs" $ unlines
-                        ["foreign import ccall unsafe \"try-header.h foo\" foo :: IO ()",
+                        ["foreign import ccall unsafe \"try-header-ffi.h foo\" foo :: IO ()",
                          "main :: IO ()",
                          "main = foo"]
-                 let rmfiles = mapM_ rm ["try-header.h", "try-header.o", "try-header.c",
+                 let rmfiles = mapM_ rm ["try-header-ffi.h", "try-header-ffi.o", "try-header-ffi.c",
                                          "try-header", "try-header.hs"]
-                 do ghc systemV ["-c","-cpp","try-header.c"]
+                 do ghc systemV ["-c","-cpp","try-header-ffi.c"]
                     ghc systemV ["-fffi","-o","try-header",
-                                 "try-header.hs","try-header.o"]
+                                 "try-header.hs","try-header-ffi.o"]
                             `catchC` \_ -> rmfiles
                  rmfiles
 
