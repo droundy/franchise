@@ -30,12 +30,55 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Darcs ( inDarcs )
+module Distribution.Franchise.Darcs ( inDarcs, patchLevel,
+                                      versionFromDarcs, patchVersionFromDarcs )
     where
 
 import System.Directory ( doesDirectoryExist )
 import Distribution.Franchise.ConfigureState
 
+import Distribution.Franchise.Util ( systemOut, cat )
+
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
+
+data Literal = Literal String
+instance Show Literal where
+    showsPrec _ (Literal x) = showString x
+
+patchLevel :: String -> C Int
+patchLevel true_v =
+           do True <- inDarcs
+              patches' <- systemOut "darcs" ["changes","--from-tag",true_v,"--count"]
+              ((patches'',_):_) <- return $ reads patches'
+              let level = max 0 (patches'' - 1)
+              io (writeFile ".patchLevel" $ show level) `catchC` \_ -> return ()
+              return level
+             `catchC` \_ -> do [(i,"")] <- reads `fmap` cat ".patchLevel"
+                               return i
+                               `catchC` \_ -> return 0
+
+getRelease :: C String
+getRelease =
+    do v <- do True <- inDarcs
+               xxx <- systemOut "darcs" ["changes","-t","^[0-9\\.]+(rc[0-9]*|pre[0-9]*)?$", "--reverse"]
+               ((_:zzz:_):_) <- return $ map words $ reverse $ lines xxx
+               return zzz
+           `catchC` \_ -> do (x:_) <- words `fmap` cat ".releaseVersion"
+                             return x
+                             `catchC` \_ -> return "0.0"
+       io (writeFile ".releaseVersion" v) `catchC` \_ -> return ()
+       return v
+
+versionFromDarcs :: C ()
+versionFromDarcs = do r <- getRelease
+                      version r
+                      whenC versionChanged $ putS $ "version is now "++r
+
+patchVersionFromDarcs :: C ()
+patchVersionFromDarcs = do r <- getRelease
+                           p <- patchLevel r
+                           let vers = if p == 0 then r else r++'.':show p
+                           version vers
+                           whenC versionChanged $ putS $ "version is now "++vers
 

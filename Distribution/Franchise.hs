@@ -51,7 +51,7 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
                                 -- To run a command only in a darcs repository
-                                inDarcs,
+                                inDarcs, patchLevel, versionFromDarcs, patchVersionFromDarcs,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
