@@ -74,7 +74,7 @@ import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( delete, (\\) )
+import Data.List ( isPrefixOf, delete, (\\) )
 import Data.Maybe ( isJust, catMaybes )
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
@@ -312,8 +312,7 @@ readConfigureState d =
 writeConfigureState :: String -> C ()
 writeConfigureState d =
     do cs <- get
-       rm_rf d
-       io $ createDirectory d
+       io (createDirectory d) `catchC` \_ -> return ()
        io $ writeFile (d'++"commandLine") $ show $ commandLine cs
        writeF (d'++"ghcFlags") $ show $ ghcFlagsC cs
        writeF (d'++"pkgFlags") $ show $ pkgFlagsC cs
@@ -322,13 +321,16 @@ writeConfigureState d =
        writeF (d'++"packages") $ show $ packagesC cs
        writeF (d'++"replacements") $ show $ replacementsC cs
        mapM_ writeExtra $ extraDataC cs
+       allextras <- io $ filter ("X-" `isPrefixOf`) `fmap` actualContents d
+       let toberemoved = allextras \\ map (("X-"++) . fst) (extraDataC cs)
+       mapM_ (rm_rf . (d'++)) toberemoved
     where d' = case reverse d of ('/':_) -> d
                                  _ -> d++"/"
           writeExtra (e,v) = writeF (d'++"X-"++e) v
 
 writeF :: String -> String -> C ()
 writeF x y = do y' <- io (readFile x) `catchC` \_ -> return ('x':y)
-                whenC (return $ y /= y') $ io $ writeFile x y
+                whenC (return $ length y /= length y' || y /= y') $ io $ writeFile x y
 
 actualContents :: String -> IO [String]
 actualContents d = filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d
