@@ -516,6 +516,7 @@ putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
     where chomp x = case reverse x of '\n':rx -> reverse rx
                                       _ -> x
 
+putL :: String -> C ()
 putL = putM Logfile
 
 getVerbosity :: C Verbosity
