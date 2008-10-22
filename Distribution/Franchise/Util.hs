@@ -31,7 +31,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
-                                     mkFile, cd, cat, endsWithOneOf )
+                                     mkFile, cd, cat, endsWithOneOf,
+                                     bracketC, finallyC, bracketC_ )
     where
 
 import System.Directory ( setCurrentDirectory )
@@ -156,3 +157,29 @@ cd = io . setCurrentDirectory
 cat :: String -> C String
 cat fn = do x <- io $ readFile fn
             length x `seq` return x
+
+-- | Just like 'Control.Exception.bracket', except we're in the C monad.
+bracketC :: C a         -- ^ computation to run first (\"make files\")
+         -> (a -> C b)  -- ^ computation to run last (\"delete files\")
+         -> (a -> C c)  -- ^ computation to run in-between
+         -> C c         -- returns the value from the in-between computation
+bracketC before after thing = do a <- before 
+                                 r <- (thing a) `catchC`
+                                        (\e -> do { after a; fail e })
+                                 after a
+                                 return r
+
+-- | A specialised variant of 'bracketC' with just a computation to run
+-- afterward.
+finallyC :: C a         -- ^ computation to run first
+         -> C b         -- ^ computation to run afterward (even if an exception 
+                        -- was raised)
+         -> C a         -- returns the value from the first computation
+a `finallyC` sequel = do r <- a `catchC` (\e -> do { sequel; fail e })
+                         sequel
+                         return r
+
+-- | A variant of 'bracketC' where the return value from the first computation
+-- is not required.
+bracketC_ :: C a -> C b -> C c -> C c
+bracketC_ before after thing = bracketC before (const after) (const thing)
