@@ -35,6 +35,7 @@ module Distribution.Franchise.Darcs ( inDarcs, patchLevel,
 
 import System.Directory ( doesDirectoryExist )
 import Distribution.Franchise.ConfigureState
+import Control.Monad ( msum )
 
 import Distribution.Franchise.Util ( systemOut, cat )
 
@@ -59,13 +60,15 @@ patchLevel true_v =
 
 getRelease :: C String
 getRelease =
-    do v <- do True <- inDarcs
-               xxx <- systemOut "darcs" ["changes","-t","^[0-9\\.]+(rc[0-9]*|pre[0-9]*)?$", "--reverse"]
-               ((_:zzz:_):_) <- return $ map words $ reverse $ lines xxx
-               return zzz
-           `catchC` \_ -> do (x:_) <- words `fmap` cat ".releaseVersion"
-                             return x
-                             `catchC` \_ -> return "0.0"
+    do v <- msum [do True <- inDarcs
+                     xxx <- systemOut "darcs" ["changes","-t",
+                                               "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$",
+                                               "--reverse"]
+                     ((_:zzz:_):_) <- return $ map words $ reverse $ lines xxx
+                     return zzz,
+                  do x:_ <- words `fmap` cat ".releaseVersion"
+                     return x,
+                  return "0.0"]
        io (writeFile ".releaseVersion" v) `catchC` \_ -> return ()
        return v
 
