@@ -190,10 +190,10 @@ needsWork ((x:_) :< ds) =
                                         then do putD $ "Need work cuz "++y++" don't exist"
                                                 return True
                                         else do mty <- io $ getModificationTime y
-                                                --if mty > mt
-                                                --   then putS $ "I need work since "++ y ++
-                                                --            " is too new versus " ++ x
-                                                --   else return ()
+                                                if mty > mt
+                                                   then putD $ "I need work since "++ y ++
+                                                            " is newer than " ++ x
+                                                   else return ()
                                                 return (mty > mt)
                      anyM _ [] = return False
                      anyM f (z:zs) = do b <- f z
