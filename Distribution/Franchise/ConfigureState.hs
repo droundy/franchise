@@ -185,6 +185,7 @@ copyright = addExtraData "copyright"
 license = addExtraData "license"
 version v = do addExtraData "version" v
                writeF "config.d/X-version" v
+                      `catchC` \_ -> return ()
 
 getGhcFlags :: C [String]
 getGhcFlags = gets ghcFlagsC
