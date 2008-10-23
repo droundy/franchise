@@ -140,7 +140,8 @@ package pn modules cfiles =
        mods <- parseDeps [extraData "version"] `fmap` io (readFile depend)
        pre <- getLibDir
        ver <- getVersion
-       let config = [pn++".config"] :< [source depend] :<- defaultRule { make = makeconfig }
+       let config = [pn++".config",pn++".cabal"] :< [source depend, extraData "version"]
+                    :<- defaultRule { make = makeconfig }
            destination = pre++"/"++pn++"-"++ver++"/"
            guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
            appendExtra f d = do mv <- getExtraData d
@@ -191,8 +192,8 @@ package pn modules cfiles =
        --putS $ "LIBRARY DEPENDS:\n"
        --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       addTarget $ ["lib"++pn++".a",pn++".cabal"]
-                  :< (extraData "version":config:mods++cobjs)
+       addTarget $ ["lib"++pn++".a"]
+                  :< (config:mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
@@ -259,7 +260,7 @@ ghc_c (_:<ds) = case filter (isSuffixOf ".c") $ concatMap buildName ds of
                 _ -> fail "error 5"
 
 objects_to_a :: Dependency -> C ()
-objects_to_a ([outname,_]:<ds) =
+objects_to_a ([outname]:<ds) =
     system "ar" ("cqs":outname:filter (isSuffixOf ".o") (concatMap buildName ds))
 objects_to_a _ = error "bug in objects_to_a"
 
