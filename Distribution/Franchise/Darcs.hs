@@ -47,7 +47,7 @@ instance Show Literal where
     showsPrec _ (Literal x) = showString x
 
 patchLevel :: String -> C Int
-patchLevel true_v =
+patchLevel true_v = withRootdir $
            do True <- inDarcs
               patches' <- systemOut "darcs" ["changes","--from-tag",true_v,"--count"]
               ((patches'',_):_) <- return $ reads patches'
@@ -59,7 +59,7 @@ patchLevel true_v =
                                `catchC` \_ -> return 0
 
 getRelease :: C String
-getRelease =
+getRelease = withRootdir $
     do v <- msum [do True <- inDarcs
                      xxx <- systemOut "darcs" ["changes","-t",
                                                "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$",

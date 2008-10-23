@@ -50,7 +50,8 @@ module Distribution.Franchise.ConfigureState
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
-      cd, rm_rf, writeF, withDirectory, getCurrentSubdir, processFilePath,
+      cd, rm_rf, writeF,
+      withDirectory, withRootdir, getCurrentSubdir, processFilePath,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
       put, get, gets, modify )
@@ -453,6 +454,13 @@ withDirectory d f = do oldd <- gets currentSubDirectory
                        x <- f
                        modify $ \cs -> cs { currentSubDirectory = oldd }
                        return x
+
+withRootdir :: C a -> C a
+withRootdir f = do oldd <- gets currentSubDirectory
+                   modify $ \cs -> cs { currentSubDirectory = Nothing }
+                   x <- f
+                   modify $ \cs -> cs { currentSubDirectory = oldd }
+                   return x
 
 getCurrentSubdir :: C (Maybe String)
 getCurrentSubdir = gets currentSubDirectory
