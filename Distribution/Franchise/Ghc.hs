@@ -191,7 +191,7 @@ package pn modules cfiles =
        --putS $ "LIBRARY DEPENDS:\n"
        --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       addTarget $ ["lib"++pn++".a"] :< (config:mods++cobjs)
+       addTarget $ ["lib"++pn++".a",pn++".cabal"] :< (config:mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
@@ -258,7 +258,7 @@ ghc_c (_:<ds) = case filter (isSuffixOf ".c") $ concatMap buildName ds of
                 _ -> fail "error 5"
 
 objects_to_a :: Dependency -> C ()
-objects_to_a ([outname]:<ds) =
+objects_to_a ([outname,_]:<ds) =
     system "ar" ("cqs":outname:filter (isSuffixOf ".o") (concatMap buildName ds))
 objects_to_a _ = error "bug in objects_to_a"
 

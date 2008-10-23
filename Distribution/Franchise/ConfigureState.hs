@@ -347,7 +347,7 @@ rm_rf :: FilePath -> C ()
 rm_rf d =
     do isd <- io $ doesDirectoryExist d
        if not isd
-          then io $ removeFile d
+          then io (removeFile d) `catchC` \_ -> return ()
           else do fs <- readDirectory d
                   mapM_ (rm_rf . ((d++"/")++)) fs
                   putV $ "rm -rf "++d

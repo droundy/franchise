@@ -23,5 +23,6 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                -- build rather than waiting for the user to
                                -- run Setup.hs configure again.
                                versionFromDarcs
+                               darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 

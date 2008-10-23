@@ -100,8 +100,9 @@ printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
 rm f = do noRm <- getNoRemove
+          f' <- processFilePath f
           if noRm then putV $ "#rm "++f
-                  else do io $ removeFile f
+                  else do io $ removeFile f'
                           putV $ "rm "++f
                          `catchC` \_ -> return ()
 

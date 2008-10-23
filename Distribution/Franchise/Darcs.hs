@@ -29,15 +29,17 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Darcs ( inDarcs, patchLevel,
+module Distribution.Franchise.Darcs ( inDarcs, patchLevel, darcsDist, dist,
                                       versionFromDarcs, patchVersionFromDarcs )
     where
 
-import System.Directory ( doesDirectoryExist )
-import Distribution.Franchise.ConfigureState
+import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
+                          getDirectoryContents )
 import Control.Monad ( msum, when )
 
-import Distribution.Franchise.Util ( systemOut, cat )
+import Distribution.Franchise.Buildable
+import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.Util
 
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
@@ -52,7 +54,7 @@ patchLevel true_v = withRootdir $
               patches' <- systemOut "darcs" ["changes","--from-tag",true_v,"--count"]
               ((patches'',_):_) <- return $ reads patches'
               let level = max 0 (patches'' - 1)
-              io (writeFile ".patchLevel" $ show level) `catchC` \_ -> return ()
+              writeF ".patchLevel" (show level) `catchC` \_ -> return ()
               return level
              `catchC` \_ -> do [(i,"")] <- reads `fmap` cat ".patchLevel"
                                return i
@@ -69,7 +71,7 @@ getRelease = withRootdir $
                   do x:_ <- words `fmap` cat ".releaseVersion"
                      return x,
                   return "0.0"]
-       io (writeFile ".releaseVersion" v) `catchC` \_ -> return ()
+       writeF ".releaseVersion" v `catchC` \_ -> return ()
        return v
 
 versionFromDarcs :: C ()
@@ -88,3 +90,37 @@ patchVersionFromDarcs = do r <- getRelease
                                 do version vers
                                    putS $ "version is now "++vers
 
+darcsDist :: String -> [String] -> C Buildable
+darcsDist dn tocopy = withRootdir $
+    do v <- getVersion
+       let distname = dn++"-"++v
+           tarname = distname++".tar.gz"
+           mkdist = do putS $ "making tarball as "++tarname
+                       system "darcs" ["dist","--dist-name",distname]
+                       rm_rf distname
+                       system "tar" ["zxf",tarname]
+                       withDirectory distname $ do dist ".releaseVersion"
+                                                   dist ".patchLevel"
+                                                   mapM_ dist tocopy
+                       system "tar" ["zcf",tarname,distname]
+                       rm_rf distname
+       addTarget $ ["dist",tarname] :< map source tocopy
+               |<- defaultRule { make = const mkdist }
+
+-- | Copy specified file from the build directory to the tarball.
+-- This is intended to be used in your darcsDist job.
+dist :: String -> C ()
+dist fn = do fn' <- processFilePath fn
+             cp_recursive fn fn'
+          `catchC` \_ -> putV $ "unable to include "++fn++" in the tarball"
+    where cp_recursive :: FilePath -> FilePath -> C ()
+          cp_recursive o n =
+              do putD $ "cp_recursive "++o++" "++n
+                 isd <- io $ doesDirectoryExist o
+                 if not isd
+                   then io (copyFile o n) `catchC` \_ -> return ()
+                   else do io $ createDirectory n
+                           fs <- io $ filter (not . (`elem` [".",".."]))
+                                 `fmap` getDirectoryContents o
+                           putD $ "foobar "++unwords fs
+                           mapM_ (\f -> cp_recursive (o++"/"++f) (n++"/"++f)) fs
