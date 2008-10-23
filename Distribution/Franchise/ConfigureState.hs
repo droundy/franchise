@@ -183,7 +183,8 @@ rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
 copyright, license, version :: String -> C ()
 copyright = addExtraData "copyright"
 license = addExtraData "license"
-version = addExtraData "version"
+version v = do addExtraData "version" v
+               writeF "config.d/X-version" v
 
 getGhcFlags :: C [String]
 getGhcFlags = gets ghcFlagsC
