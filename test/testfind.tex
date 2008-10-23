@@ -1,0 +1,75 @@
+\documentclass{article}
+\usepackage{verbatim}
+\newenvironment{file}[1]%
+  {\endgraf\noindent File: \texttt{#1}%
+   \endgraf\verbatim}%
+  {\endverbatim}
+
+\begin{document}
+
+The question is whether or not franchise can figure out the
+correct package to use when multiple package export the same
+module, or if it's just a fluke.
+
+\begin{file}{a/Setup.hs}
+import Distribution.Franchise
+main = build [] (version "1.0") (package "a" ["Foo"] [])
+\end{file}
+
+Note: I shouldn't need to explicitly import the Prelude, but if I don't,
+it breaks!
+
+\begin{file}{a/Foo.hs}
+module Foo ( foo, a ) where
+import Prelude
+a :: Int
+a = 10
+foo :: String
+foo = "Foo a"
+\end{file}
+
+\begin{file}{b/Setup.hs}
+import Distribution.Franchise
+main = build [] (version "2.0") (package "b" ["Foo"] [])
+\end{file}
+
+\begin{file}{b/Foo.hs}
+module Foo ( foo, b ) where
+import Prelude
+b :: Int
+b = 20
+foo :: String
+foo = "Foo b"
+\end{file}
+
+\begin{file}{c/Setup.hs}
+import Distribution.Franchise
+req a = requireModuleExporting "Foo" a (a++" :: Int")
+options = [configureFlag "with-a" "" (req "a"),
+           configureFlag "with-b" "" (req "b")]
+main = build options (version "1.0") (executable "c" "Main.hs" [])
+\end{file}
+
+\begin{file}{c/Main.hs}
+import Foo ( foo )
+main = print foo
+\end{file}
+
+\begin{file}{test.sh}
+#!/bin/bash -e
+cd a
+runghc Setup.hs install --user
+cd ../b
+runghc Setup.hs install --user
+cd ../c
+runghc Setup.hs configure --with-a
+#runghc Setup.hs build
+#diff <(./c) <(echo Foo a)
+runghc Setup.hs clean
+runghc Setup.hs configure --with-b
+#runghc Setup.hs build
+#diff <(./c) <(echo Foo b)
+\end{file}
+
+Did that work?
+\end{document}
