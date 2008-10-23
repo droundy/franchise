@@ -22,7 +22,6 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                -- because we want to rerun it with each
                                -- build rather than waiting for the user to
                                -- run Setup.hs configure again.
-                               --versionFromDarcs
-                               version "0.0.3"
+                               versionFromDarcs
                                package "franchise" ["Distribution.Franchise"] []
 

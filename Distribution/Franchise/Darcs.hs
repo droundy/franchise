@@ -35,7 +35,7 @@ module Distribution.Franchise.Darcs ( inDarcs, patchLevel,
 
 import System.Directory ( doesDirectoryExist )
 import Distribution.Franchise.ConfigureState
-import Control.Monad ( msum )
+import Control.Monad ( msum, when )
 
 import Distribution.Franchise.Util ( systemOut, cat )
 
@@ -73,14 +73,18 @@ getRelease =
        return v
 
 versionFromDarcs :: C ()
-versionFromDarcs = do r <- getRelease
-                      version r
-                      putS $ "version is "++r
+versionFromDarcs = do vers <- getRelease
+                      oldversion <- getVersion
+                      when (oldversion /= vers) $
+                           do version vers
+                              putS $ "version is now "++vers
 
 patchVersionFromDarcs :: C ()
 patchVersionFromDarcs = do r <- getRelease
                            p <- patchLevel r
                            let vers = if p == 0 then r else r++'.':show p
-                           version vers
-                           putS $ "version is "++vers
+                           oldversion <- getVersion
+                           when (oldversion /= vers) $
+                                do version vers
+                                   putS $ "version is now "++vers
 
