@@ -31,11 +31,13 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      mkFile, cat, pwd, ls, endsWithOneOf,
+                                     isFile,
                                      bracketC, finallyC, bracketC_ )
     where
 
 import System.Exit ( ExitCode(..) )
-import System.Directory ( getCurrentDirectory, getDirectoryContents )
+import System.Directory ( getCurrentDirectory, getDirectoryContents,
+                          doesFileExist )
 import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads )
@@ -174,6 +176,10 @@ pwd = do x <- io $ getCurrentDirectory
 ls :: String -> C [String]
 ls d = do d' <- processFilePath d
           io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
+
+isFile :: String -> C Bool
+isFile f = do f' <- processFilePath f
+              io $ doesFileExist f'
 
 -- | Just like 'Control.Exception.bracket', except we're in the C monad.
 bracketC :: C a         -- ^ computation to run first (\"make files\")

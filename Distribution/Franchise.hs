@@ -61,6 +61,8 @@ module Distribution.Franchise ( build, executable, privateExecutable,
                                 cd, pwd, ls, cat,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
+                                -- for handy preprocessing...
+                                splitFile, mapDirectory,
                                 -- simplification of getopt data types
                                 flag, unlessFlag,
                                 configureFlag, configureUnlessFlag,
@@ -74,3 +76,4 @@ import Distribution.Franchise.Ghc
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
 import Distribution.Franchise.Darcs
+import Distribution.Franchise.SplitFile

@@ -50,7 +50,7 @@ module Distribution.Franchise.ConfigureState
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
-      cd, rm_rf, getCurrentSubdir, processFilePath,
+      cd, rm_rf, writeF, withDirectory, getCurrentSubdir, processFilePath,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
       put, get, gets, modify )
@@ -291,7 +291,7 @@ readConfigureState d =
        ld <- readf "ldFlags"
        packs <- readf "packages"
        repl <- readf "replacements"
-       alles <- io $ actualContents d'
+       alles <- readDirectory d'
        let es = catMaybes $ map afterX alles
            afterX ('X':'-':r) = Just r
            afterX _ = Nothing
@@ -325,7 +325,7 @@ writeConfigureState d =
        writeF (d'++"packages") $ show $ packagesC cs
        writeF (d'++"replacements") $ show $ replacementsC cs
        mapM_ writeExtra $ extraDataC cs
-       allextras <- io $ filter ("X-" `isPrefixOf`) `fmap` actualContents d
+       allextras <- filter ("X-" `isPrefixOf`) `fmap` readDirectory d
        let toberemoved = allextras \\ map (("X-"++) . fst) (extraDataC cs)
        mapM_ (rm_rf . (d'++)) toberemoved
     where d' = case reverse d of ('/':_) -> d
@@ -333,18 +333,21 @@ writeConfigureState d =
           writeExtra (e,v) = writeF (d'++"X-"++e) v
 
 writeF :: String -> String -> C ()
-writeF x y = do y' <- io (readFile x) `catchC` \_ -> return ('x':y)
-                whenC (return $ length y /= length y' || y /= y') $ io $ writeFile x y
+writeF x0 y = do x <- processFilePath x0
+                 y' <- io (readFile x) `catchC` \_ -> return ('x':y)
+                 whenC (return $ length y /= length y' || y /= y') $ io $ writeFile x y
 
-actualContents :: String -> IO [String]
-actualContents d = filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d
+readDirectory :: String -> C [String]
+readDirectory d =
+    do d' <- processFilePath d
+       io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
 
 rm_rf :: FilePath -> C ()
 rm_rf d =
     do isd <- io $ doesDirectoryExist d
        if not isd
           then io $ removeFile d
-          else do fs <- io $ actualContents d
+          else do fs <- readDirectory d
                   mapM_ (rm_rf . ((d++"/")++)) fs
                   putV $ "rm -rf "++d
                   io $ removeDirectory d
@@ -443,6 +446,13 @@ cd :: String -> C ()
 cd d = modify (\cs -> cs { currentSubDirectory = cdd $ currentSubDirectory cs })
     where cdd Nothing = Just d
           cdd (Just oldd) = Just (oldd++"/"++d)
+
+withDirectory :: String -> C a -> C a
+withDirectory d f = do oldd <- gets currentSubDirectory
+                       cd d
+                       x <- f
+                       modify $ \cs -> cs { currentSubDirectory = oldd }
+                       return x
 
 getCurrentSubdir :: C (Maybe String)
 getCurrentSubdir = gets currentSubDirectory
