@@ -104,7 +104,7 @@ darcsDist dn tocopy = withRootdir $
                                                    mapM_ dist tocopy
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
-       addTarget $ ["dist",tarname] :< map source tocopy
+       addTarget $ ["sdist",tarname] :< map source tocopy
                |<- defaultRule { make = const mkdist }
 
 -- | Copy specified file from the build directory to the tarball.
