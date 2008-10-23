@@ -68,7 +68,7 @@ import System.Directory ( getAppUserDataDirectory, getCurrentDirectory,
                           doesDirectoryExist,
                           removeFile, removeDirectory, createDirectory,
                           getDirectoryContents )
-import System.Environment ( getArgs, getProgName )
+import System.Environment ( getProgName )
 import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
@@ -470,13 +470,12 @@ processFilePath :: String -> C String
 processFilePath f = do sd <- gets currentSubDirectory
                        return $ maybe f (++('/':f)) sd
 
-runC :: C a -> IO a
-runC (C a) =
-    do x <- getArgs
-       ch <- newChan
+runC :: [String] -> C a -> IO a
+runC args (C a) =
+    do ch <- newChan
        ch2 <- newChan
-       h <- if "configure" `elem` x then openFile "config.log" WriteMode
-                                    else openFile "build.log" WriteMode
+       h <- if "configure" `elem` args then openFile "config.log" WriteMode
+                                       else openFile "build.log" WriteMode
        hSetBuffering h LineBuffering
        hSetBuffering stdout LineBuffering
        let writethread = do mess <- readChan ch
@@ -494,7 +493,7 @@ runC (C a) =
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
                       targets = [],
-                      configureState = defaultConfiguration { commandLine = x } })
+                      configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000

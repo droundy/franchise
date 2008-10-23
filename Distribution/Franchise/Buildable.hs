@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
-    ( build, installBin, replace, createFile,
+    ( build, buildWithArgs, installBin, replace, createFile,
       define, defineAs, isDefined,
       findAnExecutable,
       defaultRule, buildName, build', cleanIt, rm,
@@ -41,7 +41,7 @@ module Distribution.Franchise.Buildable
 
 import Control.Monad ( when, msum )
 import Data.List ( nub, partition, intersect, isPrefixOf, isSuffixOf )
-import System.Environment ( getProgName )
+import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
 import Control.Concurrent ( readChan, writeChan, newChan )
@@ -119,7 +119,12 @@ buildDeps _ = []
 
 build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
 build opts doconf mkbuild =
-    runC $ runWithArgs opts myargs runcommand
+    do args <- getArgs
+       buildWithArgs args opts doconf mkbuild
+
+buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
+buildWithArgs args opts doconf mkbuild =
+       runC args $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
           runcommand "clean" = do b <- mkbuild
