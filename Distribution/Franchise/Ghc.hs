@@ -191,7 +191,8 @@ package pn modules cfiles =
        --putS $ "LIBRARY DEPENDS:\n"
        --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
        --putS "\n\n"
-       addTarget $ ["lib"++pn++".a",pn++".cabal"] :< (config:mods++cobjs)
+       addTarget $ ["lib"++pn++".a",pn++".cabal"]
+                  :< (extraData "version":config:mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
