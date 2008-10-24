@@ -52,6 +52,7 @@ module Distribution.Franchise.ConfigureState
       writeConfigureState, readConfigureState,
       cd, rm_rf, writeF,
       withDirectory, withRootdir, getCurrentSubdir, processFilePath,
+      quietly,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
       put, get, gets, modify )
@@ -605,6 +606,13 @@ putL = putM Logfile
 
 getVerbosity :: C Verbosity
 getVerbosity = C $ \ts -> return $ Right (verbosity ts, ts)
+
+quietly :: C a -> C a
+quietly j = do v <- getVerbosity
+               C $ \ts -> return $ Right ((), ts { verbosity = Quiet })
+               x <- j
+               C $ \ts -> return $ Right ((), ts { verbosity = v })
+               return x
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of
