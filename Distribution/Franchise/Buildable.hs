@@ -91,12 +91,12 @@ cleanIt (xs:<_) = xs
 
 printBuildableDeep :: Buildable -> C ()
 printBuildableDeep b@(xs :< ds:<-_) =
-    do putS $ unwords xs
-       putS $ showBuild b
-       putS "Depends on:\n\n"
-       let pbd i (x:<d:<-_) = do mapM_ (putS . (take i (repeat ' ')++)) x
+    do putV $ unwords xs
+       putV $ showBuild b
+       putV "Depends on:\n\n"
+       let pbd i (x:<d:<-_) = do mapM_ (putV . (take i (repeat ' ')++)) x
                                  mapM_ (pbd (i+1)) d
-           pbd i (Unknown x) = putS $ take i (repeat ' ')++"Source:"++x
+           pbd i (Unknown x) = putV $ take i (repeat ' ')++"Source:"++x
        mapM_ (pbd 0) ds
 printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 
