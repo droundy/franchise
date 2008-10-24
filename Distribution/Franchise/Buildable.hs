@@ -254,7 +254,7 @@ build' cms b =
                                               (concatMap buildName . buildDeps) xs)]
                                       make how d
                                                `catchC`
-                                               \e -> do putS $ errorBuilding $ unwords(depName d)
+                                               \e -> do putV $ errorBuilding e $ unwords(depName d)
                                                         putV e
                                                         io $ writeChan chan $ Left e
                                       io $ writeChan chan (Right (d:<-how))
@@ -268,14 +268,15 @@ build' cms b =
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
-                   Left e -> do let estr = errorBuilding $ unwords (buildName b)
+                   Left e -> do let estr = errorBuilding e $ unwords (buildName b)
                                 putV (estr++'\n':e)
                                 fail estr
                    Right d -> do putD $ "Done building "++ unwords (buildName d)
                                  buildthem chan (delB d (addB canb $ inprogress)) depb
           delB done x = delsS (buildName done) x
-          errorBuilding "config.d/commandLine" = "configure failed"
-          errorBuilding bn = "Error building "++bn
+          errorBuilding _ "config.d/commandLine" = "configure failed"
+          errorBuilding e f | ".depend" `isSuffixOf` f = e
+          errorBuilding _ bn = "Error building "++bn
 
 showBuild :: Buildable -> String
 showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
