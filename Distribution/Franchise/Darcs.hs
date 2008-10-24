@@ -66,7 +66,8 @@ getRelease = withRootdir $
                      xxx <- systemOut "darcs" ["changes","-t",
                                                "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$",
                                                "--reverse"]
-                     ((_:zzz:_):_) <- return $ map words $ reverse $ lines xxx
+                     ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
+                                      map words $ reverse $ lines xxx
                      return zzz,
                   do x:_ <- words `fmap` cat ".releaseVersion"
                      return x,
