@@ -30,6 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
+                                     systemOutErr,
                                      mkFile, cat, pwd, ls, endsWithOneOf,
                                      isFile,
                                      bracketC, finallyC, bracketC_ )
@@ -40,9 +41,10 @@ import System.Directory ( getCurrentDirectory, getDirectoryContents,
                           doesFileExist )
 import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
-import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads )
-import System.IO ( hGetContents )
-import Control.Concurrent ( forkIO )
+import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
+                            forkIO, newChan, readChan, writeChan )
+import System.IO ( hGetContents, IOMode(..), BufferMode(..),
+                   hGetLine, hPutStrLn, hSetBuffering, openFile, hClose )
 import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
@@ -127,6 +129,43 @@ systemErr c args = do sd <- getCurrentSubdir
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         _ -> return (ec, err)
+
+-- | Run a process with a list of arguments and return anything from
+-- /stderr/ or /stdout/
+systemOutErr :: String -> [String] -> C (ExitCode, String)
+systemOutErr c args =
+    do sd <- getCurrentSubdir
+       let long = unwords (c:args)
+           short = if length args < 2 then long
+                                      else '[':c++"]"
+       putSV short long
+       (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+       io $ hSetBuffering o LineBuffering
+       io $ hSetBuffering e LineBuffering
+       ch <- io $ newChan
+       -- WARNING: beware of hokeyness ahead!
+       let readWrite i = do x <- hGetLine i
+                            writeChan ch $ Just x
+                            readWrite i
+                         `catch` \_ -> writeChan ch Nothing
+           readEO = do x <- readChan ch
+                       case x of
+                         Just l -> do x <- readEO
+                                      return $ l:x
+                         Nothing -> readEO'
+           readEO' = do x <- readChan ch
+                        case x of
+                          Just l -> do x <- readEO'
+                                       return $ l:x
+                          Nothing -> return []
+       io $ forkIO $ readWrite o
+       io $ forkIO $ readWrite e
+       outerr <- io readEO
+       ec <- io $ waitForProcessNonBlocking pid
+       io $ threadDelay 1000
+       case ec of
+         ExitFailure 127 -> fail $ c ++ ": command not found"
+         _ -> return (ec, unlines outerr)
 
 -- | Run a process with a list of arguments and get the resulting output from stdout.
 systemOut :: String   -- ^ Program name
