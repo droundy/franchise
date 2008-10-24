@@ -37,7 +37,7 @@ module Distribution.Franchise.ConfigureState
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
       getLibDir, getBinDir,
-      replace, replaceStr, replacements,
+      replace, replaceLiteral, replacements,
       getVersion, packages, getPackageVersion,
       getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
@@ -558,16 +558,13 @@ withEnv x j = do e <- io $ E.getEnv x
 data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
 
 replace :: Show a => String -> a -> C ()
-replace a b = do r <- gets replacementsC
-                 if a `elem` map fst r
-                    then return ()
-                    else modify $ \c -> c { replacementsC = (a,show b):r }
+replace a = replaceLiteral a . show
 
-replaceStr :: String -> String -> C ()
-replaceStr a b = do r <- gets replacementsC
-                    if a `elem` map fst r
-                       then return ()
-                       else modify $ \c -> c { replacementsC = (a,b):r }
+replaceLiteral :: String -> String -> C ()
+replaceLiteral a b = do r <- gets replacementsC
+                        if a `elem` map fst r
+                          then return ()
+                          else modify $ \c -> c { replacementsC = (a,b):r }
 
 replacements :: C [(String,String)]
 replacements = gets replacementsC
