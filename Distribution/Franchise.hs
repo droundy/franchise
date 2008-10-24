@@ -45,8 +45,9 @@ module Distribution.Franchise ( build, buildWithArgs, nothing,
                                 requireModuleExporting, lookForModuleExporting, withModuleExporting,
                                 -- Searching for an executable
                                 findAnExecutable,
-                                checkLib, withLib, checkHeader, findPackagesFor,
-                                getConstant,
+                                checkLib, withLib, checkHeader, withHeader,
+                                findPackagesFor,
+                                getConstant, withConstant,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 addExtraData, haveExtraData,

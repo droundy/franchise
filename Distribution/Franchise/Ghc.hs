@@ -34,7 +34,7 @@ module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
       requireModule, lookForModule, withModule,
-      checkLib, withLib, checkHeader, getConstant,
+      checkLib, withLib, checkHeader, withHeader, getConstant, withConstant,
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -296,6 +296,10 @@ checkHeader h = do checkMinimumPackages
           remove = mapM_ rm ["try-header-ffi.h","try-header-ffi.o",
                              "try-header-ffi.c","try-header","try-header.hs"]
 
+withHeader :: String -> C () -> C ()
+withHeader h job = (checkHeader h >> job)
+                   `catchC` \_ -> putS $ "failed to find header "++h
+
 getConstant :: String -> String -> C String
 getConstant h code = do checkMinimumPackages
                         bracketC_ create remove test
@@ -315,6 +319,10 @@ getConstant h code = do checkMinimumPackages
                     systemOut "./get-const" []
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
+
+withConstant :: String -> String -> (String -> C ()) -> C ()
+withConstant h code job = (getConstant h code >>= job)
+                          `catchC`  \_ -> putS $ "failed to get "++code
 
 tryLib :: String -> String -> String -> C ()
 tryLib l h func = do checkMinimumPackages
