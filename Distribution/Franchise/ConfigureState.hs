@@ -37,7 +37,7 @@ module Distribution.Franchise.ConfigureState
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
       getLibDir, getBinDir,
-      replace, replacements,
+      replace, replaceStr, replacements,
       getVersion, packages, getPackageVersion,
       getExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
@@ -562,6 +562,12 @@ replace a b = do r <- gets replacementsC
                  if a `elem` map fst r
                     then return ()
                     else modify $ \c -> c { replacementsC = (a,show b):r }
+
+replaceStr :: String -> String -> C ()
+replaceStr a b = do r <- gets replacementsC
+                    if a `elem` map fst r
+                       then return ()
+                       else modify $ \c -> c { replacementsC = (a,b):r }
 
 replacements :: C [(String,String)]
 replacements = gets replacementsC

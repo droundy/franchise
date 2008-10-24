@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise ( build, buildWithArgs, nothing,
                                 executable, privateExecutable,
                                 installBin,
-                                replace, createFile,
+                                replace, replaceStr, createFile,
                                 define, defineAs, isDefined,
                                 io, catchC, unlessC, whenC,
                                 -- The constructors are exported so users
