@@ -29,7 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( build, buildWithArgs, nothing,
+module Distribution.Franchise ( build, buildWithArgs, test, testOne, nothing,
                                 executable, privateExecutable,
                                 installBin,
                                 replace, replaceLiteral, createFile,
@@ -63,7 +63,7 @@ module Distribution.Franchise ( build, buildWithArgs, nothing,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 system, systemOut,
-                                cd, pwd, ls, cat,
+                                cd, withDirectory, pwd, ls, cat,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
                                 -- for handy preprocessing...
@@ -83,3 +83,4 @@ import Distribution.Franchise.Endian
 import Distribution.Franchise.Darcs
 import Distribution.Franchise.Git
 import Distribution.Franchise.SplitFile
+import Distribution.Franchise.Test

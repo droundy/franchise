@@ -43,8 +43,8 @@ import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
                             forkIO, newChan, readChan, writeChan )
-import System.IO ( hGetContents, IOMode(..), BufferMode(..),
-                   hGetLine, hPutStrLn, hSetBuffering, openFile, hClose )
+import System.IO ( hGetContents, BufferMode(..),
+                   hGetLine, hSetBuffering )
 import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
@@ -150,13 +150,13 @@ systemOutErr c args =
                          `catch` \_ -> writeChan ch Nothing
            readEO = do x <- readChan ch
                        case x of
-                         Just l -> do x <- readEO
-                                      return $ l:x
+                         Just l -> do y <- readEO
+                                      return $ l:y
                          Nothing -> readEO'
            readEO' = do x <- readChan ch
                         case x of
-                          Just l -> do x <- readEO'
-                                       return $ l:x
+                          Just l -> do y <- readEO'
+                                       return $ l:y
                           Nothing -> return []
        io $ forkIO $ readWrite o
        io $ forkIO $ readWrite e

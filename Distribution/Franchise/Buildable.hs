@@ -359,8 +359,21 @@ findAnExecutable e xs = fe (e:xs)
                            Just _ -> return y
                            Nothing -> fe ys
 
+processBuildable :: Buildable -> C Buildable
+processBuildable (ts :< ds :<- r) =
+    do ts' <- mapM processFilePath ts
+       ds' <- mapM processBuildable ds
+       msd <- getCurrentSubdir
+       let r' = case msd of
+                Nothing -> r
+                Just sd -> r { make = withRootdir . withDirectory sd . make r,
+                               install = withRootdir . withDirectory sd . install r }
+       return (ts' :< ds' :<- r')
+processBuildable (Unknown x) = Unknown `fmap` processFilePath x
+
 addTarget :: Buildable -> C Buildable
-addTarget b0 = do modifyTargets $ addb b0
+addTarget b0 = do b1 <- processBuildable b0
+                  modifyTargets $ addb b1
                   last `fmap` getTargets
     where addb b [] = [b]
           addb b (x:xs) | b == x = b:xs -- override targets with same name

@@ -1,0 +1,36 @@
+\section{A simple executable}
+
+Here's code to produce a simple executable.
+
+\begin{file}{tests/simple-executable.hs}
+
+import Data.List
+
+main = return ()
+
+\end{file}
+
+\begin{file}{tests/simple-executable-setup.hs}
+
+main = build [] (return ())
+       (executable "simple-executable" "simple-executable.hs" [])
+
+\end{file}
+
+
+
+\begin{file}{tests/simple-executable.sh}
+
+echo hello
+
+echo world
+
+echo world
+
+#runghc simple-executable-setup.hs build
+
+#./simple-executable
+
+exit 1
+
+\end{file}

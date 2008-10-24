@@ -1,5 +1,6 @@
 #!/usr/bin/runhaskell
 import Distribution.Franchise
+import Data.List ( isSuffixOf, isPrefixOf )
 
 configure = do copyright "David Roundy"
                license "BSD3"
@@ -23,6 +24,32 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                -- build rather than waiting for the user to
                                -- run Setup.hs configure again.
                                versionFromDarcs
+                               buildDoc
                                darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 
+buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
+              test $ concat alltests
+    where buildOneDoc f = do tests0 <- splitFile f (splitf f)
+                             let tests = map (drop 6) $
+                                         filter (".sh" `isSuffixOf`) $
+                                         filter ("tests/" `isPrefixOf`) tests0
+                             withDirectory "tests" $
+                                           mapM (testOne "bash") tests
+          splitf f x = case splitOn "\\begin{file}{" x of
+                       Nothing -> []
+                       Just (_,after) ->
+                         case splitOn "}\n" after of
+                         Nothing -> [(f++".error", "Parse failure on:\n"++after)]
+                         Just (fn,after2) ->
+                           case splitOn "\\end{file}" after2 of
+                           Nothing -> [(f++".error", "Parse failure on:\n"++after2)]
+                           Just (contents,after3) -> (fn,contents): splitf f after3
+          splitOn x (c:cs) = case stripPrefix x (c:cs) of
+                             Just cs' -> Just ("",cs')
+                             Nothing -> do (cs1,cs2) <- splitOn x cs
+                                           Just (c:cs1,cs2)
+          splitOn _ "" = Nothing
+          stripPrefix [] ys = Just ys
+          stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
+          stripPrefix _ _ = Nothing
