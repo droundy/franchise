@@ -274,9 +274,9 @@ build' cms b =
                    Right d -> do putD $ "Done building "++ unwords (buildName d)
                                  buildthem chan (delB d (addB canb $ inprogress)) depb
           delB done x = delsS (buildName done) x
-          errorBuilding _ "config.d/commandLine" = "configure failed"
+          errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
           errorBuilding e f | ".depend" `isSuffixOf` f = e
-          errorBuilding _ bn = "Error building "++bn
+          errorBuilding e bn = "Error building "++bn++'\n':e
 
 showBuild :: Buildable -> String
 showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
