@@ -29,7 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Darcs ( inDarcs, patchLevel, darcsDist, dist,
+module Distribution.Franchise.Darcs ( inDarcs, darcsPatchLevel, darcsDist, dist,
                                       versionFromDarcs, patchVersionFromDarcs )
     where
 
@@ -48,8 +48,8 @@ data Literal = Literal String
 instance Show Literal where
     showsPrec _ (Literal x) = showString x
 
-patchLevel :: String -> C Int
-patchLevel true_v = withRootdir $
+darcsPatchLevel :: String -> C Int
+darcsPatchLevel true_v = withRootdir $
            do True <- inDarcs
               patches' <- systemOut "darcs" ["changes","--from-tag",true_v,"--count"]
               ((patches'',_):_) <- return $ reads patches'
@@ -83,7 +83,7 @@ versionFromDarcs = do vers <- getRelease
 
 patchVersionFromDarcs :: C ()
 patchVersionFromDarcs = do r <- getRelease
-                           p <- patchLevel r
+                           p <- darcsPatchLevel r
                            let vers = if p == 0 then r else r++'.':show p
                            oldversion <- getVersion
                            when (oldversion /= vers) $

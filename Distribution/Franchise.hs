@@ -52,9 +52,11 @@ module Distribution.Franchise ( build, buildWithArgs,
                                 addExtraData, haveExtraData,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
-                                -- Various utilities for interfaceing with darcs
+                                -- Various utilities for interfacing with darcs
                                 inDarcs, darcsDist, dist,
-                                patchLevel, versionFromDarcs, patchVersionFromDarcs,
+                                darcsPatchLevel, versionFromDarcs, patchVersionFromDarcs,
+                                -- utilities for interfacing with git
+                                inGit, gitPatchLevel, getTag,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
@@ -78,4 +80,5 @@ import Distribution.Franchise.Ghc
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
 import Distribution.Franchise.Darcs
+import Distribution.Franchise.Git
 import Distribution.Franchise.SplitFile
