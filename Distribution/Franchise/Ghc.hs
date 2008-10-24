@@ -38,7 +38,7 @@ module Distribution.Franchise.Ghc
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
-      package ) where
+      package, nothing ) where
 
 import Control.Monad ( when )
 import System.Exit ( ExitCode(..) )
@@ -197,6 +197,9 @@ package pn modules cfiles =
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
+
+nothing :: C Buildable
+nothing = return emptyBuildable
 
 commaWords :: [String] -> String
 commaWords [] = ""

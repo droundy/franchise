@@ -36,7 +36,7 @@ module Distribution.Franchise.Buildable
       defaultRule, buildName, build', cleanIt, rm,
       addTarget,
       printBuildableDeep, (|<-),
-      source, extraData, combineBuildables )
+      source, extraData, combineBuildables, emptyBuildable )
     where
 
 import Control.Monad ( when, msum )
@@ -68,6 +68,9 @@ extraData x = Unknown ("config.d/X-"++x)
 
 combineBuildables :: [Buildable] -> Buildable
 combineBuildables bs = [] :< bs :<- defaultRule
+
+emptyBuildable :: Buildable
+emptyBuildable = [] :< [] :<- defaultRule
 
 fixDependenciesBetweenPair :: Buildable -> Buildable -> (Buildable, Buildable)
 fixDependenciesBetweenPair a b = (a', b')
