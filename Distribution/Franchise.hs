@@ -29,9 +29,9 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( build, buildWithArgs, test, testOne, nothing,
+module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 executable, privateExecutable,
-                                installBin,
+                                installBin, addTarget,
                                 replace, replaceLiteral, createFile,
                                 define, defineAs, isDefined,
                                 io, catchC, unlessC, whenC,
@@ -71,8 +71,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne, nothing,
                                 -- simplification of getopt data types
                                 flag, unlessFlag,
                                 configureFlag, configureUnlessFlag,
-                                -- combining buildables
-                                source, extraData, combineBuildables )
+                                extraData )
     where
 
 import Distribution.Franchise.Util

@@ -91,7 +91,7 @@ patchVersionFromDarcs = do r <- getRelease
                                 do version vers
                                    putS $ "version is now "++vers
 
-darcsDist :: String -> [String] -> C Buildable
+darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
        let distname = dn++"-"++v
@@ -105,8 +105,9 @@ darcsDist dn tocopy = withRootdir $
                                                    mapM_ dist tocopy
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
-       addTarget $ ["sdist",tarname] :< map source tocopy
+       addTarget $ ["sdist",tarname] :< tocopy
                |<- defaultRule { make = const mkdist }
+       return tarname
 
 -- | Copy specified file from the build directory to the tarball.
 -- This is intended to be used in your darcsDist job.

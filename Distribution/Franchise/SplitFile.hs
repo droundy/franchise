@@ -46,9 +46,8 @@ splitFile fn _ | ".splits" `isSuffixOf` fn = return []
 splitFile fn _ | "~" `isSuffixOf` fn = return []
 splitFile fn splitfun =
     whenC (isFile fn) $
-    do let b = [fnsplits] :< [source fn] |<- defaultRule { make = const splitf }
-       addTarget b
-       build' CannotModifyState b
+    do addTarget $ [fnsplits] :< [fn] |<- defaultRule { make = const splitf }
+       build' CannotModifyState fnsplits
        readSplits
     where fnsplits = fn++".splits"
           splitf = do putV $ "splitting "++fn++"..."

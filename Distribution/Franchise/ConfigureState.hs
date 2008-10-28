@@ -46,7 +46,7 @@ module Distribution.Franchise.ConfigureState
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs,
       CanModifyState(..),
-      Dependency(..), Buildable(..), BuildRule(..),
+      Dependency(..), Target(..), BuildRule(..),
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
@@ -74,8 +74,11 @@ import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( isPrefixOf, delete, (\\) )
+import Data.List ( isPrefixOf, (\\) )
 import Data.Maybe ( isJust, catMaybes )
+
+import Distribution.Franchise.StringSet
+import Distribution.Franchise.Trie
 
 flag :: String -> String -> C () -> C (OptDescr (C ()))
 flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j') h
@@ -360,11 +363,12 @@ rm_rf d =
 data LogMessage = Stdout String | Logfile String
 data HookTime = Preconfigure | Postconfigure
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
-data Dependency = [String] :< [Buildable]
-data Buildable = Dependency :<- BuildRule
-               | Unknown String
+data Dependency = [String] :< [String]
+data Target = Target { fellowTargets :: !StringSet,
+                       dependencies :: !StringSet,
+                       rule :: !BuildRule }
+
 infix 2 :<
-infix 1 :<-
 data BuildRule = BuildRule { make :: Dependency -> C (),
                              install :: Dependency -> C (),
                              clean :: Dependency -> [String] }
@@ -376,7 +380,7 @@ data TotalState = TS { numJobs :: Int,
                        syncChan :: Chan (),
                        configureHooks :: [(String,C ())],
                        postConfigureHooks :: [(String,C ())],
-                       targets :: [Buildable],
+                       targets :: Trie Target,
                        configureState :: ConfigureState }
 
 tsHook :: HookTime -> TotalState -> [(String,C ())]
@@ -494,7 +498,7 @@ runC args (C a) =
                       postConfigureHooks = [],
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
-                      targets = [],
+                      targets = emptyT,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -515,21 +519,11 @@ defaultConfiguration = CS { commandLine = [],
                             replacementsC = [],
                             extraDataC = [] }
 
-getTargets :: C [Buildable]
+getTargets :: C (Trie Target)
 getTargets = C $ \ts -> return $ Right (targets ts, ts)
 
-modifyTargets :: ([Buildable] -> [Buildable]) -> C ()
+modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
-
-instance Eq Buildable where
-    Unknown x == Unknown y = x == y
-    Unknown x == (ys:<_:<-_) = x `elem` ys
-    (ys:<_:<-_) == Unknown x = x `elem` ys
-    (xs:<_:<-_) == (ys:<_:<-_) = eqset xs ys
-        where eqset [] [] = True
-              eqset [] _ = False
-              eqset _ [] = False
-              eqset (z:zs) bs = z `elem` bs && zs `eqset` (delete z bs)
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x

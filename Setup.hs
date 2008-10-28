@@ -24,10 +24,11 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                -- build rather than waiting for the user to
                                -- run Setup.hs configure again.
                                versionFromDarcs
-                               buildDoc
+                               -- buildDoc
                                darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 
+{-
 buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
     where buildOneDoc f = do tests0 <- splitFile f (splitf f)
@@ -53,3 +54,4 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
           stripPrefix [] ys = Just ys
           stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
           stripPrefix _ _ = Nothing
+-}

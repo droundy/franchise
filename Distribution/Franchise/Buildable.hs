@@ -30,17 +30,16 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
-    ( build, buildWithArgs, installBin, replace, createFile,
+    ( Buildable(..), build, buildWithArgs, installBin, replace, createFile,
       define, defineAs, isDefined,
       findAnExecutable,
       defaultRule, buildName, build', cleanIt, rm,
-      addTarget,
-      printBuildableDeep, (|<-),
-      source, extraData, combineBuildables, emptyBuildable )
+      addTarget, getBuildable, (|<-),
+      extraData )
     where
 
-import Control.Monad ( when, msum )
-import Data.List ( nub, partition, intersect, isPrefixOf, isSuffixOf )
+import Data.Maybe ( isJust )
+import Data.List ( isPrefixOf, isSuffixOf )
 import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
@@ -51,54 +50,28 @@ import System.Console.GetOpt ( OptDescr(..) )
 import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
+import Distribution.Franchise.Trie
+
+data Buildable = Dependency :<- BuildRule
+
+instance Eq Buildable where
+    (xs:<_:<-_) == (ys:<_:<-_) = fromListS xs == fromListS ys
 
 (|<-) :: Dependency -> BuildRule -> Buildable
 (|<-) = (:<-)
 
+infix 1 :<-
 infix 1 |<-
 
 defaultRule :: BuildRule
 defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
 
-source :: String -> Buildable
-source = Unknown
-
-extraData :: String -> Buildable
-extraData x = Unknown ("config.d/X-"++x)
-
-combineBuildables :: [Buildable] -> Buildable
-combineBuildables bs = [] :< bs :<- defaultRule
-
-emptyBuildable :: Buildable
-emptyBuildable = [] :< [] :<- defaultRule
-
-fixDependenciesBetweenPair :: Buildable -> Buildable -> (Buildable, Buildable)
-fixDependenciesBetweenPair a b = (a', b')
-    where a' = fixbuild b a
-          b' = fixbuild a b
-          fixbuild x (Unknown y) = maybe (Unknown y) id $ lookupB y x
-          fixbuild x (xs:<xds:<-h) = xs :< map (fixbuild x) xds :<- h
-
-lookupB :: String -> Buildable -> Maybe Buildable
-lookupB f b0 = msum $ mapBuildable lu b0
-    where lu (Unknown _) = Nothing
-          lu b | f `elem` buildName b = Just b
-               | otherwise = Nothing
+extraData :: String -> String
+extraData x = "config.d/X-"++x
 
 cleanIt :: Dependency -> [String]
 cleanIt (_:<[]) = []
 cleanIt (xs:<_) = xs
-
-printBuildableDeep :: Buildable -> C ()
-printBuildableDeep b@(xs :< ds:<-_) =
-    do putV $ unwords xs
-       putV $ showBuild b
-       putV "Depends on:\n\n"
-       let pbd i (x:<d:<-_) = do mapM_ (putV . (take i (repeat ' ')++)) x
-                                 mapM_ (pbd (i+1)) d
-           pbd i (Unknown x) = putV $ take i (repeat ' ')++"Source:"++x
-       mapM_ (pbd 0) ds
-printBuildableDeep (Unknown _) = error "bug in printBuildableDeep"
 
 rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
@@ -114,24 +87,19 @@ depName (n :< _) = n
 
 buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
-buildName (Unknown d) = [d]
 
-buildDeps :: Buildable -> [Buildable]
-buildDeps (_:<ds:<-_) = ds
-buildDeps _ = []
-
-build :: [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
+build :: [C (OptDescr (C ()))] -> C () -> C String -> IO ()
 build opts doconf mkbuild =
     do args <- getArgs
        buildWithArgs args opts doconf mkbuild
 
-buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C Buildable -> IO ()
+buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C String -> IO ()
 buildWithArgs args opts doconf mkbuild =
        runC args $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
           runcommand "clean" = do b <- mkbuild
-                                  mapM_ rm $ clean' b
+                                  clean' b
           runcommand "build" = do reconfigure
                                   b <- mkbuild
                                   build' CannotModifyState b
@@ -140,11 +108,8 @@ buildWithArgs args opts doconf mkbuild =
                                     build' CannotModifyState b
                                     install' b
           runcommand t = do reconfigure
-                            b <- mkbuild
-                            ts <- getTargets
-                            case msum $ map (lookupB t) $ b : ts of
-                              Just b' -> build' CannotModifyState b'
-                              Nothing -> fail $ "unrecognized target "++t
+                            mkbuild
+                            build' CannotModifyState t
           configure = do putS "configuring..."
                          rm "config.d/commandLine"
                          runConfigureHooks
@@ -158,74 +123,88 @@ buildWithArgs args opts doconf mkbuild =
                                                 rm_rf "config.d"
                            setupname <- io $ getProgName
                            putV "checking whether we need to reconfigure"
-                           build' CanModifyState $ ["config.d/commandLine"]
-                                      :< [source setupname]
-                                      :<- defaultRule { make = makeConfState }
+                           let needreconf = do clmt <- io $ getModificationTime "config.d/commandLine"
+                                               setupmt <- io $ getModificationTime setupname
+                                               if setupmt < clmt
+                                                  then putV "reconfiguring due to timestamps"
+                                                  else return ()
+                                               return (setupmt < clmt)
+                                            `catchC` \_ -> do putV "reconfiguring due to missing file"
+                                                              return True
+                           whenC needreconf $ makeConfState
                            runPostConfigureHooks
-          makeConfState _ = do fs <- gets commandLine
-                               putV $ "reconfiguring with flags " ++ unwords fs
-                               runWithArgs opts myargs (const configure)
+          makeConfState = do fs <- gets commandLine
+                             putV $ "reconfiguring with flags " ++ unwords fs
+                             runWithArgs opts myargs (const configure)
 
-install' :: Buildable -> C ()
-install' ((x :< ds) :<- how) = do mapM_ install' ds
-                                  install how (x :< ds)
-install' (Unknown _) = return ()
+install' :: String -> C ()
+install' t0 = inst emptyS [t0]
+    where inst _ [] = return ()
+          inst done (t:ts) | t `elemS` done = inst done ts
+          inst done (t:ts) =
+              do mt <- getBuildable t
+                 case mt of
+                   Nothing -> inst (addS t done) ts
+                   Just (xs:<ds:<-how) -> do install how (xs :< ds)
+                                             inst (addS t done) (filter (not . (`elemS` done)) ds++ts)
 
-mapBuildable :: (Buildable -> a) -> Buildable -> [a]
-mapBuildable f b = reverse $ mb emptyS [b]
-    where mb done (x:xs) | x `elemB` done = mb done xs
-                         | otherwise = mb ([x] `addB` done) (requirements x ++ xs) ++ [f x]
-          mb _ [] = []
-          requirements (_:<ds:<-_) = ds
-          requirements _ = []
+clean' :: String -> C ()
+clean' t0 = cl emptyS [t0]
+  where
+    cl _ [] = return ()
+    cl done (t:ts) | t `elemS` done = cl done ts
+    cl done (t:ts) =
+        do mb <- getBuildable t
+           case mb of
+             Nothing -> cl (addS t done) ts
+             Just (xs :< ds :<- how) ->
+                 do mapM_ rm $ clean how (xs :< ds)
+                    cl (addS t done) (filter (not . (`elemS` done)) ds++ts)
 
-clean' :: Buildable -> [String]
-clean' b = concat $ mapBuildable c b
-    where c (d:<-how) = clean how d
-          c _ = []
+needsWork :: String -> C Bool
+needsWork t =
+    do mtt <- getTarget t
+       case mtt of
+         Nothing -> return False
+         Just (Target _ ds _)
+             | nullS ds -> return True -- no dependencies means it always needs work!
+         Just (Target ts ds _) ->
+           do mmt <- ((Just . maximum) `fmap` io (mapM getModificationTime (t:toListS ts)))
+                     `catchC` \_ -> return Nothing
+              case mmt of
+                Nothing -> do putD $ "need work because " ++ t ++ " doesn't exist (or a friend)"
+                              return True
+                Just mt -> anyM latertime $ toListS ds
+                      where latertime y = do ye <- io $ doesFileExist y
+                                             if not ye
+                                               then do putD $ "Need work cuz "++y++" don't exist"
+                                                       return True
+                                               else do mty <- io $ getModificationTime y
+                                                       if mty > mt
+                                                         then putD $ "I need work since "++ y ++
+                                                                  " is newer than " ++ t
+                                                         else return ()
+                                                       return (mty > mt)
+                            anyM _ [] = return False
+                            anyM f (z:zs) = do b <- f z
+                                               if b then return True else anyM f zs
+                        
 
-needsWork :: Dependency -> C Bool
-needsWork ([]:<_) = return True
-needsWork ((x:_) :< ds) =
-    do fe <- io $ doesFileExist x
-       if not fe
-         then do putD $ "need work because " ++ x ++ " doesn't exist"
-                 return True
-         else do mt <- io $ getModificationTime x
-                 let latertime y = do ye <- io $ doesFileExist y
-                                      if not ye
-                                        then do putD $ "Need work cuz "++y++" don't exist"
-                                                return True
-                                        else do mty <- io $ getModificationTime y
-                                                if mty > mt
-                                                   then putD $ "I need work since "++ y ++
-                                                            " is newer than " ++ x
-                                                   else return ()
-                                                return (mty > mt)
-                     anyM _ [] = return False
-                     anyM f (z:zs) = do b <- f z
-                                        if b then return True
-                                             else anyM f zs
-                 anyM latertime $ concatMap buildName ds
-
-build' :: CanModifyState -> Buildable -> C ()
-build' _ (Unknown f) = do e <- io $ doesFileExist f
-                          when (not e) $ fail $ "Source file "++f++" does not exist!"
+build' :: CanModifyState -> String -> C ()
 build' cms b =
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
-           w <- reverse `fmap` findWork b
+           w <- toListS `fmap` findWork b
            case w of
              [] -> putD "I see nothing here to recompile"
-             _ -> putD $ "I want to recompile all of "++ unwords (concatMap buildName w)
+             _ -> putD $ "I want to recompile all of "++ unwords w
            case length w of
-             0 -> putD $ "Nothing to recompile for "++unwords (buildName b)++"."
-             l -> putD $ unwords $ ["Need to recompile ",show l,"for"]
-                                       ++buildName b++["."]
+             0 -> putD $ "Nothing to recompile for "++b++"."
+             l -> putD $ unwords $ ["Need to recompile ",show l,"for"]++b:["."]
            chan <- io $ newChan
            buildthem chan emptyS w
     where buildthem _ _ [] = return ()
           buildthem chan inprogress w =
-              do putD $ unwords ("I am now wanting to compile":concatMap buildName w)
+              do putD $ unwords ("I am now wanting to compile":w)
                  loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
                  let loadavg = case reads loadavgstr of
                                ((n,_):_) -> max 0.0 (n :: Double)
@@ -236,96 +215,93 @@ build' cms b =
                                  return 1
                          else return nj
                  njobs <- getNumJobs >>= fixNumJobs
-                 let (canb',depb') = partition (canBuildNow (w `addB` inprogress)) w
-                     jobs = max 0 (njobs - lengthS inprogress)
+                 (canb',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
+                 let jobs = max 0 (njobs - lengthS inprogress)
                      canb = take jobs canb'
                      depb = drop jobs canb' ++ depb'
-                     buildone (d:<-how) =
+                     buildone ttt =
                          forkC cms $
-                         do stillneedswork <- needsWork d
+                         do stillneedswork <- needsWork ttt
+                            Just (Target ts xs0 how) <- getTarget ttt
                             if stillneedswork
-                              then do let _ :< xs = d
-                                      putD $ unlines
-                                        ["I am making "++ unwords (depName d),
-                                         "  This depends on "++
-                                         unwords (concatMap buildName xs),
-                                         "  These depend on "++
-                                         unwords (concatMap
-                                              (concatMap buildName . buildDeps) xs)]
-                                      make how d
+                              then do putD $ unlines
+                                        ["I am making "++ ttt,
+                                         "  This depends on "++ unwords (toListS xs0)]
+                                      make how (ttt:toListS ts :< toListS xs0)
                                                `catchC`
-                                               \e -> do putV $ errorBuilding e $ unwords(depName d)
+                                               \e -> do putV $ errorBuilding e ttt
                                                         putV e
                                                         io $ writeChan chan $ Left e
-                                      io $ writeChan chan (Right (d:<-how))
-                              else do putD $ "I get to skip one! " ++ unwords (depName d)
-                                      io $ writeChan chan (Right (d:<-how))
-                     buildone (Unknown _) = error "bug in buildone"
-                 case filter (".o" `isSuffixOf`) $ concatMap buildName canb of
+                                      io $ writeChan chan (Right ttt)
+                              else do putD $ "I get to skip one! " ++ ttt
+                                      io $ writeChan chan (Right ttt)
+                 case filter (".o" `isSuffixOf`) canb of
                    [] -> return ()
                    [_] -> return ()
                    tb -> putD $ "I can now build "++ unwords tb
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
-                   Left e -> do let estr = errorBuilding e $ unwords (buildName b)
+                   Left e -> do let estr = errorBuilding e b
                                 putV (estr++'\n':e)
                                 fail estr
-                   Right d -> do putD $ "Done building "++ unwords (buildName d)
-                                 buildthem chan (delB d (addB canb $ inprogress)) depb
-          delB done x = delsS (buildName done) x
+                   Right d -> do putD $ "Done building "++ d
+                                 buildthem chan (delS d (addsS canb $ inprogress)) depb
           errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
           errorBuilding e f | ".depend" `isSuffixOf` f = e
           errorBuilding e bn = "Error building "++bn++'\n':e
 
-showBuild :: Buildable -> String
-showBuild (xs:<ds:<-_) = unwords (xs++ [":"]++nub (concatMap buildName ds))
-showBuild _ = error "bug in showBuild"
+partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a],[a])
+partitionM _ [] = return ([],[])
+partitionM f (x:xs) = do amok <- f x
+                         (ok,notok) <- partitionM f xs
+                         return $ if amok then (x:ok,notok) else (ok,x:notok)
 
-elemB :: Buildable -> StringSet -> Bool
-elemB b s = any (`elemS` s) $ buildName b
+canBuildNow :: StringSet -> String -> C Bool
+canBuildNow needwork t = do mt <- getTarget t
+                            case dependencies `fmap` mt of
+                              Just d -> return $ not $ any (`elemS` needwork) $ toListS d
+                              _ -> return True
 
-addB :: [Buildable] -> StringSet -> StringSet
-addB b s = addsS (concatMap buildName b) s
+getBuildable :: String -> C (Maybe Buildable)
+getBuildable t = do mt <- getTarget t
+                    case mt of
+                      Nothing -> return Nothing
+                      Just (Target ts ds how) -> return $ Just (t:toListS ts :< toListS ds :<- how)
 
-canBuildNow :: StringSet -> Buildable -> Bool
-canBuildNow _ (Unknown _) = True
-canBuildNow needwork (_:<d:<-_) = not $ any (`elemB` needwork) d
+getTarget :: String -> C (Maybe Target)
+getTarget t = lookupT t `fmap` getTargets
 
-findWork :: Buildable -> C [Buildable]
-findWork (Unknown _) = return []
-findWork zzz = do putD $ "findWork called on "++unwords (concatMap buildName $ mapBuildable id zzz)
-                  fw [] [] $ reverse $ mapBuildable id zzz
-    where -- The second and third arguments ought to be sets!
-          fw :: [Buildable] -> [Buildable] -> [Buildable] -> C [Buildable]
-          fw nw _ [] = return nw
-          fw nw ok (Unknown x:r) | Unknown x `elem` (ok++nw) = fw nw ok r
-                                 | otherwise = fw nw (Unknown x:ok) r
-          fw nw ok (b@(xs:<ds:<-_):r) =
-              if b `elem` (ok++nw)
-              then do if b `elem` ok
-                         then putD $ "I already have "++ unwords (buildName b)
-                         else putD $ "I already know I must compile "++
-                                       unwords (buildName b)
-                      fw nw ok r
-              else
-                if all (`elem` (ok++nw)) ds
-                then
-                   do ineedwork <- case nw `intersect` ds of
-                                   (_z:_) -> do putD $ "Must compile "++ unwords (buildName b) ++
-                                                             " because of " ++ unwords (buildName _z)
-                                                return True
-                                   [] -> needsWork (xs:<ds)
-                      if ineedwork then fw (b:nw) ok r
-                                   else fw nw (b:ok) r
-                else fw nw ok (ds++b:r)
+findWork :: String -> C StringSet
+findWork zzz = do putD $ "findWork called on "++zzz
+                  keysT `fmap` fw emptyT zzz
+    where fw :: Trie Bool -> String -> C (Trie Bool)
+          fw nw t | isJust $ t `lookupT` nw = return nw
+          fw nw t = do mt <- getTarget t
+                       case mt of
+                         Nothing -> return nw
+                         Just (Target _ ds _)
+                             | nullS ds -> -- no dependencies means it always needs work!
+                                           return $ insertT t True nw
+                         Just (Target _ ds00 _) ->
+                             do let ds0 = toListS ds00
+                                nwds <- lookAtDeps nw ds0
+                                if any (\d -> Just True == d `lookupT` nwds) ds0
+                                   then return $ insertT t True nwds
+                                   else do tooold <- needsWork t
+                                           --putD$"These need work: "++unwords(toListS$keysT$filterT id nwds)
+                                           --putD$"These are FINE!: "++unwords(toListS$keysT$filterT not nwds)
+                                           return $ insertT t tooold nwds
+                             where lookAtDeps nw' [] = return nw'
+                                   lookAtDeps nw' (d:ds) = do nw2 <- fw nw' d
+                                                              lookAtDeps nw2 ds
 
 installBin :: Dependency -> C ()
 installBin (xs:<_) = do pref <- getBinDir
                         mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
 
 createFile :: String -> C ()
-createFile fn = do addTarget $ [fn] :< [source $ fn++".in"] :<-
+createFile fn = do addTarget $ [fn] :< [fn++".in"] :<-
                              defaultRule { make = \_ -> actuallyCreateFile fn }
                    actuallyCreateFile fn
 
@@ -359,24 +335,12 @@ findAnExecutable e xs = fe (e:xs)
                            Just _ -> return y
                            Nothing -> fe ys
 
-processBuildable :: Buildable -> C Buildable
-processBuildable (ts :< ds :<- r) =
+addTarget :: Buildable -> C ()
+addTarget (ts :< ds :<- r) =
     do ts' <- mapM processFilePath ts
-       ds' <- mapM processBuildable ds
-       msd <- getCurrentSubdir
-       let r' = case msd of
-                Nothing -> r
-                Just sd -> r { make = withRootdir . withDirectory sd . make r,
-                               install = withRootdir . withDirectory sd . install r }
-       return (ts' :< ds' :<- r')
-processBuildable (Unknown x) = Unknown `fmap` processFilePath x
-
-addTarget :: Buildable -> C Buildable
-addTarget b0 = do b1 <- processBuildable b0
-                  modifyTargets $ addb b1
-                  last `fmap` getTargets
-    where addb b [] = [b]
-          addb b (x:xs) | b == x = b:xs -- override targets with same name
-          addb b (x:xs) = x' : addb b' xs
-              where (b',x') = fixDependenciesBetweenPair b x
-
+       ds' <- fromListS `fmap` mapM processFilePath ds
+       let fixt t = (t, delS t allts)
+           allts = fromListS ts'
+           ts'' = map fixt ts'
+           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' r)
+       mapM_ addt ts''

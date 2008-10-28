@@ -38,7 +38,7 @@ module Distribution.Franchise.Ghc
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
-      package, nothing ) where
+      package ) where
 
 import Control.Monad ( when )
 import System.Exit ( ExitCode(..) )
@@ -51,33 +51,32 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 
 infix 2 <:
-(<:) :: [String] -> [Buildable] -> Buildable
-[x] <: y | isSuffixOf ".o" x && any (any (endsWithOneOf [".hs",".lhs"]) . buildName) y
-             = [x] :< (y++[source "config.d/ghcFlags"])
+(<:) :: [String] -> [String] -> Buildable
+[x,h] <: y | isSuffixOf ".o" x && any (endsWithOneOf [".hs",".lhs"]) y
+             = [x,h] :< (y++["config.d/ghcFlags"])
                :<- defaultRule { make = ghc_hs_to_o }
-[x] <: [y] | isSuffixOf ".o" x && all (isSuffixOf ".c") (buildName y)
-               = [x] :< [y,source "config.d/ghcFlags"] :<- defaultRule { make = ghc_c }
-[x] <: [y] | isSuffixOf ".hi" x && isSuffixOf ".o" yy &&
-             drop 3 (reverse x) == drop 2 (reverse yy)
-                 = [x] :< [y] :<- defaultRule -- hokey trick
-                   where yy = concat $ buildName y
+[x] <: [y] | ".o" `isSuffixOf` x && ".c" `isSuffixOf` y
+               = [x] :< [y,"config.d/ghcFlags"] :<- defaultRule { make = ghc_c }
 [stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
-xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show (map buildName ys)
+xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show ys
 
-executable :: String -> String -> [String] -> C Buildable
+executable :: String -> String -> [String] -> C String
 executable exname src cfiles =
-    do x :< y :<- b <- privateExecutable exname src cfiles
+    do exname' <- privateExecutable exname src cfiles
+       Just (x :< y :<- b) <- getBuildable exname'
        addTarget $ x :< y :<- b { install = installBin }
+       return exname'
 
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
                          whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d,
                                                                         "-I"++d]
-                         ghcDeps "temp.depend" [src] >>= build' CanModifyState
+                         ghcDeps "temp.depend" [src] $ return ()
+                         build' CanModifyState "temp.depend"
                          rm "temp.depend"
 
-ghcDeps :: String -> [String] -> C Buildable
-ghcDeps dname src =
+ghcDeps :: String -> [String] -> C () -> C ()
+ghcDeps dname src announceme =
     do x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
                        filter (not . isSuffixOf ".o") .
@@ -85,9 +84,10 @@ ghcDeps dname src =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       return $ [dname] :< map source ("config.d/commandLine":cleandeps x)
+       addTarget $ [dname] :< ("config.d/commandLine":cleandeps x)
                   :<- defaultRule { make = builddeps }
-  where builddeps _ = do x <- seekPackages (ghc systemErr $ ["-M"
+  where builddeps _ = do announceme
+                         x <- seekPackages (ghc systemErr $ ["-M"
 #if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"
 #else
@@ -102,25 +102,24 @@ ghcDeps dname src =
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.  It's also used internally by executable.
 
-privateExecutable :: String -> String -> [String] -> C Buildable
+privateExecutable :: String -> String -> [String] -> C String
 privateExecutable  simpleexname src cfiles =
-    do putV $ "finding dependencies of executable "++simpleexname
-       aminwin <- amInWindows
+    do aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
                          return (simpleexname++".exe")
                  else return simpleexname
        whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
-       ghcDeps depend [src] >>= build' CanModifyState
-       mods <- parseDeps [] `fmap` io (readFile depend)
-       let objs = filter (isSuffixOf ".o") $ concatMap buildName mods
-           mk _ = do ghc system (objs++ concatMap buildName cobjs ++ ["-o",exname])
-           cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
-       --putS $ "privateExecutable: "++exname
-       --printBuildableDeep ([exname] :< (source src:mods++cobjs) |<- defaultRule)
-       addTarget $ [exname] :< (source src:mods++cobjs)
+       ghcDeps depend [src] $ putV $ "finding dependencies of executable "++simpleexname
+       build' CanModifyState depend
+       (objs,_) <- io (readFile depend) >>= parseDeps []
+       let mk _ = do ghc system (objs++ cobjs ++ ["-o",exname])
+           cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
+       mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
+       addTarget $ [exname, simpleexname] :< (src:objs++cobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
+       return exname
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
@@ -131,24 +130,21 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
-package :: String -> [String] -> [String] -> C Buildable
+package :: String -> [String] -> [String] -> C String
 package pn modules cfiles =
-    do putV $ "finding dependencies of package "++pn
-       packageName pn
+    do packageName pn
        let depend = pn++".depend"
-       ghcDeps depend modules >>= build' CanModifyState
-       mods <- parseDeps [extraData "version"] `fmap` io (readFile depend)
+       ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
+       build' CanModifyState depend
+       (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
        pre <- getLibDir
        ver <- getVersion
-       let config = [pn++".config",pn++".cabal"] :< [source depend, extraData "version"]
-                    :<- defaultRule { make = makeconfig }
-           destination = pre++"/"++pn++"-"++ver++"/"
+       let destination = pre++"/"++pn++"-"++ver++"/"
            guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
            appendExtra f d = do mv <- getExtraData d
                                 case mv of
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
-           cobjs = map (\f -> [take (length f - 2) f++".o"] <: [source f]) cfiles
            makeconfig _ =do lic <- getLicense
                             cop <- getCopyright
                             mai <- getMaintainer
@@ -162,7 +158,7 @@ package pn modules cfiles =
                                            "import-dirs: "++ show destination,
                                            "library-dirs: "++ show destination,
                                            "exposed-modules: "++unwords modules,
-                                           "hidden-modules: "++unwords (concatMap modName mods \\ modules),
+                                           "hidden-modules: "++unwords (map objToModName mods \\ modules),
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
@@ -185,58 +181,53 @@ package pn modules cfiles =
                                          xdn -> io $ createDirectoryIfMissing True
                                                 $ destination++"/"++xdn
                                        io $ copyFile x (destination++"/"++x)
-                                his = filter (isSuffixOf ".hi") $ concatMap buildName mods
                             mapM_ inst (("lib"++pn++".a") : his)
                             pkgflags <- getPkgFlags
                             system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".config"]
-       --putS $ "LIBRARY DEPENDS:\n"
-       --printBuildableDeep (["lib"++pn++".a"] :< (config:mods) |<- defaultRule)
-       --putS "\n\n"
+       cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
+                               addTarget $ [o] <: [f]
+                               return o) cfiles
+       addTarget $ [pn++".config",pn++".cabal"] :< [depend, extraData "version"]
+                    :<- defaultRule { make = makeconfig }
        addTarget $ ["lib"++pn++".a"]
-                  :< (config:mods++cobjs)
+                  :< ((pn++".config"):mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
                                     install = installme,
                                     clean = \b -> depend : cleanIt b}
+       return $ "lib"++pn++".a"
 
-nothing :: C Buildable
-nothing = return emptyBuildable
+
+objToModName :: String -> String
+objToModName = map todots . takeAllBut 2
+    where todots '/' = '.'
+          todots x = x
+
+takeAllBut :: Int -> [a] -> [a]
+takeAllBut n xs = take (length xs - n) xs
 
 commaWords :: [String] -> String
 commaWords [] = ""
 commaWords [x] = x
 commaWords (x:xs) = x++", "++commaWords xs
 
-modName :: Buildable -> [String]
-modName (xs :< _ :<- _) = map toMod $ filter (isSuffixOf ".o") xs
-    where toMod x = map todots $ take (length x - 2) x
-          todots '/' = '.'
-          todots x = x
-modName _ = error "bug in modName"
-
-parseDeps :: [Buildable] -> String -> [Buildable]
-parseDeps extradeps x = builds
-    where builds = map makeBuild $ pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
+parseDeps :: [String] -> String -> C ([String], [String])
+parseDeps extradeps x = do mapM_ addTarget builds
+                           let ohi ((o:h:_):<_:<-_) = (o,h)
+                               ohi _ = error "bugggg"
+                           return $ unzip $ map ohi builds
+    where builds = pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
           notcomm ('#':_) = False
           notcomm _ = True
           breakdep (' ':':':' ':r) = Just ("",r)
           breakdep (z:y) = do (a,b) <- breakdep y
                               Just (z:a,b)
           breakdep [] = Nothing
-          pd :: [(String,String)] -> [([String],[String])]
+          pd :: [(String,String)] -> [Buildable]
           pd [] = []
           pd ((z,y):r) | isSuffixOf ".o" z =
-                           ([z], y : map snd ys) :([take (length z-2) z++".hi"], [z]):pd r'
+                           ([z, takeAllBut 2 z++".hi"] <: y:map snd ys++extradeps) : pd r'
               where (ys,r') = partition ((==z).fst) r
           pd _ = error "bug in parseDeps pd"
-          makeBuild :: ([String],[String]) -> Buildable
-          makeBuild (xs,xds) = case xs <: map (fb builds) xds of
-                               a :< b :<- c -> a :< b++extradeps :<- c
-                               a -> a
-          fb _ z | endsWithOneOf [".c",".lhs",".hs"] z = source z
-          fb [] z = error $ "Couldn't find build for "++ z
-          fb ((xs:<xds:<-h):r) z | z `elem` xs = xs :< xds :<- h
-                                 | otherwise = fb r z
-          fb _ _ = error "bug in parseDeps fb"
 
 ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
@@ -251,20 +242,20 @@ ghc sys args = do pn <- getPackageVersion
                     Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
 
 ghc_hs_to_o :: Dependency -> C ()
-ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) $ concatMap buildName ds of
+ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) ds of
                       [d] -> ghc system ["-c",d]
                       [] -> fail "error 1"
                       _ -> fail "error 2"
 
 ghc_c :: Dependency -> C ()
-ghc_c (_:<ds) = case filter (isSuffixOf ".c") $ concatMap buildName ds of
+ghc_c (_:<ds) = case filter (isSuffixOf ".c") ds of
                 [d] -> ghc system ["-c","-cpp",d]
                 [] -> fail "error 4"
                 _ -> fail "error 5"
 
 objects_to_a :: Dependency -> C ()
 objects_to_a ([outname]:<ds) =
-    system "ar" ("cqs":outname:filter (isSuffixOf ".o") (concatMap buildName ds))
+    system "ar" ("cqs":outname:filter (isSuffixOf ".o") ds)
 objects_to_a _ = error "bug in objects_to_a"
 
 tryModule :: String -> String -> String -> C (ExitCode, String)

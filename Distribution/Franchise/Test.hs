@@ -40,11 +40,12 @@ import Distribution.Franchise.Util
 
 -- | Create a build target for test suites.
 
-testOne :: String -> String -> C Buildable
+testOne :: String -> String -> C String
 testOne r f = do putV $ "defining test "++r++" "++f
-                 addTarget $ [f++".output"] :< [source "x x x x"]
+                 addTarget $ [f++".output"] :< []
                            -- no dependencies, so it'll get automatically run
                            |<- defaultRule { make = const runtest }
+                 return $ f++".output"
     where runtest = do (ec,out) <- quietly $ systemOutErr r [f]
                        writeF (f++".output") out
                        putV $ unlines $ map (\l->('|':' ':l)) $ lines out
@@ -58,9 +59,9 @@ pad x = if length x < 65
         then x++take (65 - length x) (repeat '.')
         else x
 
-test :: [Buildable] -> C Buildable
+test :: [String] -> C ()
 test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ -> runtests 0 0 ts0 }
-    where runtests :: Int -> Int -> [Buildable] -> C ()
+    where runtests :: Int -> Int -> [String] -> C ()
           runtests npassed 0 [] = putS $ "All "++show npassed++" tests passed!"
           runtests 0 nfailed [] = do putS $ "All "++show nfailed++" tests FAILED!"
                                      fail "tests failed!"
@@ -69,8 +70,8 @@ test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ -> runtests 0 
                                            fail "tests failed!"
           runtests np nfailed (t:ts) =
              (do quietly $ build' CannotModifyState t
-                 putS $ pad (unwords $ buildName t)++" ok"
+                 putS $ pad t++" ok"
                  runtests (np+1) nfailed ts)
-             `catchC` (\e -> do putS $ pad (unwords $ buildName t)++" FAILED!"
+             `catchC` (\e -> do putS $ pad t++" FAILED!"
                                 putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                                 runtests np (nfailed+1) ts)
