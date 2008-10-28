@@ -50,7 +50,7 @@ module Distribution.Franchise.ConfigureState
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
-      cd, rm_rf, writeF,
+      cd, rm_rf, mkdir, writeF,
       withDirectory, withRootdir, getCurrentSubdir, processFilePath,
       quietly,
       unlessC, whenC, getNoRemove,
