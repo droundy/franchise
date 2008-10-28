@@ -48,7 +48,7 @@ gitPatchLevel ver = withRootdir $ do v <- inGit
                               return i
                              `catchC` \_ -> return 0
           getPatchLvl = do patches <- systemOut "git" ["log",ver++"..","--pretty=oneline"]
-                           let patchlvl = max 0 $ length (lines patches) - 1
+                           let patchlvl = max 0 $ length (lines patches)
                            writeF ".patchLevel" (show patchlvl) `catchC` \_ -> return ()
                            return patchlvl
                           `catchC` \_ -> return 0
