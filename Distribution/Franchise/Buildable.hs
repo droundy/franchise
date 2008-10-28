@@ -39,7 +39,7 @@ module Distribution.Franchise.Buildable
     where
 
 import Data.Maybe ( isJust )
-import Data.List ( isPrefixOf, isSuffixOf )
+import Data.List ( isPrefixOf, isSuffixOf, (\\) )
 import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
@@ -221,8 +221,10 @@ build' cms b =
                      depb = drop jobs canb' ++ depb'
                      buildone ttt =
                          forkC cms $
-                         do stillneedswork <- needsWork ttt
-                            Just (Target ts xs0 how) <- getTarget ttt
+                         do Just (Target ts xs0 how) <- getTarget ttt
+                            stillneedswork <- if any (`elemS` ts) $ toListS inprogress
+                                              then return False
+                                              else needsWork ttt
                             if stillneedswork
                               then do putD $ unlines
                                         ["I am making "++ ttt,
@@ -232,9 +234,9 @@ build' cms b =
                                                \e -> do putV $ errorBuilding e ttt
                                                         putV e
                                                         io $ writeChan chan $ Left e
-                                      io $ writeChan chan (Right ttt)
+                                      io $ writeChan chan $ Right (ttt, ts)
                               else do putD $ "I get to skip one! " ++ ttt
-                                      io $ writeChan chan (Right ttt)
+                                      io $ writeChan chan $ Right (ttt, ts)
                  case filter (".o" `isSuffixOf`) canb of
                    [] -> return ()
                    [_] -> return ()
@@ -245,8 +247,9 @@ build' cms b =
                    Left e -> do let estr = errorBuilding e b
                                 putV (estr++'\n':e)
                                 fail estr
-                   Right d -> do putD $ "Done building "++ d
-                                 buildthem chan (delS d (addsS canb $ inprogress)) depb
+                   Right (d,ts) -> do putD $ "Done building "++ show d
+                                      buildthem chan (delS d (addsS canb $ inprogress))
+                                                     (depb \\ toListS ts)
           errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
           errorBuilding e f | ".depend" `isSuffixOf` f = e
           errorBuilding e bn = "Error building "++bn++'\n':e
