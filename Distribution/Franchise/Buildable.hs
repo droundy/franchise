@@ -44,6 +44,7 @@ import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime, findExecutable )
 import Control.Concurrent ( readChan, writeChan, newChan )
+import Control.Monad ( msum )
 
 import System.Console.GetOpt ( OptDescr(..) )
 
@@ -273,7 +274,8 @@ getBuildable t = do mt <- getTarget t
                       Just (Target ts ds how) -> return $ Just (t:toListS ts :< toListS ds :<- how)
 
 getTarget :: String -> C (Maybe Target)
-getTarget t = lookupT t `fmap` getTargets
+getTarget t = do allts <- getTargets
+                 return $ msum [lookupT t allts, lookupT ('*':t++"*") allts]
 
 findWork :: String -> C StringSet
 findWork zzz = do putD $ "findWork called on "++zzz
