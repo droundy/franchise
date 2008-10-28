@@ -29,58 +29,77 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.StringSet ( StringSet, emptyS, elemS,
+module Distribution.Franchise.StringSet ( StringSet(..), nullS, emptyS, elemS,
+                                          fromListS, toListS, foreachS,
+                                          unionS, unionallS,
                                           addS, addsS, delS, delsS, lengthS ) where
 
 import Data.Maybe ( catMaybes )
 
-newtype StringSet = SS [(Maybe Char, StringSet)]
+data StringSet = SS {-# UNPACK #-} !Bool [(Char,StringSet)]
 
 instance Show StringSet where
-    showsPrec x ss = showsPrec x (toList ss)
+    showsPrec x ss = showsPrec x (toListS ss)
 
-toList :: StringSet -> [String]
-toList (SS []) = []
-toList (SS ls) = concatMap toL ls
-    where toL (Nothing,_) = [""]
-          toL (Just c,ss) = map (c:) $ toList ss
+instance Eq StringSet where
+    SS a _ == SS b _ | a /= b = False
+    SS _ [] == SS _ [] = True
+    SS _ [] == _ = False
+    _ == SS _ [] = False
+    SS _ (x:xs) == SS _ ys = case takeOne x ys of
+                         Just ys' -> SS False xs == SS False ys'
+                         Nothing -> False
+
+takeOne :: Eq a => a -> [a] -> Maybe [a]
+takeOne x (y:ys) | x == y = Just ys
+                 | otherwise = (y:) `fmap` takeOne x ys
+takeOne _ [] = Nothing
+
+toListS :: StringSet -> [String]
+toListS (SS b ls) = (if b then [""] else []) ++ concatMap toL ls
+    where toL (c,ss) = map (c:) $ toListS ss
+
+fromListS :: [String] -> StringSet
+fromListS x = addsS x emptyS
 
 lengthS :: StringSet -> Int
-lengthS (SS []) = 0
-lengthS (SS ls) = sum $ map l ls
-    where l (Nothing,_) = 1
-          l (_, x) = lengthS x
+lengthS (SS b ls) = sum (map (lengthS . snd) ls) + (if b then 1 else 0)
 
 emptyS :: StringSet
-emptyS = SS []
+emptyS = SS False []
+
+nullS :: StringSet -> Bool
+nullS (SS False []) = True
+nullS _ = False
 
 elemS :: String -> StringSet -> Bool
-elemS "" (SS ls) = case lookup Nothing ls of
-                   Nothing -> False
-                   Just _ -> True
-elemS (c:cs) (SS ls) = case lookup (Just c) ls of
-                       Nothing -> False
-                       Just ls' -> elemS cs ls'
+elemS "" (SS b _) = b
+elemS (c:cs) (SS _ ls) = case lookup c ls of
+                         Nothing -> False
+                         Just ls' -> elemS cs ls'
 
 addS :: String -> StringSet -> StringSet
-addS "" (SS ls) = case lookup Nothing ls of
-                  Nothing -> SS $ (Nothing, emptyS):ls
-                  Just _ -> SS ls
-addS (c:cs) (SS ls) = SS $ repl ls
-    where repl ((Just c', ss):r) | c == c' = (Just c', addS cs ss) : r
+addS "" (SS _ ls) = SS True ls
+addS (c:cs) (SS b ls) = SS b $ repl ls
+    where repl ((c', ss):r) | c == c' = (c', addS cs ss) : r
           repl (x:r) = x : repl r
-          repl [] = [(Just c, addS cs emptyS)]
+          repl [] = [(c, addS cs emptyS)]
 
 delS :: String -> StringSet -> StringSet
-delS "" (SS ls) = SS $ filter d ls
-    where d (Nothing, _) = False
-          d _ = True
-delS (c:cs) (SS ls) = SS $ catMaybes $ map d ls
-    where d (Just c', x) | c == c' = case delS cs x of
-                                     SS [] -> Nothing
-                                     x' -> Just (Just c', x')
+delS "" (SS _ ls) = SS False ls
+delS (c:cs) (SS b ls) = SS b $ catMaybes $ map d ls
+    where d (c', x) | c == c' = case delS cs x of
+                                SS False [] -> Nothing
+                                x' -> Just (c', x')
           d x = Just x
-                      
+
+unionS :: StringSet -> StringSet -> StringSet
+unionS a b = addsS (toListS a) b
+
+unionallS :: [StringSet] -> StringSet
+unionallS [] = emptyS
+unionallS (x:xs) = addsS (concatMap toListS xs) x
+
 addsS :: [String] -> StringSet -> StringSet
 addsS [] x = x
 addsS (s:ss) x = addsS ss $ addS s x
@@ -88,3 +107,6 @@ addsS (s:ss) x = addsS ss $ addS s x
 delsS :: [String] -> StringSet -> StringSet                      
 delsS [] x = x
 delsS (s:ss) x = delsS ss $ delS s x
+
+foreachS :: Monad m => (String -> m a) -> StringSet -> m [a]
+foreachS f s = mapM f $ toListS s
