@@ -104,7 +104,8 @@ ghcDeps dname src announceme =
 
 privateExecutable :: String -> String -> [String] -> C String
 privateExecutable  simpleexname src cfiles =
-    do aminwin <- amInWindows
+    do checkMinimumPackages
+       aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
                          return (simpleexname++".exe")

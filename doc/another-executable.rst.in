@@ -1,0 +1,43 @@
+Another simple executable
+=========================
+
+Here's code to produce a simple executable.  First we have the actual
+source code to the executable:
+
+\begin{file}{tests/second/second.hs}
+import Data.List
+
+main = putStrLn "hello world"
+\end{file}
+
+As you can see, it's just a standard hello world with a useless import
+statement for excitement.
+
+Setup.hs
+--------
+
+The ``Setup.hs`` file is given below, which is pretty simple.
+
+\begin{file}{tests/second/Setup.hs}
+import Distribution.Franchise
+
+main = build [] (return ())
+       (executable "second" "second.hs" [])
+
+\end{file}
+
+Testing it out
+--------------
+
+And here's how we actually build the program.  As you can see, users
+don't actually need to run configure unless they are unhappy with the
+defaults.
+
+\begin{file}{tests/second/second.sh}
+set -ev
+
+runghc Setup.hs build
+
+./second
+
+\end{file}

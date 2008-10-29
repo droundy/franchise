@@ -44,7 +44,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 requireModule, lookForModule, withModule,
                                 requireModuleExporting, lookForModuleExporting, withModuleExporting,
                                 -- Searching for an executable
-                                findAnExecutable,
+                                findProgram, withProgram,
                                 checkLib, withLib, checkHeader, withHeader,
                                 findPackagesFor,
                                 getConstant, withConstant,
@@ -64,7 +64,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- utility for running external code
                                 system, systemOut,
                                 cd, mkdir, pwd, ls, cat,
-                                withDirectory, rememberDirectory,
+                                withDirectory, rememberDirectory, splitPath,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
                                 -- for handy preprocessing...
@@ -84,3 +84,4 @@ import Distribution.Franchise.Darcs
 import Distribution.Franchise.Git
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
+import Distribution.Franchise.Program

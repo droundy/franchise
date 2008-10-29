@@ -50,8 +50,8 @@ module Distribution.Franchise.ConfigureState
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
-      cd, rm_rf, mkdir, writeF,
-      withDirectory, withRootdir, getCurrentSubdir, processFilePath,
+      cd, rm_rf, mkdir, writeF, splitPath,
+      withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
       quietly,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
@@ -323,7 +323,6 @@ readConfigureState d =
 writeConfigureState :: String -> C ()
 writeConfigureState d =
     do cs <- get
-       io (createDirectory d) `catchC` \_ -> return ()
        writeF (d'++"commandLine") $ show $ commandLine cs
        writeF (d'++"ghcFlags") $ show $ ghcFlagsC cs
        writeF (d'++"pkgFlags") $ show $ pkgFlagsC cs
@@ -341,6 +340,7 @@ writeConfigureState d =
 
 writeF :: String -> String -> C ()
 writeF x0 y = do x <- processFilePath x0
+                 mkdir $ dirname x0
                  y' <- io (readFile x) `catchC` \_ -> return ('x':y)
                  whenC (return $ length y /= length y' || y /= y') $ io $ writeFile x y
 
@@ -348,6 +348,26 @@ readDirectory :: String -> C [String]
 readDirectory d =
     do d' <- processFilePath d
        io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
+
+-- | mkdir makes a directory and its parents if it doesn't exist.
+mkdir :: FilePath -> C ()
+mkdir "" = return ()
+mkdir d0 = do d <- processFilePath d0
+              unlessC (io $ doesDirectoryExist d) $ do mkdir $ dirname d0
+                                                       io $ createDirectory d
+
+splitPath :: FilePath -> (FilePath, FilePath)
+splitPath p = (dirname p, basename p)
+
+basename :: FilePath -> FilePath
+basename p = reverse (takeWhile isSep rp++ takeWhile (not.isSep) (dropWhile isSep rp))
+    where rp = reverse p
+
+isSep :: Char -> Bool
+isSep c = c `elem` "/\\"
+
+dirname :: FilePath -> FilePath
+dirname = reverse . drop 1 . dropWhile (not . isSep) . dropWhile isSep . reverse
 
 rm_rf :: FilePath -> C ()
 rm_rf d =
@@ -469,10 +489,17 @@ withRootdir f = do oldd <- gets currentSubDirectory
                    modify $ \cs -> cs { currentSubDirectory = oldd }
                    return x
 
+rememberDirectory :: C (C a -> C a)
+rememberDirectory = do mcwd <- getCurrentSubdir
+                       case mcwd of
+                         Just cwd -> return (withRootdir . withDirectory cwd)
+                         Nothing -> return withRootdir
+
 getCurrentSubdir :: C (Maybe String)
 getCurrentSubdir = gets currentSubDirectory
 
 processFilePath :: String -> C String
+processFilePath ('*':f) = return ('*':f) -- This is a phony target
 processFilePath f = do sd <- gets currentSubDirectory
                        return $ maybe f (++('/':f)) sd
 

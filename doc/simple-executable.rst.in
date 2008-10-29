@@ -1,0 +1,27 @@
+A simple executable
+===================
+
+Here's code to produce a very simple executable.
+
+\begin{file}{tests/simple-executable/simple-executable.hs}
+main = return ()
+\end{file}
+
+Here's the ``Setup.hs`` file.
+
+\begin{file}{tests/simple-executable/Setup.hs}
+import Distribution.Franchise
+
+main = build [] (return ())
+       (executable "simple-executable" "simple-executable.hs" [])
+\end{file}
+
+And finally we'll test that this executable actually builds and runs.
+
+\begin{file}{tests/simple-executable/simple-executable.sh}
+set -ev
+
+runghc Setup.hs build
+
+./simple-executable
+\end{file}

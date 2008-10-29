@@ -24,19 +24,43 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                -- build rather than waiting for the user to
                                -- run Setup.hs configure again.
                                versionFromDarcs
-                               -- buildDoc
+                               buildDoc
                                darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 
-{-
 buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
-    where buildOneDoc f = do tests0 <- splitFile f (splitf f)
-                             let tests = map (drop 6) $
+              withDirectory "doc" $ do rsts <- filter (".rst" `isSuffixOf`) `fmap` ls "."
+                                       htmls <- concat `fmap` mapM buildHtml rsts
+                                       addTarget $ ["*manual*"] :< htmls |<- defaultRule
+    where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
+          buildOneDoc f = do tests0 <- splitFile f (\x -> purge f "" x++splitf f x)
+                             let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             withDirectory "tests" $
-                                           mapM (testOne "bash") tests
+                             mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
+          buildHtml f = withProgram "rst2html" [] $ \rst2html ->
+                        do withd <- rememberDirectory
+                           let makehtml = withd $
+                                do mkdir "manual"
+                                   system "rst2html" [f,htmlname]
+                               htmlname = "manual/"++ take (length f - 4) f++".html"
+                           addTarget $ [htmlname] :< [f]
+                               |<- defaultRule { make = const makehtml }
+                           return [htmlname]
+          purge f _ _ | not (".in" `isSuffixOf` f) = []
+          purge f sofar x =
+              case splitOn "\\begin{file}{" x of
+              Nothing -> [(reverse $ drop 3 $ reverse f, sofar++x)]
+              Just (before,after) ->
+                  case splitOn "}\n" after of
+                  Nothing -> [(reverse $ drop 3 $ reverse f, sofar++before)]
+                  Just (fn,after2) ->
+                      case splitOn "\\end{file}" after2 of
+                      Nothing -> [(reverse $ drop 3 $ reverse f, sofar++before)]
+                      Just (contents,after3) ->
+                          purge f (sofar++before++"`file: "++fn++"`::\n\n"++
+                                   unlines (map ("    "++) $ lines contents)) after3
           splitf f x = case splitOn "\\begin{file}{" x of
                        Nothing -> []
                        Just (_,after) ->
@@ -54,4 +78,3 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
           stripPrefix [] ys = Just ys
           stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
           stripPrefix _ _ = Nothing
--}

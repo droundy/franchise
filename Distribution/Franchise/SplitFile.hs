@@ -46,15 +46,25 @@ splitFile fn _ | ".splits" `isSuffixOf` fn = return []
 splitFile fn _ | "~" `isSuffixOf` fn = return []
 splitFile fn splitfun =
     whenC (isFile fn) $
-    do addTarget $ [fnsplits] :< [fn] |<- defaultRule { make = const splitf }
-       build' CannotModifyState fnsplits
-       readSplits
+    do withd <- rememberDirectory
+       addTarget $ [fnsplits] :< [fn] |<- defaultRule { make = const $ withd $ splitf }
+       processFilePath fnsplits >>= build' CannotModifyState
+       ss <- readSplits
+       case ss of
+         [] -> return ()
+         (s:_) -> do addTarget $ ss :< [fn,fnsplits]
+                         |<- defaultRule { make = const $ withd $ splitf }
+                     processFilePath s >>= build' CannotModifyState
+       return ss
     where fnsplits = fn++".splits"
-          splitf = do putV $ "splitting "++fn++"..."
-                      x <- cat fn
+          splitf = do x <- cat fn
                       let splits = splitfun x
                       mapM (uncurry writeF) splits
-                      writeF fnsplits $ show $ map fst splits
+                      -- we use writeFile rather than writeF because
+                      -- we want the timestamp always to change, so we
+                      -- won't have to re-run this next time.
+                      fnsplits' <- processFilePath fnsplits
+                      io $ writeFile fnsplits' $ show $ map fst splits
           readSplits = do x <- cat fnsplits
                           case reads x of
                             [(y,"")] -> return y

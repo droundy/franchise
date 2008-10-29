@@ -164,7 +164,7 @@ systemOutErr c args =
        ec <- io $ waitForProcessNonBlocking pid
        io $ threadDelay 1000
        case ec of
-         ExitFailure 127 -> fail $ c ++ ": command not found"
+         ExitFailure 127 -> fail $ c ++ ": command not found\n\n"++unlines outerr
          _ -> return (ec, unlines outerr)
 
 -- | Run a process with a list of arguments and get the resulting output from stdout.

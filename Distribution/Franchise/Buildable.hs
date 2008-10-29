@@ -32,7 +32,6 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), build, buildWithArgs, installBin, replace, createFile,
       define, defineAs, isDefined,
-      findAnExecutable,
       defaultRule, buildName, build', cleanIt, rm,
       addTarget, getBuildable, (|<-),
       extraData )
@@ -42,7 +41,7 @@ import Data.Maybe ( isJust )
 import Data.List ( isPrefixOf, isSuffixOf, (\\) )
 import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
-                          getModificationTime, findExecutable )
+                          getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 import Control.Monad ( msum )
 
@@ -189,7 +188,7 @@ needsWork t =
                             anyM _ [] = return False
                             anyM f (z:zs) = do b <- f z
                                                if b then return True else anyM f zs
-                        
+
 
 build' :: CanModifyState -> String -> C ()
 build' cms b =
@@ -330,15 +329,6 @@ defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
 
 isDefined :: String -> C Bool
 isDefined x = elem ("-D"++x) `fmap` getGhcFlags
-
--- throw exception on failure to find something
-findAnExecutable :: String -> [String] -> C String
-findAnExecutable e xs = fe (e:xs)
-    where fe [] = fail $ "Couldn't find executable "++e
-          fe (y:ys) = do me <- io $ findExecutable y
-                         case me of
-                           Just _ -> return y
-                           Nothing -> fe ys
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =

@@ -41,37 +41,55 @@ import Distribution.Franchise.Util
 -- | Create a build target for test suites.
 
 testOne :: String -> String -> C String
-testOne r f = do putV $ "defining test "++r++" "++f
-                 addTarget $ [f++".output"] :< []
+testOne r f = do withcwd <- rememberDirectory
+                 let testname = "*"++f++"*"
+                 addTarget $ [testname] :< []
                            -- no dependencies, so it'll get automatically run
-                           |<- defaultRule { make = const runtest }
-                 return $ f++".output"
-    where runtest = do (ec,out) <- quietly $ systemOutErr r [f]
-                       writeF (f++".output") out
-                       putV $ unlines $ map (\l->('|':' ':l)) $ lines out
-                       case ec of
-                         ExitSuccess -> putS $ pad ("testing "++f)++" ok"
-                         _ -> do putS $ pad ("testing "++f)++" FAILED"
-                                 fail out
+                           |<- defaultRule { make = const $ runtest withcwd }
+                 return $ testname
+    where runtest withcwd =
+              do (ec,out) <- withcwd $ do (ec,out) <- quietly $ withcwd $ systemOutErr r [f]
+                                          writeF (f++".output") out
+                                          return (ec,out)
+                 putV $ unlines $ map (\l->('|':' ':l)) $ lines out
+                 case ec of
+                   ExitSuccess -> putS $ pad ("testing "++f)++" ok"
+                   _ -> do putS $ pad ("testing "++f)++" FAILED"
+                           fail out
 
 pad :: String -> String
-pad x = if length x < 65
-        then x++take (65 - length x) (repeat '.')
-        else x
+pad x0 = if length x < 65
+         then x++take (65 - length x) (repeat '.')
+         else x
+    where x = case x0 of
+              ('*':r) -> case reverse r of
+                         ('*':rr) -> reverse rr
+                         _ -> x0
+              _ -> x0
 
 test :: [String] -> C ()
 test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ -> runtests 0 0 ts0 }
     where runtests :: Int -> Int -> [String] -> C ()
-          runtests npassed 0 [] = putS $ "All "++show npassed++" tests passed!"
-          runtests 0 nfailed [] = do putS $ "All "++show nfailed++" tests FAILED!"
+          runtests npassed 0 [] = putAll npassed "test" "passed!"
+          runtests 0 nfailed [] = do putAll nfailed "test" "FAILED!"
                                      fail "tests failed!"
           runtests npassed nfailed [] = do putS $ show nfailed++"/"++
                                                 show (npassed+nfailed)++" tests FAILED!"
                                            fail "tests failed!"
           runtests np nfailed (t:ts) =
-             (do quietly $ build' CannotModifyState t
-                 putS $ pad t++" ok"
-                 runtests (np+1) nfailed ts)
-             `catchC` (\e -> do putS $ pad t++" FAILED!"
-                                putV $ unlines $ map (\l->('|':' ':l)) $ lines e
-                                runtests np (nfailed+1) ts)
+              do tOK <- runSingleTest t
+                 if tOK then runtests (np+1) nfailed ts
+                        else runtests np (nfailed+1) ts
+          runSingleTest t = do quietly $ build' CannotModifyState t
+                               putS $ pad t++" ok"
+                               return True
+                            `catchC` \e ->
+                                do putS $ pad t++" FAILED!"
+                                   putV $ unlines $ map (\l->('|':' ':l)) $ lines e
+                                   return False
+
+putAll :: Int -> String -> String -> C ()
+putAll 0 noun verb = putS $ "There were no "++noun++"s... but they all "++verb
+putAll 1 noun verb = putS $ "One "++noun++" "++verb
+putAll 2 noun verb = putS $ "Both "++noun++"s "++verb
+putAll n noun verb = putS $ "All "++show n++" "++noun++"s "++verb
