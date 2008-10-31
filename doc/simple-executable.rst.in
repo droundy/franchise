@@ -21,7 +21,7 @@ And finally we'll test that this executable actually builds and runs.
 \begin{file}{tests/simple-executable/simple-executable.sh}
 set -ev
 # hokey workaround...
-ln -s ../../../Distribution .
+ln -sf ../../../Distribution .
 
 runghc Setup.hs build
 
