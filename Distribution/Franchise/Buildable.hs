@@ -214,10 +214,11 @@ build' cms b =
                                  return 1
                          else return nj
                  njobs <- getNumJobs >>= fixNumJobs
-                 (canb',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
+                 (canb'',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
+                 canb' <- filterDupTargets canb''
                  let jobs = max 0 (njobs - lengthS inprogress)
                      canb = take jobs canb'
-                     depb = drop jobs canb' ++ depb'
+                     depb = drop jobs canb' ++ (canb'' \\ canb') ++ depb'
                      buildone ttt =
                          forkC cms $
                          do Just (Target ts xs0 how) <- getTarget ttt
@@ -240,7 +241,7 @@ build' cms b =
                    [] -> return ()
                    [_] -> return ()
                    tb -> putD $ "I can now build "++ unwords tb
-                 filterDupTargets canb >>= mapM_ buildone
+                 mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
                    Left e -> do let estr = errorBuilding e b
