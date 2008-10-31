@@ -189,7 +189,6 @@ needsWork t =
                             anyM f (z:zs) = do b <- f z
                                                if b then return True else anyM f zs
 
-
 build' :: CanModifyState -> String -> C ()
 build' cms b =
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
@@ -241,7 +240,7 @@ build' cms b =
                    [] -> return ()
                    [_] -> return ()
                    tb -> putD $ "I can now build "++ unwords tb
-                 mapM_ buildone canb
+                 filterDupTargets canb >>= mapM_ buildone
                  md <- io $ readChan chan
                  case md of
                    Left e -> do let estr = errorBuilding e b
@@ -253,6 +252,11 @@ build' cms b =
           errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
           errorBuilding e f | ".depend" `isSuffixOf` f = e
           errorBuilding e bn = "Error building "++bn++'\n':e
+          filterDupTargets [] = return []
+          filterDupTargets (t:ts) =
+              do Just (Target xs _ _) <- getTarget t
+                 ts' <- filterDupTargets $ filter (not . (`elemS` xs)) ts
+                 return (t:ts')
 
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a],[a])
 partitionM _ [] = return ([],[])
