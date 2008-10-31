@@ -58,6 +58,8 @@ A simple test script
 
 \begin{file}{tests/foreign-wrapper/foreign-wrapper.sh}
 set -ev
+# hokey workaround...
+ln -s ../../../Distribution .
 
 runghc Setup.hs build
 
