@@ -1,0 +1,66 @@
+
+A foreign function interface wrapper
+====================================
+
+This example demonstrates how to compile an executable that uses the
+FFI to export a Haskell function to C.  This is currently highly
+inelegant, as we really ought to do this automatically.
+Unfortunately, the dependency-generation of ghc apparently ignores
+these files.  :(
+
+The C source
+------------
+
+Our C example is a simple function that accepts a function returning
+an int and prints out its value.
+
+\begin{file}{tests/foreign-wrapper/printit.c}
+#include <stdio.h>
+
+void printit(int (*x)()) { printf("It is %d\n", x()); }
+\end{file}
+
+The Haskell source
+------------------
+
+We call this C function giving it a very simple
+
+\begin{file}{tests/foreign-wrapper/test.hs}
+module Main where
+
+import Foreign.C.Types ( CInt )
+import Foreign.Ptr ( FunPtr )
+
+foreign import ccall "wrapper" wrap :: IO CInt
+                                    -> IO (FunPtr (IO CInt))
+foreign import ccall "printit" printit
+      :: FunPtr (IO CInt) -> IO ()
+
+main = do fp <- wrap (return 137)
+          printit fp
+\end{file}
+
+The Setup.hs file
+-----------------
+
+Here's the ``Setup.hs`` file.  As you can see, we have to manually
+
+\begin{file}{tests/foreign-wrapper/Setup.hs}
+import Distribution.Franchise
+
+main = build [] (return ()) $
+       do ghcFlags ["-fffi"]
+          executable "test" "test.hs" ["printit.c","test_stub.o"]
+\end{file}
+
+A simple test script
+--------------------
+
+\begin{file}{tests/foreign-wrapper/foreign-wrapper.sh}
+set -ev
+
+runghc Setup.hs build
+
+./test
+./test | grep 137
+\end{file}

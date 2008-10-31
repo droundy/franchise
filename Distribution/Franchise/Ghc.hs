@@ -103,7 +103,7 @@ ghcDeps dname src announceme =
 -- not to be installed.  It's also used internally by executable.
 
 privateExecutable :: String -> String -> [String] -> C String
-privateExecutable  simpleexname src cfiles =
+privateExecutable  simpleexname src cfiles0 =
     do checkMinimumPackages
        aminwin <- amInWindows
        exname <- if aminwin
@@ -115,10 +115,11 @@ privateExecutable  simpleexname src cfiles =
        ghcDeps depend [src] $ putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend
        (objs,_) <- io (readFile depend) >>= parseDeps []
-       let mk _ = do ghc system (objs++ cobjs ++ ["-o",exname])
+       let mk _ = do ghc system (objs++ cobjs ++ extraobjs ++ ["-o",exname])
+           (cfiles, extraobjs) = partition (".c" `isSuffixOf`) cfiles0
            cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
        mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
-       addTarget $ [exname, simpleexname] :< (src:objs++cobjs)
+       addTarget $ [exname, simpleexname] :< (src:objs++cobjs++extraobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
        return exname
 
