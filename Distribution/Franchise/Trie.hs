@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
-                                     insertT, insertSeveralT, filterT, keysT,
+                                     insertT, adjustT, insertSeveralT, filterT, keysT,
                                      delT, delSeveralT, lengthT ) where
 
 import Distribution.Franchise.StringSet
@@ -78,6 +78,15 @@ lookupT :: String -> Trie a -> Maybe a
 lookupT "" (Trie ma _) = ma
 lookupT (c:cs) (Trie _ ls) = do ls' <- lookup c ls
                                 lookupT cs ls'
+
+adjustT :: String -> (a -> a) -> Trie a -> Trie a
+adjustT "" f (Trie (Just v) ls) = fv `seq` Trie (Just fv) ls
+    where fv = f v -- make this strict to avoid stack overflow!
+adjustT "" _ (Trie Nothing ls) = Trie Nothing ls
+adjustT (c:cs) f (Trie b ls) = Trie b $ adj ls
+    where adj ((c', ss):r) | c == c' = (c', adjustT cs f ss) : r
+          adj (x:r) = x : adj r
+          adj [] = []
 
 insertT :: String -> a -> Trie a -> Trie a
 insertT "" a (Trie _ ls) = Trie (Just a) ls

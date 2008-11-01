@@ -30,7 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
-    ( Buildable(..), build, buildWithArgs, installBin, replace, createFile,
+    ( Buildable(..), BuildRule(..), Dependency(..),
+      build, buildWithArgs, installBin, replace, createFile,
       define, defineAs, isDefined,
       defaultRule, buildName, build', cleanIt, rm,
       addTarget, getBuildable, (|<-),
@@ -51,6 +52,13 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
+
+data Dependency = [String] :< [String]
+
+infix 2 :<
+data BuildRule = BuildRule { make :: Dependency -> C (),
+                             install :: Dependency -> C (),
+                             clean :: Dependency -> [String] }
 
 data Buildable = Dependency :<- BuildRule
 
@@ -98,23 +106,14 @@ buildWithArgs args opts doconf mkbuild =
        runC args $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
-          runcommand "clean" = do b <- mkbuild
-                                  clean' b
-          runcommand "build" = do reconfigure
-                                  b <- mkbuild
-                                  build' CannotModifyState b
-          runcommand "install" = do reconfigure
-                                    b <- mkbuild
-                                    build' CannotModifyState b
-                                    install' b
           runcommand t = do reconfigure
-                            mkbuild
                             build' CannotModifyState t
           configure = do putS "configuring..."
                          rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
-                         mkbuild
+                         b <- mkbuild
+                         addTarget (["*build*"]:<[b]:<-defaultRule)
                          runPostConfigureHooks
                          writeConfigureState "config.d"
                          putS "configure successful."
@@ -131,35 +130,14 @@ buildWithArgs args opts doconf mkbuild =
                                                return (setupmt < clmt)
                                             `catchC` \_ -> do putV "reconfiguring due to missing file"
                                                               return True
-                           whenC needreconf $ makeConfState
+                           needrc <- needreconf
+                           if needrc then makeConfState
+                                     else do b <- mkbuild
+                                             addTarget (["*build*"]:<[b]:<-defaultRule)
                            runPostConfigureHooks
           makeConfState = do fs <- gets commandLine
                              putV $ "reconfiguring with flags " ++ unwords fs
                              runWithArgs opts myargs (const configure)
-
-install' :: String -> C ()
-install' t0 = inst emptyS [t0]
-    where inst _ [] = return ()
-          inst done (t:ts) | t `elemS` done = inst done ts
-          inst done (t:ts) =
-              do mt <- getBuildable t
-                 case mt of
-                   Nothing -> inst (addS t done) ts
-                   Just (xs:<ds:<-how) -> do install how (xs :< ds)
-                                             inst (addS t done) (filter (not . (`elemS` done)) ds++ts)
-
-clean' :: String -> C ()
-clean' t0 = cl emptyS [t0]
-  where
-    cl _ [] = return ()
-    cl done (t:ts) | t `elemS` done = cl done ts
-    cl done (t:ts) =
-        do mb <- getBuildable t
-           case mb of
-             Nothing -> cl (addS t done) ts
-             Just (xs :< ds :<- how) ->
-                 do mapM_ rm $ clean how (xs :< ds)
-                    cl (addS t done) (filter (not . (`elemS` done)) ds++ts)
 
 needsWork :: String -> C Bool
 needsWork t =
@@ -221,7 +199,7 @@ build' cms b =
                      depb = drop jobs canb' ++ (canb'' \\ canb') ++ depb'
                      buildone ttt =
                          forkC cms $
-                         do Just (Target ts xs0 how) <- getTarget ttt
+                         do Just (Target ts xs0 makettt) <- getTarget ttt
                             stillneedswork <- if any (`elemS` ts) $ toListS inprogress
                                               then return False
                                               else needsWork ttt
@@ -229,8 +207,7 @@ build' cms b =
                               then do putD $ unlines
                                         ["I am making "++ ttt,
                                          "  This depends on "++ unwords (toListS xs0)]
-                                      make how (ttt:toListS ts :< toListS xs0)
-                                               `catchC`
+                                      makettt `catchC`
                                                \e -> do putV $ errorBuilding e ttt
                                                         putV e
                                                         io $ writeChan chan $ Left e
@@ -275,7 +252,8 @@ getBuildable :: String -> C (Maybe Buildable)
 getBuildable t = do mt <- getTarget t
                     case mt of
                       Nothing -> return Nothing
-                      Just (Target ts ds how) -> return $ Just (t:toListS ts :< toListS ds :<- how)
+                      Just (Target ts ds how) -> return $ Just (t:toListS ts :< toListS ds
+                                                                     :<- defaultRule { make = const how })
 
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
@@ -342,5 +320,12 @@ addTarget (ts :< ds :<- r) =
        let fixt t = (t, delS t allts)
            allts = fromListS ts'
            ts'' = map fixt ts'
-           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' r)
+           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ make r (ts:<ds))
+       case clean r (ts:<ds) of
+         [] -> return ()
+         toclean -> modifyTargets $ adjustT "*clean*" $
+                    \ (Target a b c) -> Target a b (c >> mapM_ rm toclean)
+       case install r (ts:<ds) of
+         inst -> modifyTargets $ adjustT "*install*" $
+                 \ (Target a b c) -> Target a b (c >> inst)
        mapM_ addt ts''

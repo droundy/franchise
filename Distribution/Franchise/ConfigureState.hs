@@ -46,7 +46,7 @@ module Distribution.Franchise.ConfigureState
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs,
       CanModifyState(..),
-      Dependency(..), Target(..), BuildRule(..),
+      Target(..),
       getTargets, modifyTargets,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
@@ -383,15 +383,9 @@ rm_rf d =
 data LogMessage = Stdout String | Logfile String
 data HookTime = Preconfigure | Postconfigure
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
-data Dependency = [String] :< [String]
 data Target = Target { fellowTargets :: !StringSet,
                        dependencies :: !StringSet,
-                       rule :: !BuildRule }
-
-infix 2 :<
-data BuildRule = BuildRule { make :: Dependency -> C (),
-                             install :: Dependency -> C (),
-                             clean :: Dependency -> [String] }
+                       rule :: !(C ()) }
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
@@ -525,7 +519,7 @@ runC args (C a) =
                       postConfigureHooks = [],
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
-                      targets = emptyT,
+                      targets = defaultTargets,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -534,6 +528,13 @@ runC args (C a) =
                       putStrLn $ "Error:  "++e
                       exitWith $ ExitFailure 1
          Right (out,_) -> return out
+
+defaultTargets :: Trie Target
+defaultTargets =
+    insertT "*clean*" (Target emptyS emptyS $ putS "cleaning...") $
+    insertT "*install*" (Target emptyS (fromListS ["*build*"]) $ putS "installing...") $
+    insertT "*build*" (Target emptyS emptyS $ putS "building...") $
+    emptyT
 
 defaultConfiguration :: ConfigureState
 defaultConfiguration = CS { commandLine = [],
