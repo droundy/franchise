@@ -16,7 +16,7 @@ ahSplit outfile subs content = [(outfile,unlines $ map repl $ lines content)]
                                                                             else " " ++ v
                  | otherwise = s
 
-autoHeader :: FilePath -> FilePath -> C ()
-autoHeader target src = do defs <- getDefinitions
-                           splitFile src (ahSplit target defs)
-                           return ()
+autoHeader :: FilePath -> C ()
+autoHeader target = do defs <- getDefinitions
+                       splitFile (target++".in") (ahSplit target defs)
+                       return ()
