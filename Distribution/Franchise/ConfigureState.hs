@@ -47,7 +47,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs,
       CanModifyState(..),
       Target(..),
-      getTargets, modifyTargets,
+      getTargets, modifyTargets, setBuilt, isBuilt,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
@@ -395,6 +395,7 @@ data TotalState = TS { numJobs :: Int,
                        configureHooks :: [(String,C ())],
                        postConfigureHooks :: [(String,C ())],
                        targets :: Trie Target,
+                       built :: StringSet,
                        configureState :: ConfigureState }
 
 tsHook :: HookTime -> TotalState -> [(String,C ())]
@@ -520,6 +521,7 @@ runC args (C a) =
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
                       targets = defaultTargets,
+                      built = emptyS,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -533,7 +535,7 @@ defaultTargets :: Trie Target
 defaultTargets =
     insertT "*clean*" (Target emptyS emptyS $ putS "cleaning...") $
     insertT "*install*" (Target emptyS (fromListS ["*build*"]) $ putS "installing...") $
-    insertT "*build*" (Target emptyS emptyS $ putS "building...") $
+    insertT "*build*" (Target emptyS emptyS $ putS "finished building.") $
     emptyT
 
 defaultConfiguration :: ConfigureState
@@ -552,6 +554,12 @@ getTargets = C $ \ts -> return $ Right (targets ts, ts)
 
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
+
+isBuilt :: String -> C Bool
+isBuilt t = C $ \ts -> return $ Right (t `elemS` built ts || ('*':t++"*") `elemS` built ts, ts)
+
+setBuilt :: String -> C ()
+setBuilt t = C $ \ts -> return $ Right ((), ts { built = addS t $ built ts })
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x

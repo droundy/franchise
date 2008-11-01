@@ -38,7 +38,6 @@ module Distribution.Franchise.Buildable
       extraData )
     where
 
-import Data.Maybe ( isJust )
 import Data.List ( isPrefixOf, isSuffixOf, (\\) )
 import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
@@ -113,11 +112,14 @@ buildWithArgs args opts doconf mkbuild =
                          runConfigureHooks
                          doconf
                          b <- mkbuild
-                         addTarget (["*build*"]:<[b]:<-defaultRule)
+                         modifyTargets $ adjustT "*build*" $
+                                           \(Target a ds j) -> Target a (addS b ds) j
                          runPostConfigureHooks
                          writeConfigureState "config.d"
+                         setBuilt "*configure*"
                          putS "configure successful."
-          reconfigure = do (readConfigureState "config.d" >>= put)
+          reconfigure = unlessC (isBuilt "*configure*") $
+                        do (readConfigureState "config.d" >>= put)
                               `catchC` \_ -> do putV "Couldn't read old config.d"
                                                 rm_rf "config.d"
                            setupname <- io $ getProgName
@@ -131,19 +133,24 @@ buildWithArgs args opts doconf mkbuild =
                                             `catchC` \_ -> do putV "reconfiguring due to missing file"
                                                               return True
                            needrc <- needreconf
-                           if needrc then makeConfState
+                           if needrc then do fs <- gets commandLine
+                                             putV $ "reconfiguring with flags " ++ unwords fs
+                                             runWithArgs opts myargs (const configure)
                                      else do b <- mkbuild
                                              addTarget (["*build*"]:<[b]:<-defaultRule)
-                           runPostConfigureHooks
-          makeConfState = do fs <- gets commandLine
-                             putV $ "reconfiguring with flags " ++ unwords fs
-                             runWithArgs opts myargs (const configure)
+                           setBuilt "*configure*"
 
 needsWork :: String -> C Bool
 needsWork t =
+ do
+  isb <- isBuilt t
+  if isb
+   then return False
+   else
     do mtt <- getTarget t
        case mtt of
-         Nothing -> return False
+         Nothing -> do setBuilt t
+                       return False
          Just (Target _ ds _)
              | nullS ds -> return True -- no dependencies means it always needs work!
          Just (Target ts ds _) ->
@@ -161,14 +168,14 @@ needsWork t =
                                                        if mty > mt
                                                          then putD $ "I need work since "++ y ++
                                                                   " is newer than " ++ t
-                                                         else return ()
+                                                         else setBuilt t
                                                        return (mty > mt)
                             anyM _ [] = return False
                             anyM f (z:zs) = do b <- f z
                                                if b then return True else anyM f zs
 
 build' :: CanModifyState -> String -> C ()
-build' cms b =
+build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
            w <- toListS `fmap` findWork b
            case w of
@@ -225,6 +232,7 @@ build' cms b =
                                 putV (estr++'\n':e)
                                 fail estr
                    Right (d,ts) -> do putD $ "Done building "++ show d
+                                      mapM_ setBuilt $ d : toListS ts
                                       buildthem chan (delS d (addsS canb $ inprogress))
                                                      (depb \\ toListS ts)
           errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
@@ -261,24 +269,30 @@ getTarget t = do allts <- getTargets
 
 findWork :: String -> C StringSet
 findWork zzz = do putD $ "findWork called on "++zzz
-                  keysT `fmap` fw emptyT zzz
-    where fw :: Trie Bool -> String -> C (Trie Bool)
-          fw nw t | isJust $ t `lookupT` nw = return nw
-          fw nw t = do mt <- getTarget t
+                  fw emptyS zzz
+    where fw :: StringSet -> String -> C StringSet
+          fw nw t | t `elemS` nw = return nw
+          fw nw t =
+              do amb <- isBuilt t
+                 if amb
+                  then return nw
+                  else
+                    do mt <- getTarget t
                        case mt of
                          Nothing -> return nw
                          Just (Target _ ds _)
                              | nullS ds -> -- no dependencies means it always needs work!
-                                           return $ insertT t True nw
+                                           return $ addS t nw
                          Just (Target _ ds00 _) ->
                              do let ds0 = toListS ds00
                                 nwds <- lookAtDeps nw ds0
-                                if any (\d -> Just True == d `lookupT` nwds) ds0
-                                   then return $ insertT t True nwds
+                                if any (`elemS` nwds) ds0
+                                   then return $ addS t nwds
                                    else do tooold <- needsWork t
                                            --putD$"These need work: "++unwords(toListS$keysT$filterT id nwds)
                                            --putD$"These are FINE!: "++unwords(toListS$keysT$filterT not nwds)
-                                           return $ insertT t tooold nwds
+                                           if tooold then return $ addS t nwds
+                                                     else return nwds
                              where lookAtDeps nw' [] = return nw'
                                    lookAtDeps nw' (d:ds) = do nw2 <- fw nw' d
                                                               lookAtDeps nw2 ds
