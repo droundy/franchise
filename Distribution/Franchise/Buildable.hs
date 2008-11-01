@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, installBin, replace, createFile,
-      define, defineAs, isDefined,
+      define, defineAs, isDefined, getDefinitions,
       defaultRule, buildName, build', cleanIt, rm,
       addTarget, getBuildable, (|<-),
       extraData )
@@ -326,6 +326,11 @@ defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
 
 isDefined :: String -> C Bool
 isDefined x = elem ("-D"++x) `fmap` getGhcFlags
+
+getDefinitions :: C [(String,String)]
+getDefinitions = (concat . map extract) `fmap` getGhcFlags
+    where extract ('-':'D':ss) = [(takeWhile (/='=') ss,drop 1 $ dropWhile (/='=') ss)]
+          extract _ = []
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =

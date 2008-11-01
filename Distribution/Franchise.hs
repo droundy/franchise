@@ -33,7 +33,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 executable, privateExecutable,
                                 installBin, addTarget,
                                 replace, replaceLiteral, createFile,
-                                define, defineAs, isDefined,
+                                define, defineAs, isDefined, getDefinitions,
                                 io, catchC, unlessC, whenC,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
