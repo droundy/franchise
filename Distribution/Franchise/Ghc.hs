@@ -53,10 +53,10 @@ import Distribution.Franchise.ConfigureState
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
 [x,h] <: y | isSuffixOf ".o" x && any (endsWithOneOf [".hs",".lhs"]) y
-             = [x,h] :< (y++["config.d/ghcFlags"])
+             = [x,h] :< (y++["config.d/ghcFlags","config.d/definitions"])
                :<- defaultRule { make = ghc_hs_to_o }
 [x] <: [y] | ".o" `isSuffixOf` x && ".c" `isSuffixOf` y
-               = [x] :< [y,"config.d/ghcFlags"] :<- defaultRule { make = ghc_c }
+               = [x] :< [y,"config.d/ghcFlags","config.d/definitions"] :<- defaultRule { make = ghc_c }
 [stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
 xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show ys
 
@@ -235,10 +235,11 @@ ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
                   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
                   fl <- getGhcFlags
-                  cf <- map ("-optc"++) `fmap` getCFlags
+                  defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
+                  cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
                   ld <- map ("-optl"++) `fmap` getLdFlags
-                  let opts = fl ++ (if "-c" `elem` args then [] else ld)
-                                ++ (if any (isSuffixOf ".c") args then cf else packs)
+                  let opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
+                                        ++ (if any (isSuffixOf ".c") args then cf else packs)
                   case pn of
                     Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++packs++args
                     Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args

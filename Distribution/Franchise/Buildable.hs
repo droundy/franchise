@@ -32,7 +32,6 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, installBin, replace, createFile,
-      define, defineAs, defineLiteral, isDefined, getDefinitions,
       defaultRule, buildName, build', cleanIt, rm,
       addTarget, getBuildable, (|<-),
       extraData )
@@ -322,8 +321,8 @@ define x = do ghcFlags ["-D"++x]
               cFlags ["-D"++x]
 
 defineAs :: String -> String -> C ()
-defineAs x y = do ghcFlags ["-D"++x++"="++y++""]
-                  cFlags ["-D"++x++"="++y++""]
+defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
+                  cFlags ["-D"++x++"=\""++y++"\""]
 
 defineLiteral :: String -> String -> C ()
 defineLiteral s v = define $ s++"="++v

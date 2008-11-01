@@ -36,6 +36,8 @@ module Distribution.Franchise.ConfigureState
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
+      define, undefine, defineAs, defineLiteral,
+      isDefined, getDefinitions,
       getLibDir, getBinDir,
       replace, replaceLiteral, replacements,
       getVersion, packages, getPackageVersion,
@@ -184,6 +186,23 @@ cFlags x = modify $ \c -> c { cFlagsC = (cFlagsC c \\ x) ++ x }
 rmGhcFlags :: [String] -> C ()
 rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
 
+update :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
+update k v [] = [(k,v)]
+update k v ((k',v'):xs) | k'==k     = (k,v):xs
+                        | otherwise = (k',v'):update k v xs
+
+define :: String -> C ()
+define x = defineLiteral x ""
+
+defineAs :: String -> String -> C ()
+defineAs x y = defineLiteral x $ show y -- adds quotes
+
+undefine :: String -> C ()
+undefine x = modify $ \c -> c { definitionsC = filter ((/=x).fst) $ definitionsC c }
+
+defineLiteral :: String -> String -> C ()
+defineLiteral x y = modify $ \c -> c { definitionsC = update x y $ definitionsC c }
+
 copyright, license, version :: String -> C ()
 copyright = addExtraData "copyright"
 license = addExtraData "license"
@@ -205,6 +224,12 @@ packages = gets packagesC
 
 getPkgFlags :: C [String]
 getPkgFlags = gets pkgFlagsC
+
+getDefinitions :: C [(String,String)]
+getDefinitions = gets definitionsC
+
+isDefined :: String -> C Bool
+isDefined x = (not . null . filter ((/=x).fst)) `fmap` getDefinitions
 
 getVersion :: C String
 getVersion = maybe "0.0" id `fmap` getExtraData "version"
@@ -287,6 +312,7 @@ data ConfigureState = CS { commandLine :: [String],
                            ldFlagsC :: [String],
                            packagesC :: [String],
                            replacementsC :: [(String,String)],
+                           definitionsC :: [(String,String)],
                            extraDataC :: [(String,String)] }
 
 readConfigureState :: String -> C ConfigureState
@@ -298,6 +324,7 @@ readConfigureState d =
        ld <- readf "ldFlags"
        packs <- readf "packages"
        repl <- readf "replacements"
+       defs <- readf "definitions"
        alles <- readDirectory d'
        let es = catMaybes $ map afterX alles
            afterX ('X':'-':r) = Just r
@@ -312,6 +339,7 @@ readConfigureState d =
                                   ldFlagsC = ld,
                                   packagesC = packs,
                                   replacementsC = repl,
+                                  definitionsC = defs,
                                   extraDataC = extr }
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
@@ -330,6 +358,7 @@ writeConfigureState d =
        writeF (d'++"ldFlags") $ show $ ldFlagsC cs
        writeF (d'++"packages") $ show $ packagesC cs
        writeF (d'++"replacements") $ show $ replacementsC cs
+       writeF (d'++"definitions") $ show $ definitionsC cs
        mapM_ writeExtra $ extraDataC cs
        allextras <- filter ("X-" `isPrefixOf`) `fmap` readDirectory d
        let toberemoved = allextras \\ map (("X-"++) . fst) (extraDataC cs)
@@ -547,6 +576,7 @@ defaultConfiguration = CS { commandLine = [],
                             ldFlagsC = [],
                             packagesC = [],
                             replacementsC = [],
+                            definitionsC = [],
                             extraDataC = [] }
 
 getTargets :: C (Trie Target)
