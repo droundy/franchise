@@ -3,7 +3,6 @@
 module Distribution.Franchise.AutoHeader ( autoHeader ) where
 
 import Distribution.Franchise.SplitFile
-import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 
 -- |This is the split function for @splitFile@.  We need to provide the output filename
