@@ -58,6 +58,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 darcsPatchLevel, versionFromDarcs, patchVersionFromDarcs,
                                 -- utilities for interfacing with git
                                 inGit, gitPatchLevel, getTag,
+                                -- utilities for autoheader files
+                                autoHeader,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags,
                                 rmGhcFlags,
@@ -82,6 +84,7 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
 import Distribution.Franchise.Darcs
 import Distribution.Franchise.Git
+import Distribution.Franchise.AutoHeader
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
 import Distribution.Franchise.Program
