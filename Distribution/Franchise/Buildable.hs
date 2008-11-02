@@ -106,7 +106,8 @@ buildWithArgs args opts doconf mkbuild =
           runcommand "configure" = configure
           runcommand t = do reconfigure
                             build' CannotModifyState t
-          configure = do putS "configuring..."
+          configure = unlessC (isBuilt "*configure*") $
+                      do putS "configuring..."
                          rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
