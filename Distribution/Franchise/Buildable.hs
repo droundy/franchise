@@ -321,8 +321,8 @@ define x = do ghcFlags ["-D"++x]
               cFlags ["-D"++x]
 
 defineAs :: String -> String -> C ()
-defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
-                  cFlags ["-D"++x++"=\""++y++"\""]
+defineAs x y = do ghcFlags ["-D"++x++"="++y++""]
+                  cFlags ["-D"++x++"="++y++""]
 
 isDefined :: String -> C Bool
 isDefined x = elem ("-D"++x) `fmap` getGhcFlags
