@@ -125,7 +125,7 @@ buildWithArgs args opts doconf mkbuild =
                            putV "checking whether we need to reconfigure"
                            let needreconf = do clmt <- io $ getModificationTime "config.d/commandLine"
                                                setupmt <- io $ getModificationTime setupname
-                                               if setupmt < clmt
+                                               if setupmt >= clmt
                                                   then putV "reconfiguring due to timestamps"
                                                   else return ()
                                                return (setupmt < clmt)
