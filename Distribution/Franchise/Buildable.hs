@@ -317,25 +317,6 @@ actuallyCreateFile fn = do x <- cat (fn++".in")
                            | otherwise = x1 : r1 a b xs
           r1 _ _ "" = ""
 
-define :: String -> C ()
-define x = do ghcFlags ["-D"++x]
-              cFlags ["-D"++x]
-
-defineAs :: String -> String -> C ()
-defineAs x y = do ghcFlags ["-D"++x++"=\""++y++"\""]
-                  cFlags ["-D"++x++"=\""++y++"\""]
-
-defineLiteral :: String -> String -> C ()
-defineLiteral s v = define $ s++"="++v
-
-isDefined :: String -> C Bool
-isDefined x = elem ("-D"++x) `fmap` getGhcFlags
-
-getDefinitions :: C [(String,String)]
-getDefinitions = (concat . map extract) `fmap` getGhcFlags
-    where extract ('-':'D':ss) = [(takeWhile (/='=') ss,drop 1 $ dropWhile (/='=') ss)]
-          extract _ = []
-
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =
     do ts' <- mapM processFilePath ts

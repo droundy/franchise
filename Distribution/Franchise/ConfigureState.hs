@@ -36,7 +36,7 @@ module Distribution.Franchise.ConfigureState
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
-      define, undefine, defineAs, defineLiteral,
+      define, undefine, defineAs,
       isDefined, getDefinitions,
       getLibDir, getBinDir,
       replace, replaceLiteral, replacements,
@@ -192,16 +192,13 @@ update k v ((k',v'):xs) | k'==k     = (k,v):xs
                         | otherwise = (k',v'):update k v xs
 
 define :: String -> C ()
-define x = defineLiteral x ""
-
-defineAs :: String -> String -> C ()
-defineAs x y = defineLiteral x $ show y -- adds quotes
+define x = defineAs x ""
 
 undefine :: String -> C ()
 undefine x = modify $ \c -> c { definitionsC = filter ((/=x).fst) $ definitionsC c }
 
-defineLiteral :: String -> String -> C ()
-defineLiteral x y = modify $ \c -> c { definitionsC = update x y $ definitionsC c }
+defineAs :: String -> String -> C ()
+defineAs x y = modify $ \c -> c { definitionsC = update x y $ definitionsC c }
 
 copyright, license, version :: String -> C ()
 copyright = addExtraData "copyright"
