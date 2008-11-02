@@ -1,10 +1,10 @@
-Another simple executable
-=========================
+A simple executable
+====================
 
 Here's code to produce a simple executable.  First we have the actual
 source code to the executable:
 
-\begin{file}{tests/second/second.hs}
+\begin{file}{tests/simple/simple.hs}
 import Data.List
 
 main = putStrLn "hello world"
@@ -18,11 +18,11 @@ Setup.hs
 
 The ``Setup.hs`` file is given below, which is pretty simple.
 
-\begin{file}{tests/second/Setup.hs}
+\begin{file}{tests/simple/Setup.hs}
 import Distribution.Franchise
 
 main = build [] (return ())
-       (executable "second" "second.hs" [])
+       (executable "simple" "simple.hs" [])
 
 \end{file}
 
@@ -33,13 +33,13 @@ And here's how we actually build the program.  As you can see, users
 don't actually need to run configure unless they are unhappy with the
 defaults.
 
-\begin{file}{tests/second/second.sh}
+\begin{file}{tests/simple/simple.sh}
 set -ev
 # hokey workaround...
 ln -sf ../../../Distribution .
 
 runghc Setup.hs build
 
-./second
+./simple
 
 \end{file}
