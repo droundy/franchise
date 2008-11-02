@@ -127,9 +127,9 @@ buildWithArgs args opts doconf mkbuild =
                            let needreconf = do clmt <- io $ getModificationTime "config.d/commandLine"
                                                setupmt <- io $ getModificationTime setupname
                                                if setupmt >= clmt
-                                                  then putV "reconfiguring due to timestamps"
-                                                  else return ()
-                                               return (setupmt < clmt)
+                                                  then do putV "reconfiguring due to timestamps"
+                                                          return True
+                                                  else return False
                                             `catchC` \e ->
                                                 do putV $ "reconfiguring due to missing file:\n  "++e
                                                    return True
