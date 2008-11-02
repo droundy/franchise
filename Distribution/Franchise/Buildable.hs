@@ -136,7 +136,7 @@ buildWithArgs args opts doconf mkbuild =
                            needrc <- needreconf
                            if needrc then do fs <- gets commandLine
                                              putV $ "reconfiguring with flags " ++ unwords fs
-                                             runWithArgs opts myargs (const configure)
+                                             runWithArgs opts fs (const configure)
                                      else do b <- mkbuild
                                              addTarget (["*build*"]:<[b]:<-defaultRule)
                            setBuilt "*configure*"
