@@ -48,9 +48,8 @@ Here's the ``Setup.hs`` file.  As you can see, we have to manually
 \begin{file}{tests/foreign-wrapper/Setup.hs}
 import Distribution.Franchise
 
-main = build [] (return ()) $
-       do ghcFlags ["-fffi"]
-          executable "test" "test.hs" ["printit.c","test_stub.o"]
+main = build [] (ghcFlags ["-fffi"]) $
+       executable "test" "test.hs" ["printit.c","test_stub.o"]
 \end{file}
 
 A simple test script
