@@ -130,8 +130,9 @@ buildWithArgs args opts doconf mkbuild =
                                                   then putV "reconfiguring due to timestamps"
                                                   else return ()
                                                return (setupmt < clmt)
-                                            `catchC` \_ -> do putV "reconfiguring due to missing file"
-                                                              return True
+                                            `catchC` \e ->
+                                                do putV $ "reconfiguring due to missing file:\n  "++e
+                                                   return True
                            needrc <- needreconf
                            if needrc then do fs <- gets commandLine
                                              putV $ "reconfiguring with flags " ++ unwords fs
