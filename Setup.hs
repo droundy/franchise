@@ -30,8 +30,8 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
 
 buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
-              withDirectory "doc" $ do rsts <- filter (".rst" `isSuffixOf`) `fmap` ls "."
-                                       htmls <- concat `fmap` mapM buildHtml rsts
+              withDirectory "doc" $ do txts <- filter (".text" `isSuffixOf`) `fmap` ls "."
+                                       htmls <- concat `fmap` mapM buildHtml txts
                                        addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
     where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
           buildOneDoc f = do tests0 <- splitFile f (\x -> (take (length f-3) f,
@@ -46,13 +46,14 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
                            let makehtml = withd $
                                 do mkdir "manual"
                                    systemOut markdown [f] >>= writeF htmlname
-                               htmlname = "manual/"++ take (length f - 4) f++".html"
+                               htmlname = "manual/"++ take (length f - 5) f++".html"
                            addTarget $ [htmlname] :< [f]
                                |<- defaultRule { make = const makehtml }
                            return [htmlname]
           purge l | "...." `isPrefixOf` l = []
-                  | "file: " `isPrefixOf` l = [l,""] -- need blank line to ensure code mode
-                  | otherwise = [l]
+                  | otherwise = case stripPrefix "file: " l of
+                                Just fn -> ['*':fn++":*",""] -- need blank line to get code mode
+                                Nothing -> [l]
           splitf (x:r) =
               case stripPrefix "file: " x of
               Nothing -> splitf r
