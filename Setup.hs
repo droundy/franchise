@@ -32,7 +32,7 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
               withDirectory "doc" $ do rsts <- filter (".rst" `isSuffixOf`) `fmap` ls "."
                                        htmls <- concat `fmap` mapM buildHtml rsts
-                                       addTarget $ ["*manual*"] :< htmls |<- defaultRule
+                                       addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
     where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
           buildOneDoc f = do tests0 <- splitFile f (\x -> purge f "" x++splitf f x)
                              let tests = map splitPath $
