@@ -116,7 +116,7 @@ buildWithArgs args opts doconf mkbuild =
                             build' CannotModifyState t
           configure = unlessC (isBuilt $ phony "configure") $
                       do fs <- gets commandLine
-                         putS $ "configuring: "++unwords fs++" ..."
+                         putS $ "configuring: "++unwords fs
                          rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
