@@ -77,7 +77,15 @@ extraData x = "config.d/X-"++x
 
 cleanIt :: Dependency -> [String]
 cleanIt (_:<[]) = []
-cleanIt (xs:<_) = xs
+cleanIt (xs:<_) = filter (not . isPhony) xs
+
+isPhony :: String -> Bool
+isPhony ('*':r) = case reverse r of ('*':_) -> True
+                                    _ -> False
+isPhony _ = False
+
+phony :: String -> String
+phony x = '*':x++"*"
 
 rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
@@ -106,20 +114,20 @@ buildWithArgs args opts doconf mkbuild =
           runcommand "configure" = configure
           runcommand t = do reconfigure
                             build' CannotModifyState t
-          configure = unlessC (isBuilt "*configure*") $
+          configure = unlessC (isBuilt $ phony "configure") $
                       do fs <- gets commandLine
-                         putS $ "configuring with flags "++unwords fs++" ..."
+                         putS $ "configuring: "++unwords fs++" ..."
                          rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
                          b <- mkbuild
-                         modifyTargets $ adjustT "*build*" $
+                         modifyTargets $ adjustT (phony "build") $
                                            \(Target a ds j) -> Target a (addS b ds) j
                          runPostConfigureHooks
                          writeConfigureState "config.d"
-                         setBuilt "*configure*"
+                         setBuilt $ phony "configure"
                          putS "configure successful."
-          reconfigure = unlessC (isBuilt "*configure*") $
+          reconfigure = unlessC (isBuilt $ phony "configure") $
                         do (readConfigureState "config.d" >>= put)
                               `catchC` \_ -> do putV "Couldn't read old config.d"
                                                 rm_rf "config.d"
@@ -139,8 +147,8 @@ buildWithArgs args opts doconf mkbuild =
                                              putV $ "reconfiguring with flags " ++ unwords fs
                                              runWithArgs opts fs (const configure)
                                      else do b <- mkbuild
-                                             addTarget (["*build*"]:<[b]:<-defaultRule)
-                           setBuilt "*configure*"
+                                             addTarget ([phony "build"]:<[b]:<-defaultRule)
+                           setBuilt $ phony "configure"
 
 needsWork :: String -> C Bool
 needsWork t =
@@ -267,7 +275,7 @@ getBuildable t = do mt <- getTarget t
 
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
-                 return $ msum [lookupT t allts, lookupT ('*':t++"*") allts]
+                 return $ msum [lookupT t allts, lookupT (phony t) allts]
 
 findWork :: String -> C StringSet
 findWork zzz = do putD $ "findWork called on "++zzz
@@ -328,9 +336,9 @@ addTarget (ts :< ds :<- r) =
            addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ make r (ts:<ds))
        case clean r (ts:<ds) of
          [] -> return ()
-         toclean -> modifyTargets $ adjustT "*clean*" $
+         toclean -> modifyTargets $ adjustT (phony "clean") $
                     \ (Target a b c) -> Target a b (c >> mapM_ rm toclean)
        case install r (ts:<ds) of
-         inst -> modifyTargets $ adjustT "*install*" $
+         inst -> modifyTargets $ adjustT (phony "install") $
                  \ (Target a b c) -> Target a b (c >> inst)
        mapM_ addt ts''
