@@ -30,11 +30,12 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
 
 buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
-              withDirectory "doc" $ do txts <- filter (".text" `isSuffixOf`) `fmap` ls "."
-                                       htmls <- concat `fmap` mapM buildHtml txts
-                                       addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
+              withDirectory "doc/manual" $
+                            do txts <- filter (".text" `isSuffixOf`) `fmap` ls "."
+                               htmls <- concat `fmap` mapM buildHtml txts
+                               addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
     where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
-          buildOneDoc f = do tests0 <- splitFile f (\x -> (take (length f-3) f,
+          buildOneDoc f = do tests0 <- splitFile f (\x -> ("manual/"++take (length f-3) f,
                                                            unlines (concatMap purge $ lines x))
                                                           : splitf (lines x))
                              let tests = map splitPath $
@@ -43,10 +44,8 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
                              mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
           buildHtml f = withProgram "markdown" [] $ \markdown ->
                         do withd <- rememberDirectory
-                           let makehtml = withd $
-                                do mkdir "manual"
-                                   systemOut markdown [f] >>= writeF htmlname
-                               htmlname = "manual/"++ take (length f - 5) f++".html"
+                           let makehtml = withd $ systemOut markdown [f] >>= writeF htmlname
+                               htmlname = take (length f - 5) f++".html"
                            addTarget $ [htmlname] :< [f]
                                |<- defaultRule { make = const makehtml }
                            return [htmlname]
