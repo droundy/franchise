@@ -1,32 +1,28 @@
 An example using the C preprocessor
 ===================================
 
-\begin{file}{tests/cpp/executable.hs}
-main = if DATA then putStrLn "It works." else putStrLn "Ooops."
-\end{file}
+file: tests/cpp/executable.hs
+    main = if DATA then putStrLn "It works." else putStrLn "Ooops."
 
 Here's the ``Setup.hs`` file.
 
-\begin{file}{tests/cpp/Setup.hs}
-import Distribution.Franchise
-
-configure = do defineAs "DATA" "True"
-               ghcFlags ["-cpp"]
-
-main = build [] configure
-       (executable "executable" "executable.hs" [])
-\end{file}
+file: tests/cpp/Setup.hs
+    import Distribution.Franchise
+    
+    configure = do defineAs "DATA" "True"
+                   ghcFlags ["-cpp"]
+    
+    main = build [] configure
+           (executable "executable" "executable.hs" [])
 
 And finally we'll test that this executable actually builds and runs.
 
-\begin{file}{tests/cpp/cpp.sh}
-set -ev
-# hokey workaround...
-ln -sf ../../../Distribution .
+file: tests/cpp/cpp.sh
+....set -ev
+....# hokey workaround...
+....ln -sf ../../../Distribution .
+....
+    runghc Setup.hs build
+...../executable
+    ./executable | grep works
 
-runghc Setup.hs build
-
-./executable
-
-./executable | grep works
-\end{file}

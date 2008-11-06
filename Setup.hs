@@ -34,47 +34,37 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
                                        htmls <- concat `fmap` mapM buildHtml rsts
                                        addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
     where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
-          buildOneDoc f = do tests0 <- splitFile f (\x -> purge f "" x++splitf f x)
+          buildOneDoc f = do tests0 <- splitFile f (\x -> (take (length f-3) f,
+                                                           unlines (concatMap purge $ lines x))
+                                                          : splitf (lines x))
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
                              mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
-          buildHtml f = withProgram "rst2html" [] $ \rst2html ->
+          buildHtml f = withProgram "markdown" [] $ \markdown ->
                         do withd <- rememberDirectory
                            let makehtml = withd $
                                 do mkdir "manual"
-                                   system "rst2html" [f,htmlname]
+                                   systemOut markdown [f] >>= writeF htmlname
                                htmlname = "manual/"++ take (length f - 4) f++".html"
                            addTarget $ [htmlname] :< [f]
                                |<- defaultRule { make = const makehtml }
                            return [htmlname]
-          purge f _ _ | not (".in" `isSuffixOf` f) = []
-          purge f sofar x =
-              case splitOn "\\begin{file}{" x of
-              Nothing -> [(reverse $ drop 3 $ reverse f, sofar++x)]
-              Just (before,after) ->
-                  case splitOn "}\n" after of
-                  Nothing -> [(reverse $ drop 3 $ reverse f, sofar++before)]
-                  Just (fn,after2) ->
-                      case splitOn "\\end{file}" after2 of
-                      Nothing -> [(reverse $ drop 3 $ reverse f, sofar++before)]
-                      Just (contents,after3) ->
-                          purge f (sofar++before++"`file: "++fn++"`::\n\n"++
-                                   unlines (map ("    "++) $ lines contents)) after3
-          splitf f x = case splitOn "\\begin{file}{" x of
-                       Nothing -> []
-                       Just (_,after) ->
-                         case splitOn "}\n" after of
-                         Nothing -> [(f++".error", "Parse failure on:\n"++after)]
-                         Just (fn,after2) ->
-                           case splitOn "\\end{file}" after2 of
-                           Nothing -> [(f++".error", "Parse failure on:\n"++after2)]
-                           Just (contents,after3) -> (fn,contents): splitf f after3
+          purge l | "...." `isPrefixOf` l = []
+                  | "file: " `isPrefixOf` l = [l,""] -- need blank line to ensure code mode
+                  | otherwise = [l]
+          splitf (x:r) =
+              case stripPrefix "file: " x of
+              Nothing -> splitf r
+              Just fn -> case break (\l -> not $ "    " `isPrefixOf` l || "...." `isPrefixOf` l) r of
+                         (fc, rest) ->
+                             (fn, unlines $ filter ("    " `isPrefixOf`) fc) : splitf rest
+          splitf [] = []
           splitOn x (c:cs) = case stripPrefix x (c:cs) of
-                             Just cs' -> Just ("",cs')
+                             Just cs' -> Just ([],cs')
                              Nothing -> do (cs1,cs2) <- splitOn x cs
                                            Just (c:cs1,cs2)
-          splitOn _ "" = Nothing
+          splitOn _ [] = Nothing
           stripPrefix [] ys = Just ys
           stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
           stripPrefix _ _ = Nothing

@@ -4,11 +4,10 @@ A simple executable
 Here's code to produce a simple executable.  First we have the actual
 source code to the executable:
 
-\begin{file}{tests/simple/simple.hs}
-import Data.List
-
-main = putStrLn "hello world"
-\end{file}
+file: tests/simple/simple.hs
+    import Data.List
+    
+    main = putStrLn "hello world"
 
 As you can see, it's just a standard hello world with a useless import
 statement for excitement.
@@ -18,13 +17,11 @@ Setup.hs
 
 The ``Setup.hs`` file is given below, which is pretty simple.
 
-\begin{file}{tests/simple/Setup.hs}
-import Distribution.Franchise
-
-main = build [] (return ())
-       (executable "simple" "simple.hs" [])
-
-\end{file}
+file: tests/simple/Setup.hs
+    import Distribution.Franchise
+    
+    main = build [] (return ())
+           (executable "simple" "simple.hs" [])
 
 Testing it out
 --------------
@@ -33,13 +30,10 @@ And here's how we actually build the program.  As you can see, users
 don't actually need to run configure unless they are unhappy with the
 defaults.
 
-\begin{file}{tests/simple/simple.sh}
-set -ev
-# hokey workaround...
-ln -sf ../../../Distribution .
-
-runghc Setup.hs build
-
-./simple
-
-\end{file}
+file: tests/simple/simple.sh
+....set -ev
+....# hokey workaround...
+....ln -sf ../../../Distribution .
+....
+    runghc Setup.hs build
+    ./simple
