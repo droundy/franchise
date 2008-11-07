@@ -169,7 +169,11 @@ needsWork t =
               case mmt of
                 Nothing -> do putD $ "need work because " ++ t ++ " doesn't exist (or a friend)"
                               return True
-                Just mt -> anyM latertime $ toListS ds
+                Just mt -> do anylater <- anyM latertime $ toListS ds
+                              if anylater then return ()
+                                          else do putD $ "Marking "++t++" as built since it's old"
+                                                  setBuilt t
+                              return anylater
                       where latertime y = do ye <- io $ doesFileExist y
                                              if not ye
                                                then do putD $ "Need work cuz "++y++" don't exist"
@@ -178,7 +182,7 @@ needsWork t =
                                                        if mty > mt
                                                          then putD $ "I need work since "++ y ++
                                                                   " is newer than " ++ t
-                                                         else setBuilt t
+                                                         else return ()
                                                        return (mty > mt)
                             anyM _ [] = return False
                             anyM f (z:zs) = do b <- f z
