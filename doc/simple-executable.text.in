@@ -32,8 +32,6 @@ defaults.
 
 file: tests/simple/simple.sh
 ....set -ev
-....# hokey workaround...
-....ln -sf ../../../Distribution .
 ....
     runghc Setup.hs build
     ./simple
