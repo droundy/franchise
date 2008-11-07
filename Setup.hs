@@ -86,7 +86,7 @@ buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- default
               Nothing -> splitf r
               Just fn -> case break (\l -> not $ "    " `isPrefixOf` l || "...." `isPrefixOf` l) r of
                          (fc, rest) ->
-                             (fn, unlines $ filter ("    " `isPrefixOf`) fc) : splitf rest
+                             (fn, unlines $ map (drop 4) fc) : splitf rest
           splitf [] = []
           splitOn x (c:cs) = case stripPrefix x (c:cs) of
                              Just cs' -> Just ([],cs')
