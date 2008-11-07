@@ -30,6 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
+                                     sloppyLookupKey,
                                      insertT, adjustT, insertSeveralT, filterT, keysT,
                                      delT, delSeveralT, lengthT ) where
 
@@ -78,6 +79,13 @@ lookupT :: String -> Trie a -> Maybe a
 lookupT "" (Trie ma _) = ma
 lookupT (c:cs) (Trie _ ls) = do ls' <- lookup c ls
                                 lookupT cs ls'
+
+sloppyLookupKey :: String -> Trie a -> [String]
+sloppyLookupKey "" (Trie (Just _) _) = [""]
+sloppyLookupKey "" t = map fst $ toListT t
+sloppyLookupKey (c:cs) (Trie _ ls) = case lookup c ls of
+                                     Nothing -> []
+                                     Just ls' -> map (c:) $ sloppyLookupKey cs ls'
 
 adjustT :: String -> (a -> a) -> Trie a -> Trie a
 adjustT "" f (Trie (Just v) ls) = fv `seq` Trie (Just fv) ls

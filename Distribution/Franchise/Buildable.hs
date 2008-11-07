@@ -87,6 +87,9 @@ isPhony _ = False
 phony :: String -> String
 phony x = '*':x++"*"
 
+unphony :: String -> String
+unphony x = if isPhony x then init $ tail x else x
+
 rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
 rm f = do noRm <- getNoRemove
@@ -113,7 +116,14 @@ buildWithArgs args opts doconf mkbuild =
     where myargs = ["configure","build","clean","install"]
           runcommand "configure" = configure
           runcommand t = do reconfigure
-                            build' CannotModifyState t
+                            mt <- sloppyTarget t
+                            case mt of
+                              [] -> fail $ "No such target: "++t
+                              [tt] -> do putS $ "["++unphony tt++"]"
+                                         build' CannotModifyState tt
+                              ts -> fail $ unlines ["No such target: "++t,
+                                                    "Perhaps you meant one of "++
+                                                    unwords ts++"?"]
           configure = unlessC (isBuilt $ phony "configure") $
                       do fs <- gets commandLine
                          putS $ "configuring: "++unwords fs
@@ -283,6 +293,16 @@ getBuildable t = do mt <- getTarget t
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
                  return $ msum [lookupT t allts, lookupT (phony t) allts]
+
+sloppyTarget :: String -> C [String]
+sloppyTarget t =
+    do allts <- getTargets
+       return $
+          if t `elemS` keysT allts
+          then [t]
+          else if phony t `elemS` keysT allts
+               then [phony t]
+               else sloppyLookupKey t allts ++ sloppyLookupKey ('*':t) allts
 
 findWork :: String -> C StringSet
 findWork zzz = do putD $ "findWork called on "++zzz
