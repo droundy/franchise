@@ -124,6 +124,6 @@ insertSeveralT :: [(String, a)] -> Trie a -> Trie a
 insertSeveralT [] x = x
 insertSeveralT ((s,a):ss) x = insertSeveralT ss $ insertT s a x
 
-delSeveralT :: [String] -> Trie a -> Trie a                      
+delSeveralT :: [String] -> Trie a -> Trie a
 delSeveralT [] x = x
 delSeveralT (s:ss) x = delSeveralT ss $ delT s x
