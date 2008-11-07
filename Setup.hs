@@ -30,6 +30,7 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
 
 buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
               test $ concat alltests
+              cat "doc/doc.css" >>= writeF "doc/manual/doc.css"
               withDirectory "doc/manual" $
                             do txts <- filter (".text" `isSuffixOf`) `fmap` ls "."
                                htmls <- concat `fmap` mapM buildHtml txts
@@ -44,7 +45,9 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
                              mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
           buildHtml f = withProgram "markdown" [] $ \markdown ->
                         do withd <- rememberDirectory
-                           let makehtml = withd $ systemOut markdown [f] >>= writeF htmlname
+                           x <- cat f
+                           let makehtml = withd $ do html <- systemOut markdown [f]
+                                                     writeF htmlname $ unlines [htmlHead x,html,htmlTail]
                                htmlname = take (length f - 5) f++".html"
                            addTarget $ [htmlname] :< [f]
                                |<- defaultRule { make = const makehtml }
@@ -68,3 +71,15 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
           stripPrefix [] ys = Just ys
           stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
           stripPrefix _ _ = Nothing
+
+htmlHead x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
+                      " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
+                      "<html xml:lang=\"en-US\" lang=\"en-US\">",
+                      "<head>",
+                      unwords ["<title>",head $ lines x,"</title>"],
+                      "<link rel=\"stylesheet\" type=\"text/css\" href=\"doc.css\" />",
+                      "</head>",
+                      "<body>"]
+
+htmlTail = unlines ["</body>",
+                    "</html>"]
