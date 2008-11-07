@@ -1,6 +1,6 @@
 #!/usr/bin/runhaskell
 import Distribution.Franchise
-import Data.List ( isSuffixOf, isPrefixOf )
+import Data.List ( sort, isSuffixOf, isPrefixOf )
 
 configure = do copyright "David Roundy"
                license "BSD3"
@@ -65,7 +65,7 @@ buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- default
                          makeindex _ = withd $
                                        do putS $ "["++markdown++"] doc/manual/index.txt"
                                           indhead <- cat "index.txt"
-                                          links <- mapM mklink inps
+                                          links <- mapM mklink $ sort inps
                                           html <- systemInOut markdown [] $
                                                   indhead ++ "\n\n"++unlines links
                                           mkFile "manual/index.html" $
