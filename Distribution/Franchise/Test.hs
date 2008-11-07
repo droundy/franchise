@@ -33,6 +33,7 @@ module Distribution.Franchise.Test ( test, testOne )
     where
 
 import System.Exit ( ExitCode(..) )
+import Data.List ( isPrefixOf )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -53,7 +54,9 @@ testOne r f = do withcwd <- rememberDirectory
                                           return (ec,out)
                  putV $ unlines $ map (\l->('|':' ':l)) $ lines out
                  case ec of
-                   ExitSuccess -> putS $ pad ("testing "++f)++" ok"
+                   ExitSuccess -> if "fail" `isPrefixOf` f
+                                  then putS $ pad ("testing "++f)++" unexpectedly passed!"
+                                  else putS $ pad ("testing "++f)++" ok"
                    _ -> do putS $ pad ("testing "++f)++" FAILED"
                            fail out
 
@@ -67,29 +70,58 @@ pad x0 = if length x < 65
                          _ -> x0
               _ -> x0
 
+data TestResult = Passed | Failed | Surprise | Expected
+
 test :: [String] -> C ()
-test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ -> runtests 0 0 ts0 }
-    where runtests :: Int -> Int -> [String] -> C ()
-          runtests npassed 0 [] = putAll npassed "test" "passed!"
-          runtests 0 nfailed [] = do putAll nfailed "test" "FAILED!"
-                                     fail "tests failed!"
-          runtests npassed nfailed [] = do putS $ show nfailed++"/"++
-                                                show (npassed+nfailed)++" tests FAILED!"
-                                           fail "tests failed!"
-          runtests np nfailed (t:ts) =
+test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ ->
+                                                        runtests 0 0 0 0 ts0 }
+    where runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
+          runtests npassed 0 0 0 [] = putAll npassed "test" "passed!"
+          runtests npassed oddpass expectedfail 0 [] =
+              do putNonZero expectedfail "test" "failed as expected."
+                 putNonZero oddpass "test" " unexpectedly passed!"
+                 putCountable npassed "test" "passed."
+          runtests 0 0 0 nfailed [] = do putAll nfailed "test" "FAILED!"
+                                         fail "tests failed!"
+          runtests npassed oddpass expectedfail nfailed [] =
+              do putS $ show nfailed++"/"++show (npassed+nfailed)++" tests FAILED!"
+                 putNonZero expectedfail "test" "failed as expected."
+                 putNonZero oddpass "test" "unexpectedly passed!"
+                 fail "tests failed!"
+          runtests np oddpasses expectedfail nfailed (t:ts) =
               do tOK <- runSingleTest t
-                 if tOK then runtests (np+1) nfailed ts
-                        else runtests np (nfailed+1) ts
-          runSingleTest t = do quietly $ build' CannotModifyState t
-                               putS $ pad t++" ok"
-                               return True
-                            `catchC` \e ->
-                                do putS $ pad t++" FAILED!"
-                                   putV $ unlines $ map (\l->('|':' ':l)) $ lines e
-                                   return False
+                 case tOK of
+                   Passed -> runtests (np+1) oddpasses expectedfail nfailed ts
+                   Failed -> runtests np oddpasses expectedfail (nfailed+1) ts
+                   Surprise -> runtests np (oddpasses+1) expectedfail nfailed ts
+                   Expected -> runtests np oddpasses (expectedfail+1) nfailed ts
+          runSingleTest t =
+              do quietly $ build' CannotModifyState t
+                 if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
+                   then do putS $ pad t++" unexpectedly succeeded!"
+                           return Surprise
+                   else do putS $ pad t++" ok"
+                           return Passed
+             `catchC` \e ->
+                 do if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
+                      then do putS $ pad t++" failed as expected."
+                              putV $ unlines $ map (\l->('|':' ':l)) $ lines e
+                              return Expected
+                      else do putS $ pad t++" FAILED!"
+                              putV $ unlines $ map (\l->('|':' ':l)) $ lines e
+                              return Failed
 
 putAll :: Int -> String -> String -> C ()
 putAll 0 noun verb = putS $ "There were no "++noun++"s... but they all "++verb
 putAll 1 noun verb = putS $ "One "++noun++" "++verb
 putAll 2 noun verb = putS $ "Both "++noun++"s "++verb
 putAll n noun verb = putS $ "All "++show n++" "++noun++"s "++verb
+
+putNonZero :: Int -> String -> String -> C ()
+putNonZero 0 _ _ = return ()
+putNonZero n noun verb = putCountable n noun verb
+
+putCountable :: Int -> String -> String -> C ()
+putCountable 0 noun verb = putS $ "No "++noun++"s "++verb
+putCountable 1 noun verb = putS $ "1 "++noun++" "++verb
+putCountable n noun verb = putS $ show n++" "++noun++"s "++verb
