@@ -1,0 +1,12 @@
+Using franchise
+===============
+
+This is the beginning of a manual for franchise.  It consists of several
+small pages describing certain aspects of franchise, each of which doubles
+as a test in the test suite.
+
+To add new tests (or equivalently, new documentation), just add a new file
+`doc/filename.text.in`, and when the documentation is rebuilt, it will
+appear in this index.  Currently there is not yet a mechanism for ordering
+of documentation...
+

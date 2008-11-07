@@ -1,0 +1,19 @@
+Franchise
+=========
+
+Franchise is an easy-to use package for building Haskell software. Unlike
+Cabal, you aren't required to track every possible dependency in every
+possible build condition. In addition, you are not required to use an
+external tool such as autoconf in order to configure the build based on
+which packages, libraries and tools are present.
+
+## Manual and test suite
+
+For more information, see the [rudimentary manual and test
+suite](doc/manual/index.html).
+
+## Getting the code
+
+You can get franchise with darcs using
+
+    darcs get http://darcs.net/franchise

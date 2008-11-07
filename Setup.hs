@@ -28,30 +28,55 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 
-buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
-              test $ concat alltests
-              cat "doc/doc.css" >>= writeF "doc/manual/doc.css"
-              withDirectory "doc/manual" $
-                            do txts <- filter (".text" `isSuffixOf`) `fmap` ls "."
-                               htmls <- concat `fmap` mapM buildHtml txts
-                               addTarget $ ["*manual*","*html*"] :< htmls |<- defaultRule
-    where buildOneDoc f | not (".in" `isSuffixOf` f) = return []
-          buildOneDoc f = do tests0 <- splitFile f (\x -> ("manual/"++take (length f-3) f,
-                                                           unlines (concatMap purge $ lines x))
-                                                          : splitf (lines x))
+buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
+              addTarget $ ["index.html"] :< ["index.txt"] |<- defaultRule { make = makeroot }
+              alltests <- mapDirectory buildOneDoc "doc"
+              test $ concatMap snd alltests
+              withDirectory "doc" $ do buildIndex (concatMap fst alltests)
+                                       htmls <- concat `fmap` mapM buildHtml (concatMap fst alltests)
+                                       addTarget $ ["*manual*","*html*"] :<
+                                                     ("manual/index.html":htmls) |<- defaultRule
+    where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
+          buildOneDoc f = do tests0@(txtf:_) <- splitFile f (\x -> ("manual/"++take (length f-3) f,
+                                                                    unlines (concatMap purge $ lines x))
+                                                             : splitf (lines x))
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
+                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
+                             return ([txtf],ts)
           buildHtml f = withProgram "markdown" [] $ \markdown ->
                         do withd <- rememberDirectory
                            x <- cat f
-                           let makehtml = withd $ do html <- systemOut markdown [f]
-                                                     writeF htmlname $ unlines [htmlHead x,html,htmlTail]
-                               htmlname = take (length f - 5) f++".html"
+                           let makehtml = withd $ do putS $ "["++markdown++"] doc/manual/"++f
+                                                     html <- systemOut markdown [f]
+                                                     mkFile htmlname $
+                                                            unlines [htmlHead "../doc.css" x,html,htmlTail]
+                               htmlname = take (length f - 4) f++".html"
                            addTarget $ [htmlname] :< [f]
                                |<- defaultRule { make = const makehtml }
                            return [htmlname]
+          buildIndex inps =
+              withProgram "markdown" [] $ \markdown ->
+                  do withd <- rememberDirectory
+                     let mklink mkdnf = do title <- (head . filter (not . null) . lines) `fmap` cat mkdnf
+                                           return $ '[':title++"]("++
+                                                  drop 7 (take (length mkdnf-4) mkdnf)++".html)\n"
+                         makeindex _ = withd $
+                                       do putS $ "["++markdown++"] doc/manual/index.txt"
+                                          indhead <- cat "index.txt"
+                                          links <- mapM mklink inps
+                                          html <- systemInOut markdown [] $
+                                                  indhead ++ "\n\n"++unlines links
+                                          mkFile "manual/index.html" $
+                                                 unlines [htmlHead "../doc.css" indhead,html,htmlTail]
+                     addTarget $ ["manual/index.html"] :< ("index.txt":inps)
+                         |<- defaultRule { make = makeindex }
+          makeroot _ = withProgram "markdown" [] $ \markdown ->
+                       do putS $ "["++markdown++"] index.txt"
+                          html <- systemOut markdown ["index.txt"]
+                          mkFile "index.html" $
+                                 unlines [htmlHead "doc/doc.css" "Franchise",html,htmlTail]
           purge l | "...." `isPrefixOf` l = []
                   | otherwise = case stripPrefix "file: " l of
                                 Just fn -> ['*':fn++":*",""] -- need blank line to get code mode
@@ -72,14 +97,14 @@ buildDoc = do alltests <- mapDirectory buildOneDoc "doc"
           stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
           stripPrefix _ _ = Nothing
 
-htmlHead x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
-                      " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
-                      "<html xml:lang=\"en-US\" lang=\"en-US\">",
-                      "<head>",
-                      unwords ["<title>",head $ lines x,"</title>"],
-                      "<link rel=\"stylesheet\" type=\"text/css\" href=\"doc.css\" />",
-                      "</head>",
-                      "<body>"]
+htmlHead css x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
+                          " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
+                          "<html xml:lang=\"en-US\" lang=\"en-US\">",
+                          "<head>",
+                          unwords ["<title>",head $ filter (not . null) $ lines x,"</title>"],
+                          "<link rel=\"stylesheet\" type=\"text/css\" href=\""++css++"\" />",
+                          "</head>",
+                          "<body>"]
 
 htmlTail = unlines ["</body>",
                     "</html>"]

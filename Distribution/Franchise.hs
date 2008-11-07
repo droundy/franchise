@@ -65,7 +65,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 system, systemOut, systemInOut,
-                                cd, mkdir, pwd, ls, cat, writeF,
+                                cd, mkdir, pwd, ls, cat, mkFile,
                                 withDirectory, rememberDirectory, splitPath,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
