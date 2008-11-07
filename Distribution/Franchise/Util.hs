@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
-                                     systemOutErr,
+                                     systemOutErr, systemInOut,
                                      mkFile, cat, pwd, ls, endsWithOneOf,
                                      isFile,
                                      bracketC, finallyC, bracketC_ )
@@ -44,7 +44,7 @@ import System.Process ( ProcessHandle, runInteractiveProcess,
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
                             forkIO, newChan, readChan, writeChan )
 import System.IO ( hGetContents, BufferMode(..),
-                   hGetLine, hSetBuffering )
+                   hGetLine, hSetBuffering, hPutStr, hClose )
 import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
@@ -183,6 +183,31 @@ systemOut c args = do sd <- getCurrentSubdir
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+    where indent ind s = ind ++ indent' s
+              where indent' ('\n':r) = '\n':ind++ indent' r
+                    indent' (x:xs) = x : indent' xs
+                    indent' "" = ""
+
+-- | Run a process with a list of arguments and a string as input and get
+-- the resulting output from stdout.
+systemInOut :: String   -- ^ Program name
+            -> [String] -- ^ Arguments
+            -> String   -- ^ stdin
+            -> C String -- ^ output
+systemInOut c args inp = do sd <- getCurrentSubdir
+                            (i,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                            out <- io $ hGetContents o
+                            err <- io $ hGetContents e
+                            io $ forkIO $ do hPutStr i inp
+                                             hClose i
+                            io $ forkIO $ seq (length out) $ return ()
+                            io $ forkIO $ seq (length err) $ return ()
+                            putV $ unwords (c:args)++'\n': indent "\t" (out++err)
+                            ec <- io $ waitForProcessNonBlocking pid
+                            case ec of
+                              ExitSuccess -> return out
+                              ExitFailure 127 -> fail $ c ++ ": command not found"
+                              ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
     where indent ind s = ind ++ indent' s
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs
