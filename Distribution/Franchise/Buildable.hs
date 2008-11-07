@@ -155,11 +155,13 @@ needsWork t =
  do
   isb <- isBuilt t
   if isb
-   then return False
+   then do putD $ t++" is already built!"
+           return False
    else
     do mtt <- getTarget t
        case mtt of
-         Nothing -> do setBuilt t
+         Nothing -> do putD $ "marking "++t++" as built since it has no rule"
+                       setBuilt t
                        return False
          Just (Target _ ds _)
              | nullS ds -> return True -- no dependencies means it always needs work!
@@ -222,7 +224,8 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                          forkC cms $
                          do Just (Target ts xs0 makettt) <- getTarget ttt
                             stillneedswork <- if any (`elemS` ts) $ toListS inprogress
-                                              then return False
+                                              then do putD "Already in progress..."
+                                                      return False
                                               else needsWork ttt
                             if stillneedswork
                               then do putD $ unlines
