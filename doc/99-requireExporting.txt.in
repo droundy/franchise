@@ -65,12 +65,12 @@ file: tests/testfind/requireExporting.sh
     runghc Setup.hs configure --with-b
     runghc Setup.hs build
     ./c
-    diff <(./c) <(echo Foo b)
+    ./c | grep 'Foo b'
     
     runghc Setup.hs clean
     runghc Setup.hs configure --with-a
     runghc Setup.hs build
     ./c
-    diff <(./c) <(echo Foo a)
+    ./c | grep 'Foo a'
 
 Did that work?
