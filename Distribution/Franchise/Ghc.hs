@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when, msum, mplus, filterM )
+import Control.Monad ( when )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes )
 import Data.List ( partition, (\\), isSuffixOf )
@@ -351,13 +351,16 @@ withLib l h func job = (checkLib l h func >> job)
 checkLib :: String -> String -> String -> C ()
 checkLib l h func =
     do checkMinimumPackages
-       do tryLib l h func
-          putS $ "found library "++l++" without any extra flags."
-        `catchC` \_ ->
-            do ldFlags ["-l"++l]
-               tryLib l h func
-               putS $ "found library "++l++" with -l"++l
-             `catchC` \_ -> fail $ "Couldn't find library "++l
+       if null l
+         then msum [do tryLib "std" h func
+                       putS $ "found function "++func++" without any extra flags."
+                   ,fail $ "couldn't find function "++func]
+         else msum [do tryLib l h func
+                       putS $ "found library "++l++" without any extra flags."
+                   ,do ldFlags ["-l"++l]
+                       tryLib l h func
+                       putS $ "found library "++l++" with -l"++l
+                   ,fail $ "couldn't find library "++l]
 
 requireModule :: String -> C ()
 requireModule m = do haveit <- lookForModule m
