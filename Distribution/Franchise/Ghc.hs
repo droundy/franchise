@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when )
+import Control.Monad ( when, mplus )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\), isSuffixOf )
@@ -49,6 +49,7 @@ import System.Directory ( createDirectoryIfMissing, copyFile )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.ListUtils
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -409,10 +410,8 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                                   return (ps++ps2)
 
 findOption :: String -> Maybe String
-findOption x | take (length foo) x == foo = listToMaybe $
-                                            map (takeWhile (/=',')) $
-                                            map (takeWhile (/=' ')) $
-                                            words $ drop (length foo) x
-             where foo = "member of package "
-findOption (_:x) = findOption x
 findOption [] = Nothing
+findOption x@(_:r) = mopt `mplus` findOption r
+   where mopt = do xxx <- stripPrefix "member of package " x
+                   listToMaybe $ map (takeWhile (/=',')) $
+                                 map (takeWhile (/=' ')) $ words xxx
