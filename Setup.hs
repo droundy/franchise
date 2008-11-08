@@ -29,7 +29,7 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                package "franchise" ["Distribution.Franchise"] []
 
 buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
-              addTarget $ ["index.html"] :< ["index.txt"] |<- defaultRule { make = makeroot }
+              addTarget $ ["index.html"] :< ["doc/home.txt"] |<- defaultRule { make = makeroot }
               alltests <- mapDirectory buildOneDoc "doc"
               test $ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
@@ -63,18 +63,18 @@ buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- default
                                            return $ '[':title++"]("++
                                                   drop 7 (take (length mkdnf-4) mkdnf)++".html)\n"
                          makeindex _ = withd $
-                                       do putS $ "["++markdown++"] doc/manual/index.txt"
-                                          indhead <- cat "index.txt"
+                                       do putS $ "["++markdown++"] doc/manual.txt"
+                                          indhead <- cat "manual.txt"
                                           links <- mapM mklink $ sort inps
                                           html <- systemInOut markdown [] $
                                                   indhead ++ "\n\n"++unlines links
                                           mkFile "manual/index.html" $
                                                  unlines [htmlHead "../doc.css" indhead,html,htmlTail]
-                     addTarget $ ["manual/index.html"] :< ("index.txt":inps)
+                     addTarget $ ["manual/index.html"] :< ("manual.txt":inps)
                          |<- defaultRule { make = makeindex }
           makeroot _ = withProgram "markdown" [] $ \markdown ->
-                       do putS $ "["++markdown++"] index.txt"
-                          html <- systemOut markdown ["index.txt"]
+                       do putS $ "["++markdown++"] doc/home.txt"
+                          html <- systemOut markdown ["doc/home.txt"]
                           mkFile "index.html" $
                                  unlines [htmlHead "doc/doc.css" "Franchise",html,htmlTail]
           purge l | "...." `isPrefixOf` l = []
