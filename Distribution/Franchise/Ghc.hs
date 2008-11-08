@@ -40,9 +40,9 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when, mplus )
+import Control.Monad ( when, msum, mplus, filterM )
 import System.Exit ( ExitCode(..) )
-import Data.Maybe ( catMaybes, listToMaybe )
+import Data.Maybe ( catMaybes )
 import Data.List ( partition, (\\), isSuffixOf )
 import System.Directory ( createDirectoryIfMissing, copyFile )
 
@@ -399,19 +399,41 @@ checkMinimumPackages =
 seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
     where lookForPackages (ExitSuccess,_) = return []
-          lookForPackages x@(_,e) =
-              case catMaybes $ map findOption $ lines e of
-              [] -> fail e
-              ps -> do addPackages ps
-                       x2 <- runghcErr
-                       if x2 == x
-                          then fail e
-                          else do ps2 <- lookForPackages x2
-                                  return (ps++ps2)
+          lookForPackages (_,e) =
+              case mungeMissingModule e of
+              Nothing -> fail e
+              Just m -> seekPackageForModule m
+          seekPackageForModule m = do putV $ "looking for module "++m
+                                      ps <- findPackagesForModule m
+                                      tryThesePackages m ps
+          tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
+          tryThesePackages m (p:ps) =
+              do putV $ "I might find module "++m++" in package "++p++"..."
+                 addPackages [p]
+                 x2 <- runghcErr
+                 case x2 of
+                   (ExitSuccess,_) -> return [p]
+                   (z,e) -> case mungeMissingModule e of
+                            Just m' | m' /= m -> msum [do ps' <- lookForPackages (z,e)
+                                                          return (p:ps')
+                                                      ,tryagain]
+                            _ -> tryagain
+                       where tryagain = do removePackages [p]
+                                           tryThesePackages m ps
 
-findOption :: String -> Maybe String
-findOption [] = Nothing
-findOption x@(_:r) = mopt `mplus` findOption r
-   where mopt = do xxx <- stripPrefix "member of package " x
-                   listToMaybe $ map (takeWhile (/=',')) $
-                                 map (takeWhile (/=' ')) $ words xxx
+mungeMissingModule :: String -> Maybe String
+mungeMissingModule [] = Nothing
+mungeMissingModule x@(_:r) = takeWhile (/='\'') `fmap` stripPrefix " `" x
+                            `mplus` mungeMissingModule r
+
+findPackagesForModule :: String -> C [String]
+findPackagesForModule m =
+    do allpkgs <- (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
+       filterM (fmap (m `elem`) . packageModules) allpkgs
+       --mapM packageAndDeps possiblepkgs
+
+packageModules :: String -> C [String]
+packageModules p = (tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"exposed-modules"]
+
+--packageAndDeps :: String -> C [String]
+--packageAndDeps p = ((p:) . tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"depends"]

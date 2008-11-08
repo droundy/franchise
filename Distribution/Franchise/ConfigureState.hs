@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.ConfigureState
     ( runWithArgs,
       amInWindows,
-      ghcFlags, ldFlags, cFlags, addPackages, packageName,
+      ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -173,6 +173,9 @@ runWithArgs optsc validCommands runCommand =
 
 addPackages :: [String] -> C ()
 addPackages x = modify $ \c -> c { packagesC = (packagesC c \\ x) ++ x }
+
+removePackages :: [String] -> C ()
+removePackages x = modify $ \c -> c { packagesC = packagesC c \\ x }
 
 pkgFlags :: [String] -> C ()
 pkgFlags x = modify $ \c -> c { pkgFlagsC = (pkgFlagsC c \\ x) ++ x }

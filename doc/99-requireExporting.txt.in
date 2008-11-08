@@ -1,15 +1,13 @@
-Example where franchise fails
-=============================
+Using requireExporting to select a module with a particular API
+===============================================================
 
 Note: This test case is due to Stephen Hicks, and I've just done a bit
 of reformatting and making of examples.
 
-The question it answers is whether or not franchise can figure out the
-correct package to use when multiple package export the same module.
-The answer (at the moment) is that it cannot.
-
+This test demonstrates how you can use `requireModuleExporting` to ensure
+that your code is linked with a module that exports a particular API.
 We create two packages, `a` and `b`, each of which export the module
-`Foo`.
+`Foo`, but with a subtly different API.
 
 file: tests/testfind/a/Setup.hs
     import Distribution.Franchise
@@ -52,10 +50,10 @@ file: tests/testfind/c/Main.hs
     import Foo ( foo )
     main = putStrLn foo
 
-Now we test that franchise is able to select the desired
-package... which it is not.
+Now we demonstrate that franchise is able to select the desired
+package.
 
-file: tests/testfind/failing-requireExporting.sh
+file: tests/testfind/requireExporting.sh
 ....set -ev
     cd a
     runghc Setup.hs install --user
@@ -69,6 +67,7 @@ file: tests/testfind/failing-requireExporting.sh
     ./c
     diff <(./c) <(echo Foo b)
     
+    runghc Setup.hs clean
     runghc Setup.hs configure --with-a
     runghc Setup.hs build
     ./c
