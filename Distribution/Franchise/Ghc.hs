@@ -391,6 +391,8 @@ checkMinimumPackages =
     do mkFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
        seekPackages (ghc systemErr ["-o","try-min","try-min.hs"])
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
+       win <- amInWindows
+       when win $ mapM_ rm ["try-min.exe", "try-min.exe.manifest"]
        addExtraData "MINCONFIG" ""
 
 seekPackages :: C (ExitCode, String) -> C [String]
