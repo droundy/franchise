@@ -138,6 +138,7 @@ package pn modules cfiles =
        let depend = pn++".depend"
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
+       checkMinimumPackages -- ensure that we've got at least the prelude...
        (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
        pre <- getLibDir
        ver <- getVersion
