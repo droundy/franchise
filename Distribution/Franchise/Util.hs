@@ -57,15 +57,15 @@ import Distribution.Franchise.ConfigureState
 -- much CPU time in a busy wait, while also not adding too much extra
 -- latency.
 
-waitForProcessNonBlocking :: ProcessHandle -> IO ExitCode
+waitForProcessNonBlocking :: ProcessHandle -> C ExitCode
 waitForProcessNonBlocking = if rtsSupportsBoundThreads
-                            then waitForProcess
+                            then io . waitForProcess
                             else wfp 0
-    where wfp n pid = do mec <- getProcessExitCode pid
+    where wfp n pid = do mec <- io $ getProcessExitCode pid
                          case mec of
                            Just ec -> return ec
-                           Nothing -> do threadDelay n
-                                         putStrLn $ "Waiting for process... " ++ show n
+                           Nothing -> do io $ threadDelay n
+                                         putD $ "Waiting for process... " ++ show n
                                          wfp (min 100000 (n+1+n`div`4)) pid
 
 -- | Checks if a string ends with any given suffix
@@ -90,7 +90,7 @@ system c args = do sd <- getCurrentSubdir
                    let cl = unwords (('[':c++"]"):drop (length args-1) args)
                        clv = unwords (c:args)
                    putSV (cl++'\n':out++err) (clv++'\n':out++err)
-                   ec <- io $ waitForProcessNonBlocking pid
+                   ec <- waitForProcessNonBlocking pid
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -110,7 +110,7 @@ systemV c args = do sd <- getCurrentSubdir
                     io $ forkIO $ seq (length out) $ return ()
                     io $ forkIO $ seq (length err) $ return ()
                     putV $ unwords (c:args)++'\n':out++err
-                    ec <- io $ waitForProcessNonBlocking pid
+                    ec <- waitForProcessNonBlocking pid
                     case ec of
                       ExitSuccess -> return ()
                       ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -125,7 +125,7 @@ systemErr c args = do sd <- getCurrentSubdir
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
                       putV $ unwords (c:args)++'\n':out++err
-                      ec <- io $ waitForProcessNonBlocking pid
+                      ec <- waitForProcessNonBlocking pid
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         _ -> return (ec, err)
@@ -161,7 +161,7 @@ systemOutErr c args =
        io $ forkIO $ readWrite o
        io $ forkIO $ readWrite e
        outerr <- io readEO
-       ec <- io $ waitForProcessNonBlocking pid
+       ec <- waitForProcessNonBlocking pid
        io $ threadDelay 1000
        case ec of
          ExitFailure 127 -> fail $ c ++ ": command not found\n\n"++unlines outerr
@@ -178,7 +178,7 @@ systemOut c args = do sd <- getCurrentSubdir
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
                       putV $ unwords (c:args)++'\n': indent "\t" (out++err)
-                      ec <- io $ waitForProcessNonBlocking pid
+                      ec <- waitForProcessNonBlocking pid
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -203,7 +203,7 @@ systemInOut c args inp = do sd <- getCurrentSubdir
                             io $ forkIO $ seq (length out) $ return ()
                             io $ forkIO $ seq (length err) $ return ()
                             putV $ unwords (c:args)++'\n': indent "\t" (out++err)
-                            ec <- io $ waitForProcessNonBlocking pid
+                            ec <- waitForProcessNonBlocking pid
                             case ec of
                               ExitSuccess -> return out
                               ExitFailure 127 -> fail $ c ++ ": command not found"
