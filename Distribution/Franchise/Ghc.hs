@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when )
+import Control.Monad ( when, msum, mplus, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes )
 import Data.List ( partition, (\\), isSuffixOf )
