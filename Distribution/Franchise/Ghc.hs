@@ -59,7 +59,7 @@ infix 2 <:
 [x] <: [y] | ".o" `isSuffixOf` x && ".c" `isSuffixOf` y
                = [x] :< [y,"config.d/ghcFlags","config.d/definitions"] :<- defaultRule { make = ghc_c }
 [stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
-xs <: ys = error $ "Can't figure out how to build "++ show xs++" from "++ show ys
+xs <: ys = error $ "can't figure out how to build "++ show xs++" from "++ show ys
 
 executable :: String -> String -> [String] -> C String
 executable exname src cfiles =
@@ -358,7 +358,7 @@ checkLib l h func =
 
 requireModule :: String -> C ()
 requireModule m = do haveit <- lookForModule m
-                     when (not haveit) $ fail $ "Can't use module "++m
+                     when (not haveit) $ fail $ "can't use module "++m
 
 withModule :: String -> C () -> C ()
 withModule m job = (requireModule m >> job)
@@ -380,7 +380,7 @@ lookForModuleExporting m i c =
 
 requireModuleExporting :: String -> String -> String -> C ()
 requireModuleExporting m i c = unlessC (lookForModuleExporting m i c) $
-                               fail $ "Can't use module "++m
+                               fail $ "can't use module "++m
 
 withModuleExporting :: String -> String -> String -> C () -> C ()
 withModuleExporting m i c j =
