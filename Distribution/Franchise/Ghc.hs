@@ -278,7 +278,8 @@ checkHeader h = do checkMinimumPackages
                    bracketC_ create remove test
     where create = do
             mkFile "try-header-ffi.h" $ unlines ["void foo();"]
-            mkFile "try-header-ffi.c" $ unlines ["#include \""++h++"\"",
+            mkFile "try-header-ffi.c" $ unlines [if null h then "" 
+                                                           else "#include \""++h++"\"",
                                                  "void foo();",
                                                  "void foo() { return; }"]
             mkFile "try-header.hs" $ unlines [foreign,
@@ -301,7 +302,8 @@ getConstant h code = do checkMinimumPackages
                         bracketC_ create remove test
     where create = do
             mkFile "get-const-ffi.h" $ unlines ["void foo();"]
-            mkFile "get-const-ffi.c" $ unlines ["#include \""++h++"\"",
+            mkFile "get-const-ffi.c" $ unlines [if null h then ""
+                                                          else "#include \""++h++"\"",
                                                 "void foo();",
                                                 "void foo() { "++code++"; }"]
             mkFile "get-const.hs" $ unlines [foreign,
@@ -333,7 +335,8 @@ tryLib l h func = do checkMinimumPackages
                                             "main :: IO ()",
                                             "main = foo"]
                       mkFile fn $ unlines ["#include <stdio.h>",
-                                           "#include \""++h++"\"",
+                                           if null h then ""
+                                                     else "#include \""++h++"\"",
                                            "void foo();",
                                            "void foo() { "++func++"; }"]
           test = do ghc systemV ["-c","-cpp",fn]
