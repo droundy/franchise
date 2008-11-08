@@ -413,20 +413,24 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
               Nothing -> fail e
               Just m -> seekPackageForModule m
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      ps <- findPackagesForModule m
-                                      tryThesePackages m ps
+                                      allps <- findAllPackages m
+                                      tryThesePackages m allps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m (p:ps) =
-              do putV $ "I might find module "++m++" in package "++p++"..."
-                 addPackages [p]
-                 x2 <- runghcErr
-                 case x2 of
-                   (ExitSuccess,_) -> return [p]
-                   (z,e) -> case mungeMissingModule e of
-                            Just m' | m' /= m -> msum [do ps' <- lookForPackages (z,e)
-                                                          return (p:ps')
-                                                      ,tryagain]
-                            _ -> tryagain
+              do pms <- packageModules p
+                 if m `notElem` pms
+                   then tryThesePackages m ps
+                   else do putV $ "I might find module "++m++" in package "++p++"..."
+                           addPackages [p]
+                           x2 <- runghcErr
+                           case x2 of
+                             (ExitSuccess,_) -> return [p]
+                             (z,e) ->
+                                 case mungeMissingModule e of
+                                   Just m' | m' /= m -> msum [do ps' <- lookForPackages (z,e)
+                                                                 return (p:ps')
+                                                             ,tryagain]
+                                   _ -> tryagain
                        where tryagain = do removePackages [p]
                                            tryThesePackages m ps
 
@@ -435,14 +439,17 @@ mungeMissingModule [] = Nothing
 mungeMissingModule x@(_:r) = takeWhile (/='\'') `fmap` stripPrefix " `" x
                             `mplus` mungeMissingModule r
 
-findPackagesForModule :: String -> C [String]
-findPackagesForModule m =
-    do allpkgs <- (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
-       filterM (fmap (m `elem`) . packageModules) allpkgs
-       --mapM packageAndDeps possiblepkgs
+findAllPackages :: String -> C [String]
+findAllPackages m = (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
 
 packageModules :: String -> C [String]
-packageModules p = (tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"exposed-modules"]
+packageModules p =
+    do mms <- getModulesInPackage p
+       case mms of
+         Just ms -> return ms
+         Nothing -> do ms <- (tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"exposed-modules"]
+                       addModulesForPackage p ms
+                       return ms
 
 --packageAndDeps :: String -> C [String]
 --packageAndDeps p = ((p:) . tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"depends"]

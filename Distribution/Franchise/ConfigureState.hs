@@ -33,6 +33,7 @@ module Distribution.Franchise.ConfigureState
     ( runWithArgs,
       amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
+      getModulesInPackage, addModulesForPackage,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -425,6 +426,7 @@ data TotalState = TS { numJobs :: Int,
                        postConfigureHooks :: [(String,C ())],
                        targets :: Trie Target,
                        built :: StringSet,
+                       packageModuleMap :: Trie [String],
                        configureState :: ConfigureState }
 
 tsHook :: HookTime -> TotalState -> [(String,C ())]
@@ -551,6 +553,7 @@ runC args (C a) =
                       noRemove = False,
                       targets = defaultTargets,
                       built = emptyS,
+                      packageModuleMap = emptyT,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
@@ -584,6 +587,13 @@ getTargets = C $ \ts -> return $ Right (targets ts, ts)
 
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
+
+getModulesInPackage :: String -> C (Maybe [String])
+getModulesInPackage p = C $ \ts -> return $ Right (lookupT p $ packageModuleMap ts, ts)
+
+addModulesForPackage :: String -> [String] -> C ()
+addModulesForPackage p ms =
+    C $ \ts -> return $ Right ((), ts { packageModuleMap = insertT p ms $ packageModuleMap ts })
 
 isBuilt :: String -> C Bool
 isBuilt t = C $ \ts -> return $ Right (t `elemS` built ts || ('*':t++"*") `elemS` built ts, ts)
