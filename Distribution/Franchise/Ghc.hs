@@ -166,6 +166,10 @@ package pn modules cfiles =
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
+           makecabal  _ =do lic <- getLicense
+                            cop <- getCopyright
+                            mai <- getMaintainer
+                            deps <- packages
                             mkFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
@@ -191,8 +195,10 @@ package pn modules cfiles =
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
                                return o) cfiles
-       addTarget $ [pn++".config",pn++".cabal"] :< [depend, extraData "version"]
+       addTarget $ [pn++".config"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makeconfig }
+       addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
+                    :<- defaultRule { make = makecabal }
        addTarget $ ["lib"++pn++".a"]
                   :< ((pn++".config"):mods++cobjs)
                   :<- defaultRule { make = objects_to_a,
