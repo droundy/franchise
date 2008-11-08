@@ -34,7 +34,7 @@ module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
       requireModule, lookForModule, withModule,
-      checkLib, withLib, checkHeader, withHeader, getConstant, withConstant,
+      checkLib, withLib, checkHeader, withHeader, withLibOutput,
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -297,9 +297,9 @@ withHeader :: String -> C () -> C ()
 withHeader h job = (checkHeader h >> job)
                    `catchC` \_ -> putS $ "failed to find header "++h
 
-getConstant :: String -> String -> C String
-getConstant h code = do checkMinimumPackages
-                        bracketC_ create remove test
+getLibOutput :: String -> String -> String -> C String
+getLibOutput lib h code = do checkMinimumPackages
+                             bracketC_ create remove test
     where create = do
             mkFile "get-const-ffi.h" $ unlines ["void foo();"]
             mkFile "get-const-ffi.c" $ unlines [if null h then ""
@@ -312,15 +312,18 @@ getConstant h code = do checkMinimumPackages
           foreign = "foreign import ccall unsafe "++
                     "\"get-const-ffi.h foo\" foo :: IO ()"
           test = do ghc systemV ["-c","-cpp","get-const-ffi.c"]
-                    ghc systemV ["-fffi","-o","get-const",
-                                 "get-const.hs","get-const-ffi.o"]
+                    msum [ghc systemV ["-fffi","-o","get-const",
+                                       "get-const.hs","get-const-ffi.o"]
+                         ,do ldFlags ["-l"++lib]
+                             ghc systemV ["-fffi","-o","get-const",
+                                          "get-const.hs","get-const-ffi.o"]]
                     systemOut "./get-const" []
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
 
-withConstant :: String -> String -> (String -> C ()) -> C ()
-withConstant h code job = (getConstant h code >>= job)
-                          `catchC`  \_ -> putS $ "failed to get "++code
+withLibOutput :: String -> String -> String -> (String -> C ()) -> C ()
+withLibOutput lib h code job = (getLibOutput lib h code >>= job)
+                               `catchC`  \_ -> putS $ "failed to run "++code
 
 tryLib :: String -> String -> String -> C ()
 tryLib l h func = do checkMinimumPackages

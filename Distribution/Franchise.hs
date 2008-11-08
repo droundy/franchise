@@ -47,7 +47,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 findProgram, withProgram,
                                 checkLib, withLib, checkHeader, withHeader,
                                 findPackagesFor,
-                                getConstant, withConstant,
+                                withLibOutput,
                                 -- defining package properties
                                 package, copyright, license, version,
                                 addExtraData, haveExtraData,
