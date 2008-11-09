@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
-                                     sloppyLookupKey,
+                                     sloppyLookupKey, unionT,
                                      insertT, adjustT, insertSeveralT, filterT, keysT,
                                      delT, delSeveralT, lengthT ) where
 
@@ -119,6 +119,9 @@ delT (c:cs) (Trie b ls) = Trie b $ catMaybes $ map d ls
                                 Trie Nothing [] -> Nothing
                                 x' -> Just (c', x')
           d x = Just x
+
+unionT :: Trie a -> Trie a -> Trie a
+unionT x y = insertSeveralT (toListT x) y
 
 insertSeveralT :: [(String, a)] -> Trie a -> Trie a
 insertSeveralT [] x = x

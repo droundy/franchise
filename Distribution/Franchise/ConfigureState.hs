@@ -461,22 +461,29 @@ runConfigureHooks = runHooks Preconfigure
 runPostConfigureHooks :: C ()
 runPostConfigureHooks = runHooks Postconfigure
 
-newtype C a = C (TotalState -> IO (Either String (a,TotalState)))
+-- ErrorState is for returning errors along with any cached data we might
+-- have.  Currently, the only data we cache is the mapping from packages to
+-- modules.
+data ErrorState = Err String (Trie [String])
 
-unC :: C a -> TotalState -> IO (Either String (a,TotalState))
+newtype C a = C (TotalState -> IO (Either ErrorState (a,TotalState)))
+
+unC :: C a -> TotalState -> IO (Either ErrorState (a,TotalState))
 unC (C f) = f
 
 instance Functor C where
     f `fmap` x = x >>= (return . f)
 
 instance Monad C where
-    (C f) >>= g = C $ \cs -> do macs' <- f cs
-                                case macs' of
-                                  Left e -> return (Left e)
-                                  Right (a,cs') -> unC (g a) cs'
+    (C f) >>= g = C $ \cs ->
+        do macs' <- f cs
+           case macs' of
+             Left e -> return (Left e)
+             Right (a,cs') -> unC (g a) cs'
+                              `catch` \err -> return (Left $ Err (show err) $ packageModuleMap cs')
     return x = C (\cs -> return $ Right (x, cs))
     fail e = do putV $ "failure: "++ e
-                C (\_ -> return $ Left e)
+                C (\ts -> return $ Left $ Err e (packageModuleMap ts))
 
 instance MonadPlus C where
     mplus f g = catchC f $ \_ -> g
@@ -561,7 +568,7 @@ runC args (C a) =
                       packageModuleMap = emptyT,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
-         Left e -> do -- give print thread a chance to do a bit more writing...
+         Left (Err e _) -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000
                       killThread thid
                       putStrLn $ "Error:  "++e
@@ -615,7 +622,9 @@ catchC (C a) b = C $ \ts ->
                  do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
                     case out of
                       Left e -> unC (b e) ts
-                      Right (Left e) -> unC (b e) ts
+                      Right (Left (Err e modmap)) -> unC (b e) $
+                                                     ts { packageModuleMap = unionT modmap
+                                                                             (packageModuleMap ts) }
                       Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()
