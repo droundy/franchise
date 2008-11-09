@@ -33,7 +33,7 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemOutErr, systemInOut,
                                      mkFile, cat, pwd, ls, endsWithOneOf,
                                      isFile,
-                                     bracketC, finallyC, bracketC_ )
+                                     bracketC, csum, finallyC, bracketC_ )
     where
 
 import System.Exit ( ExitCode(..) )
@@ -43,6 +43,7 @@ import System.Process ( ProcessHandle, runInteractiveProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
                             forkIO, newChan, readChan, writeChan )
+import Control.Monad ( MonadPlus, mplus )
 import System.IO ( hGetContents, BufferMode(..),
                    hGetLine, hSetBuffering, hPutStr, hClose )
 import Data.List ( isSuffixOf )
@@ -270,3 +271,9 @@ a `finallyC` sequel = do r <- a `catchC` (\e -> do { sequel; fail e })
 -- is not required.
 bracketC_ :: C a -> C b -> C c -> C c
 bracketC_ before after thing = bracketC before (const after) (const thing)
+
+-- | csum is a variant of msum that preserves the last error output.
+csum :: MonadPlus m => [m a] -> m a
+csum [] = fail "csum given an empty list"
+csum [f] = f
+csum (f1:fs) = f1 `mplus` csum fs

@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when, msum, mplus, filterM )
+import Control.Monad ( when, mplus, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes )
 import Data.List ( partition, (\\), isSuffixOf )
@@ -318,7 +318,7 @@ getLibOutput lib h code = do checkMinimumPackages
           foreign = "foreign import ccall unsafe "++
                     "\"get-const-ffi.h foo\" foo :: IO ()"
           test = do ghc systemV ["-c","-cpp","get-const-ffi.c"]
-                    msum [ghc systemV ["-fffi","-o","get-const",
+                    csum [ghc systemV ["-fffi","-o","get-const",
                                        "get-const.hs","get-const-ffi.o"]
                          ,do ldFlags ["-l"++lib]
                              ghc systemV ["-fffi","-o","get-const",
@@ -361,10 +361,10 @@ checkLib :: String -> String -> String -> C ()
 checkLib l h func =
     do checkMinimumPackages
        if null l
-         then msum [do tryLib "std" h func
+         then csum [do tryLib "std" h func
                        putS $ "found function "++func++" without any extra flags."
                    ,fail $ "couldn't find function "++func]
-         else msum [do tryLib l h func
+         else csum [do tryLib l h func
                        putS $ "found library "++l++" without any extra flags."
                    ,do ldFlags ["-l"++l]
                        tryLib l h func
@@ -433,7 +433,7 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                              (ExitSuccess,_) -> return [p]
                              (z,e) ->
                                  case mungeMissingModule e of
-                                   Just m' | m' /= m -> msum [do ps' <- lookForPackages (z,e)
+                                   Just m' | m' /= m -> csum [do ps' <- lookForPackages (z,e)
                                                                  return (p:ps')
                                                              ,tryagain]
                                    _ -> tryagain
