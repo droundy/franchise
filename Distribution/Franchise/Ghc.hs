@@ -288,11 +288,11 @@ checkHeader h = do checkMinimumPackages
                                                            else "#include \""++h++"\"",
                                                  "void foo();",
                                                  "void foo() { return; }"]
-            mkFile "try-header.hs" $ unlines [foreign,
+            mkFile "try-header.hs" $ unlines [foreignf,
                                               "main :: IO ()",
                                               "main = foo"]
-          foreign = "foreign import ccall unsafe "++
-                    "\"try-header-ffi.h foo\" foo :: IO ()"
+          foreignf = "foreign import ccall unsafe "++
+                     "\"try-header-ffi.h foo\" foo :: IO ()"
           test = do ghc systemV ["-c","-cpp","try-header-ffi.c"]
                     ghc systemV ["-fffi","-o","try-header",
                                  "try-header.hs","try-header-ffi.o"]
@@ -312,11 +312,11 @@ getLibOutput lib h code = do checkMinimumPackages
                                                           else "#include \""++h++"\"",
                                                 "void foo();",
                                                 "void foo() { "++code++"; }"]
-            mkFile "get-const.hs" $ unlines [foreign,
+            mkFile "get-const.hs" $ unlines [foreignf,
                                              "main :: IO ()",
                                              "main = foo"]
-          foreign = "foreign import ccall unsafe "++
-                    "\"get-const-ffi.h foo\" foo :: IO ()"
+          foreignf = "foreign import ccall unsafe "++
+                     "\"get-const-ffi.h foo\" foo :: IO ()"
           test = do ghc systemV ["-c","-cpp","get-const-ffi.c"]
                     csum [ghc systemV ["-fffi","-o","get-const",
                                        "get-const.hs","get-const-ffi.o"]
