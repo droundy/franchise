@@ -33,7 +33,7 @@ module Distribution.Franchise.ConfigureState
     ( runWithArgs,
       amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
-      getModulesInPackage, addModulesForPackage,
+      getAllPackages, getModulesInPackage, addModulesForPackage,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -599,6 +599,9 @@ getTargets = C $ \ts -> return $ Right (targets ts, ts)
 
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
+
+getAllPackages :: C [String]
+getAllPackages = C $ \ts -> return $ Right (toListS $ keysT $ packageModuleMap ts, ts)
 
 getModulesInPackage :: String -> C (Maybe [String])
 getModulesInPackage p = C $ \ts -> return $ Right (lookupT p $ packageModuleMap ts, ts)

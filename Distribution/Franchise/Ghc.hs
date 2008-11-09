@@ -470,14 +470,18 @@ mungePackage x@(_:r) = csum [mopt, mungePackage r]
 findPackagesProvidingModule :: String -> C [String]
 findPackagesProvidingModule m =
 #if __GLASGOW_HASKELL__ >= 610
-    (reverse . words) `fmap` systemOut "ghc-pkg" ["find-module","--simple-output",m]
+     (reverse . words) `fmap` systemOut "ghc-pkg" ["find-module","--simple-output",m]
 #else
      do allps <- findAllPackages
         filterM (fmap (elem m) . packageModules) allps
 #endif
 
 findAllPackages :: C [String]
-findAllPackages = (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
+findAllPackages =
+    do ps <- getAllPackages
+       case ps of
+         [] -> (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
+         _ -> return ps
 
 packageModules :: String -> C [String]
 packageModules p =
