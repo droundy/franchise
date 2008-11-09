@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when )
+import Control.Monad ( when, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\), isSuffixOf )
@@ -427,14 +427,11 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                       Nothing -> fail e
                       Just m -> seekPackageForModule m]
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      allps <- findAllPackages
-                                      tryThesePackages m allps
+                                      ps <- findPackagesProvidingModule m
+                                      tryThesePackages m ps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m (p:ps) =
-              do pms <- packageModules p
-                 if m `notElem` pms
-                   then tryThesePackages m ps
-                   else do putV $ "I might find module "++m++" in package "++p++"..."
+                        do putV $ "looking for module "++m++" in package "++p++"..."
                            addPackages [p]
                            x2 <- runghcErr
                            case x2 of
@@ -459,6 +456,12 @@ mungePackage x@(_:r) = csum [mopt, mungePackage r]
    where mopt = do xxx <- stripPrefix "member of package " x
                    listToMaybe $ map (takeWhile (/=',')) $
                                  map (takeWhile (/=' ')) $ words xxx
+
+findPackagesProvidingModule :: String -> C [String]
+findPackagesProvidingModule m =
+    csum [(reverse . words) `fmap` systemOut "ghc-pkg" ["find-module","--simple-output",m],
+          do allps <- findAllPackages
+             filterM (fmap (elem m) . packageModules) allps]
 
 findAllPackages :: C [String]
 findAllPackages = (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
