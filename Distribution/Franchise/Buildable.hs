@@ -42,7 +42,7 @@ import System.Environment ( getProgName, getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
-import Control.Monad ( msum )
+import Control.Monad ( mplus )
 
 import System.Console.GetOpt ( OptDescr(..) )
 
@@ -292,7 +292,7 @@ getBuildable t = do mt <- getTarget t
 
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
-                 return $ msum [lookupT t allts, lookupT (phony t) allts]
+                 return $ lookupT t allts `mplus` lookupT (phony t) allts
 
 sloppyTarget :: String -> C [String]
 sloppyTarget t =
