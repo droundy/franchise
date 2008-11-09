@@ -55,12 +55,17 @@ package.
 
 file: tests/testfind/requireExporting.sh
 ....set -ev
+....# hokey trick to avoid installing franchise for tests
+....ln -s ../../../Distribution .
     cd a
+....ln -s ../Distribution .
     runghc Setup.hs install --user
     cd ../b
+....ln -s ../Distribution .
     runghc Setup.hs install --user
     cd ../c
     
+....ln -s ../Distribution .
     runghc Setup.hs clean
     runghc Setup.hs configure --with-b
     runghc Setup.hs build
