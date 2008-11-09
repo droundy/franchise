@@ -430,6 +430,16 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                                       ps <- findPackagesProvidingModule m
                                       tryThesePackages m ps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
+          tryThesePackages m [p] =
+                        do putV $ "looking for module "++m++" in package "++p++"..."
+                           addPackages [p]
+                           x2 <- runghcErr
+                           case x2 of
+                             (ExitSuccess,_) -> return [p]
+                             (z,e) ->
+                                 case mungeMissingModule e of
+                                   Just m' | m' /= m -> (p:) `fmap` lookForPackages (z,e)
+                                   _ -> fail $ "couldn't use package "++p++" for module "++m++"!"
           tryThesePackages m (p:ps) =
                         do putV $ "looking for module "++m++" in package "++p++"..."
                            addPackages [p]
