@@ -40,9 +40,9 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package ) where
 
-import Control.Monad ( when, mplus, filterM )
+import Control.Monad ( when )
 import System.Exit ( ExitCode(..) )
-import Data.Maybe ( catMaybes )
+import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\), isSuffixOf )
 import System.Directory ( createDirectoryIfMissing, copyFile )
 
@@ -414,12 +414,20 @@ checkMinimumPackages =
 seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
     where lookForPackages (ExitSuccess,_) = return []
-          lookForPackages (_,e) =
-              case mungeMissingModule e of
-              Nothing -> fail e
-              Just m -> seekPackageForModule m
+          lookForPackages x@(_,e) =
+              csum [case mungePackage e of
+                      Nothing -> fail e
+                      Just p -> do addPackages [p]
+                                   x2 <- runghcErr
+                                   if x2 == x
+                                      then fail e
+                                      else do ps2 <- lookForPackages x2
+                                              return (p:ps2)
+                   ,case mungeMissingModule e of
+                      Nothing -> fail e
+                      Just m -> seekPackageForModule m]
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      allps <- findAllPackages m
+                                      allps <- findAllPackages
                                       tryThesePackages m allps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m (p:ps) =
@@ -442,11 +450,18 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
 
 mungeMissingModule :: String -> Maybe String
 mungeMissingModule [] = Nothing
-mungeMissingModule x@(_:r) = takeWhile (/='\'') `fmap` stripPrefix " `" x
-                            `mplus` mungeMissingModule r
+mungeMissingModule x@(_:r) = csum [takeWhile (/='\'') `fmap` stripPrefix " `" x,
+                                   mungeMissingModule r]
 
-findAllPackages :: String -> C [String]
-findAllPackages m = (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
+mungePackage :: String -> Maybe String
+mungePackage [] = Nothing
+mungePackage x@(_:r) = csum [mopt, mungePackage r]
+   where mopt = do xxx <- stripPrefix "member of package " x
+                   listToMaybe $ map (takeWhile (/=',')) $
+                                 map (takeWhile (/=' ')) $ words xxx
+
+findAllPackages :: C [String]
+findAllPackages = (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
 
 packageModules :: String -> C [String]
 packageModules p =
