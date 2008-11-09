@@ -69,7 +69,7 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory, getCurrentDirectory,
-                          doesDirectoryExist,
+                          doesDirectoryExist, doesFileExist,
                           removeFile, removeDirectory, createDirectory,
                           getDirectoryContents )
 import System.Environment ( getProgName )
@@ -400,15 +400,18 @@ dirname :: FilePath -> FilePath
 dirname = reverse . drop 1 . dropWhile (not . isSep) . dropWhile isSep . reverse
 
 rm_rf :: FilePath -> C ()
-rm_rf d =
+rm_rf d0 = do d <- processFilePath d0
+              rm_rf' d
+  where
+   rm_rf' d =
     do isd <- io $ doesDirectoryExist d
        if not isd
-          then io (removeFile d) `catchC` \_ -> return ()
+          then whenC (io $ doesFileExist d) $ io $ removeFile d
           else do fs <- readDirectory d
-                  mapM_ (rm_rf . ((d++"/")++)) fs
+                  mapM_ (rm_rf' . ((d++"/")++)) fs
                   putV $ "rm -rf "++d
                   io $ removeDirectory d
-   `catchC` \e -> putV $ "rm -rf failed: "++e
+    `catchC` \e -> putV $ "rm -rf failed: "++e
 
 data LogMessage = Stdout String | Logfile String
 data HookTime = Preconfigure | Postconfigure

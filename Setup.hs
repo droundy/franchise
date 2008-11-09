@@ -28,7 +28,8 @@ main = build [] configure $ do -- versionFromDarcs doesn't go in configure
                                darcsDist "franchise" ["franchise.cabal"]
                                package "franchise" ["Distribution.Franchise"] []
 
-buildDoc = do addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
+buildDoc = do rm_rf "doc/tests"
+              addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
               addTarget $ ["index.html"] :< ["doc/home.txt"] |<- defaultRule { make = makeroot }
               alltests <- mapDirectory buildOneDoc "doc"
               test $ concatMap snd alltests
