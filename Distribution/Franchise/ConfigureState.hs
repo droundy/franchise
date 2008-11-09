@@ -407,7 +407,9 @@ rm_rf d0 = do d <- processFilePath d0
     do isd <- io $ doesDirectoryExist d
        if not isd
           then whenC (io $ doesFileExist d) $ io $ removeFile d
-          else do fs <- readDirectory d
+          else -- The following is a very hokey attempt to avoid recursing into symlinks...
+               catchC (io $ removeFile d) $ \_ ->
+               do fs <- readDirectory d
                   mapM_ (rm_rf' . ((d++"/")++)) fs
                   putV $ "rm -rf "++d
                   io $ removeDirectory d
