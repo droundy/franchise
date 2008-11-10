@@ -31,10 +31,11 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
-      build, buildWithArgs, installBin, replace, createFile,
+      build, buildWithArgs, buildTarget, cleanTarget,
+      installBin, replace, createFile,
       defaultRule, buildName, build', cleanIt, rm,
-      addTarget, getBuildable, (|<-),
-      extraData )
+      addTarget, clearInstallTarget, getBuildable, (|<-),
+      phony, extraData )
     where
 
 import Data.List ( isPrefixOf, isSuffixOf, (\\) )
@@ -200,6 +201,9 @@ needsWork t =
                             anyM f (z:zs) = do b <- f z
                                                if b then return True else anyM f zs
 
+buildTarget :: String -> C ()
+buildTarget = build' CannotModifyState
+
 build' :: CanModifyState -> String -> C ()
 build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
         do --put $S unwords ("I'm thinking of recompiling...": buildName b)
@@ -356,7 +360,8 @@ actuallyCreateFile fn = do x <- cat (fn++".in")
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =
-    do ts' <- mapM processFilePath ts
+    do mapM_ clearBuilt ts
+       ts' <- mapM processFilePath ts
        ds' <- fromListS `fmap` mapM processFilePath ds
        let fixt t = (t, delS t allts)
            allts = fromListS ts'
@@ -371,3 +376,12 @@ addTarget (ts :< ds :<- r) =
                       \ (Target a b c) -> Target a (addsS ts b) (c >> inst)
          Nothing -> return ()
        mapM_ addt ts''
+
+clearInstallTarget :: C ()
+clearInstallTarget = do modifyTargets $ adjustT (phony "install") $
+                                          \ (Target a b _) -> Target a b (return ())
+                        clearBuilt $ phony "install"
+
+cleanTarget :: String -> C ()
+cleanTarget t = do unlessC (return $ isPhony t) $ rm_rf t
+                   clearBuilt t

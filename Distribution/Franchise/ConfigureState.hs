@@ -50,7 +50,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs,
       CanModifyState(..),
       Target(..),
-      getTargets, modifyTargets, setBuilt, isBuilt,
+      getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
       C, ConfigureState(..), runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
@@ -618,6 +618,9 @@ isBuilt t = C $ \ts -> return $ Right (t `elemS` built ts || ('*':t++"*") `elemS
 
 setBuilt :: String -> C ()
 setBuilt t = C $ \ts -> return $ Right ((), ts { built = addS t $ built ts })
+
+clearBuilt :: String -> C ()
+clearBuilt t = C $ \ts -> return $ Right ((), ts { built = delS t $ built ts })
 
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x

@@ -54,9 +54,6 @@ A simple test script
 
 file: tests/foreign-wrapper/foreign-wrapper.sh
 ....set -ev
-....
-....# hokey trick to avoid installing franchise for tests
-....ln -s ../../../Distribution .
     runghc Setup.hs build
 ...../test
     ./test | grep 137

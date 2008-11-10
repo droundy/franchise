@@ -19,9 +19,6 @@ And finally we'll test that this executable actually builds and runs.
 
 file: tests/cpp/cpp.sh
 ....set -ev
-....
-....# hokey trick to avoid installing franchise for tests
-....ln -s ../../../Distribution .
     runghc Setup.hs build
 ...../executable
     ./executable | grep works

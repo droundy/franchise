@@ -186,10 +186,13 @@ package pn modules cfiles =
                          do putD $ "createDirectoryIfMissing "++ destination
                             io $ createDirectoryIfMissing True destination
                             let inst x =
-                                    do case reverse $ dropWhile (/= '/') $ reverse x of
+                                    do putD $ "installing for package "++x
+                                       case reverse $ dropWhile (/= '/') $ reverse x of
                                          "" -> return ()
                                          xdn -> io $ createDirectoryIfMissing True
                                                 $ destination++"/"++xdn
+                                       putD $ unwords ["copyFile", x,
+                                                       (destination++"/"++x)]
                                        io $ copyFile x (destination++"/"++x)
                             mapM_ inst (("lib"++pn++".a") : his)
                             pkgflags <- getPkgFlags

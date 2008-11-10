@@ -32,7 +32,5 @@ defaults.
 
 file: tests/simple/simple.sh
 ....set -ev
-....# hokey trick to avoid installing franchise for tests
-....ln -s ../../../Distribution .
     runghc Setup.hs build
     ./simple

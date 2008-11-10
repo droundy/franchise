@@ -44,7 +44,7 @@ import Distribution.Franchise.Util
 testOne :: String -> String -> C String
 testOne r f = do withcwd <- rememberDirectory
                  let testname = "*"++f++"*"
-                 addTarget $ [testname] :< []
+                 addTarget $ [testname] :< [phony "build"]
                            -- no dependencies, so it'll get automatically run
                            |<- defaultRule { make = const $ runtest withcwd }
                  return $ testname
@@ -72,10 +72,14 @@ pad x0 = if length x < 65
 
 data TestResult = Passed | Failed | Surprise | Expected
 
-test :: [String] -> C ()
-test ts0 = addTarget $ ["test"] :< [] |<- defaultRule { make = \_ ->
-                                                        runtests 0 0 0 0 ts0 }
-    where runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
+test :: C () -> [String] -> C ()
+test initialize ts0 =
+    do addTarget $ [phony "initialize-test"] :< [phony "build"]
+           |<- defaultRule { make = const initialize }
+       addTarget $ [phony "test"] :< [phony "initialize-test"]
+           |<- defaultRule { make = const $ runtests 0 0 0 0 ts0 }
+    where 
+          runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
           runtests npassed 0 0 0 [] = putAll npassed "test" "passed!"
           runtests npassed oddpass expectedfail 0 [] =
               do putNonZero expectedfail "test" "failed as expected."

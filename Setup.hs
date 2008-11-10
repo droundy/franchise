@@ -32,7 +32,19 @@ buildDoc = do rm_rf "doc/tests"
               addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
               addTarget $ ["index.html"] :< ["doc/home.txt"] |<- defaultRule { make = makeroot }
               alltests <- mapDirectory buildOneDoc "doc"
-              test $ concatMap snd alltests
+              here <- pwd
+              let prepareForTest = -- make a local install of franchise for test
+                      do setEnv "HOME" (here++"/doc/tests")
+                         mkdir "dop/tests/lib"
+                         mv "franchise.config" "franchise.config.correct"
+                         mapM_ cleanTarget ["franchise.config"]
+                         addExtraData "libdir" (here++"/doc/tests/lib")
+                         pkgFlags ["--user"]
+                         clearInstallTarget
+                         package "franchise" ["Distribution.Franchise"] []
+                         buildTarget "*install*"
+                         mv "franchise.config.correct" "franchise.config"
+              test prepareForTest $ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
                                        htmls <- concat `fmap` mapM buildHtml (concatMap fst alltests)
                                        addTarget $ ["*manual*","*html*"] :<

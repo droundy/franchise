@@ -30,6 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise ( build, buildWithArgs, test, testOne,
+                                buildTarget, clearInstallTarget, cleanTarget,
                                 executable, privateExecutable,
                                 installBin, addTarget,
                                 replace, replaceLiteral, createFile,
@@ -61,7 +62,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- utilities for autoheader files
                                 autoHeader,
                                 -- setting compile parameters
-                                ghcFlags, ldFlags, cFlags,
+                                ghcFlags, ldFlags, cFlags, pkgFlags,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 system, systemOut, systemInOut,
