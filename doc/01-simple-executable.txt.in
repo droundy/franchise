@@ -32,5 +32,6 @@ defaults.
 
 file: tests/simple/simple.sh
 ....set -ev
+....echo $HOME | grep doc/tests
     runghc Setup.hs build
     ./simple
