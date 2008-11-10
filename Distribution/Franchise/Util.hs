@@ -49,6 +49,7 @@ import System.IO ( hGetContents, BufferMode(..),
 import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.Env ( getEnvironment )
 
 -- | A version of waitForProcess that is non-blocking even when linked with
 -- the non-threaded runtime.
@@ -80,7 +81,8 @@ system :: String   -- ^ Command
        -> [String] -- ^ Arguments
        -> C ()
 system c args = do sd <- getCurrentSubdir
-                   (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                   env <- Just `fmap` getEnvironment
+                   (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                    out <- io $ hGetContents o
                    err <- io $ hGetContents e
                    -- now we ensure that out and err are consumed, so that
@@ -102,7 +104,8 @@ systemV :: String   -- ^ Command
         -> [String] -- ^ Arguments
         -> C ()
 systemV c args = do sd <- getCurrentSubdir
-                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                    env <- Just `fmap` getEnvironment
+                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                     out <- io $ hGetContents o
                     err <- io $ hGetContents e
                     -- now we ensure that out and err are consumed, so that
@@ -120,7 +123,8 @@ systemV c args = do sd <- getCurrentSubdir
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String -> [String] -> C (ExitCode, String)
 systemErr c args = do sd <- getCurrentSubdir
-                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                      env <- Just `fmap` getEnvironment
+                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
@@ -140,7 +144,8 @@ systemOutErr c args =
            short = if length args < 2 then long
                                       else '[':c++"]"
        putSV short long
-       (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+       env <- Just `fmap` getEnvironment
+       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
        io $ hSetBuffering o LineBuffering
        io $ hSetBuffering e LineBuffering
        ch <- io $ newChan
@@ -173,7 +178,8 @@ systemOut :: String   -- ^ Program name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
 systemOut c args = do sd <- getCurrentSubdir
-                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                      env <- Just `fmap` getEnvironment
+                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
@@ -196,7 +202,8 @@ systemInOut :: String   -- ^ Program name
             -> String   -- ^ stdin
             -> C String -- ^ output
 systemInOut c args inp = do sd <- getCurrentSubdir
-                            (i,o,e,pid) <- io $ runInteractiveProcess c args sd Nothing
+                            env <- Just `fmap` getEnvironment
+                            (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
                             out <- io $ hGetContents o
                             err <- io $ hGetContents e
                             io $ forkIO $ do hPutStr i inp

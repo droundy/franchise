@@ -42,7 +42,7 @@ module Distribution.Franchise.ConfigureState
       getLibDir, getBinDir,
       replace, replaceLiteral, replacements,
       getVersion, packages, getPackageVersion,
-      getExtraData, addExtraData, haveExtraData,
+      getExtraData, getAllExtraData, addExtraData, haveExtraData,
       getPkgFlags, getCopyright, getLicense,
       getMaintainer,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
@@ -247,7 +247,10 @@ getMaintainer = do ema <- getEnv "EMAIL"
                    return $ maybe "???" id (mai `mplus` ema)
 
 getExtraData :: String -> C (Maybe String)
-getExtraData d = lookup d `fmap` gets extraDataC
+getExtraData d = lookup d `fmap` getAllExtraData
+
+getAllExtraData :: C [(String, String)]
+getAllExtraData = gets extraDataC
 
 unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate

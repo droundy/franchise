@@ -67,6 +67,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 system, systemOut, systemInOut,
                                 cd, mkdir, pwd, ls, cat, rm_rf, mkFile,
                                 withDirectory, rememberDirectory, splitPath,
+                                -- environment-handling functions
+                                setEnv, getEnv,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
                                 -- for handy preprocessing...
@@ -88,3 +90,4 @@ import Distribution.Franchise.AutoHeader
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
 import Distribution.Franchise.Program
+import Distribution.Franchise.Env
