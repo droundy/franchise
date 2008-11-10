@@ -55,7 +55,7 @@ data Dependency = [String] :< [String]
 
 infix 2 :<
 data BuildRule = BuildRule { make :: Dependency -> C (),
-                             install :: Dependency -> C (),
+                             install :: Dependency -> Maybe (C ()),
                              clean :: Dependency -> [String] }
 
 data Buildable = Dependency :<- BuildRule
@@ -70,7 +70,7 @@ infix 1 :<-
 infix 1 |<-
 
 defaultRule :: BuildRule
-defaultRule = BuildRule (const $ return ()) (const $ return ()) cleanIt
+defaultRule = BuildRule (const $ return ()) (const Nothing) cleanIt
 
 extraData :: String -> String
 extraData x = "config.d/X-"++x
@@ -334,9 +334,10 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                    lookAtDeps nw' (d:ds) = do nw2 <- fw nw' d
                                                               lookAtDeps nw2 ds
 
-installBin :: Dependency -> C ()
-installBin (xs:<_) = do pref <- getBinDir
-                        mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
+installBin :: Dependency -> Maybe (C ())
+installBin (xs:<_) = Just $ do pref <- getBinDir
+                               putD $ unwords ("copyFile":xs++[pref++"/"])
+                               mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
 
 createFile :: String -> C ()
 createFile fn = do addTarget $ [fn] :< [fn++".in"] :<-
@@ -366,6 +367,7 @@ addTarget (ts :< ds :<- r) =
          toclean -> modifyTargets $ adjustT (phony "clean") $
                     \ (Target a b c) -> Target a b (c >> mapM_ rm toclean)
        case install r (ts:<ds) of
-         inst -> modifyTargets $ adjustT (phony "install") $
-                 \ (Target a b c) -> Target a b (c >> inst)
+         Just inst -> modifyTargets $ adjustT (phony "install") $
+                      \ (Target a b c) -> Target a (addsS ts b) (c >> inst)
+         Nothing -> return ()
        mapM_ addt ts''

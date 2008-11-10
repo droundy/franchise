@@ -182,7 +182,9 @@ package pn modules cfiles =
                                            "build-depends: "++commaWords (map guessVersion deps)]
                             mapM_ (appendExtra (pn++".cabal"))
                                   ["category", "synopsis", "description"]
-           installme _ = do io $ createDirectoryIfMissing True destination
+           installme _ = Just $
+                         do putD $ "createDirectoryIfMissing "++ destination
+                            io $ createDirectoryIfMissing True destination
                             let inst x =
                                     do case reverse $ dropWhile (/= '/') $ reverse x of
                                          "" -> return ()
