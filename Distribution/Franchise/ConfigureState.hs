@@ -230,7 +230,7 @@ getDefinitions :: C [(String,String)]
 getDefinitions = gets definitionsC
 
 isDefined :: String -> C Bool
-isDefined x = (not . null . filter ((/=x).fst)) `fmap` getDefinitions
+isDefined x = (not . null . filter ((==x).fst)) `fmap` getDefinitions
 
 getVersion :: C String
 getVersion = maybe "0.0" id `fmap` getExtraData "version"
