@@ -145,8 +145,8 @@ package pn modules cfiles =
        ver <- getVersion
        let destination = pre++"/"++pn++"-"++ver++"/"
            guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
-           appendExtra f d = do mv <- getExtraData d
-                                case mv of
+           appendExtra f d = do mval <- getExtraData d
+                                case mval of
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
            makeconfig _ =do lic <- getLicense

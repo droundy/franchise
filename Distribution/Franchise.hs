@@ -65,7 +65,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 system, systemOut, systemInOut,
-                                cd, mkdir, pwd, ls, cat, rm_rf, mkFile,
+                                cd, mkdir, pwd, ls, cat, rm_rf, mv,
+                                mkFile,
                                 withDirectory, rememberDirectory, splitPath,
                                 -- environment-handling functions
                                 setEnv, getEnv,
