@@ -37,10 +37,10 @@ buildDoc = do rm_rf "doc/tests"
                       do setEnv "HOME" (here++"/doc/tests")
                          mkdir "dop/tests/lib"
                          mv "franchise.config" "franchise.config.correct"
-                         mapM_ cleanTarget ["franchise.config"]
+                         cleanTarget "franchise.config"
+                         clearInstallTarget
                          addExtraData "libdir" (here++"/doc/tests/lib")
                          pkgFlags ["--user"]
-                         clearInstallTarget
                          package "franchise" ["Distribution.Franchise"] []
                          buildTarget "*install*"
                          mv "franchise.config.correct" "franchise.config"
