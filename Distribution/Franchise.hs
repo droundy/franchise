@@ -69,6 +69,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 cd, mkdir, pwd, ls, cat, rm_rf, mv,
                                 mkFile,
                                 withDirectory, rememberDirectory, splitPath,
+                                -- string-processing...
+                                stripPrefix,
                                 -- environment-handling functions
                                 setEnv, getEnv,
                                 -- useful for user-oriented messages.
@@ -93,3 +95,4 @@ import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
 import Distribution.Franchise.Program
 import Distribution.Franchise.Env
+import Distribution.Franchise.ListUtils
