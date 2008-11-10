@@ -74,10 +74,9 @@ data TestResult = Passed | Failed | Surprise | Expected
 
 test :: C () -> [String] -> C ()
 test initialize ts0 =
-    do addTarget $ [phony "initialize-test"] :< [phony "build"]
-           |<- defaultRule { make = const initialize }
-       addTarget $ [phony "test"] :< [phony "initialize-test"]
-           |<- defaultRule { make = const $ runtests 0 0 0 0 ts0 }
+    addTarget $ [phony "test"] :< [phony "build"]
+        |<- defaultRule { make = const $ do initialize
+                                            runtests 0 0 0 0 ts0 }
     where 
           runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
           runtests npassed 0 0 0 [] = putAll npassed "test" "passed!"
