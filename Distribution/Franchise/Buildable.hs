@@ -31,10 +31,10 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
-      build, buildWithArgs, buildTarget, cleanTarget,
+      build, buildWithArgs, buildTarget,
       installBin, replace, createFile,
       defaultRule, buildName, build', cleanIt, rm,
-      addTarget, clearInstallTarget, getBuildable, (|<-),
+      addTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
@@ -377,12 +377,3 @@ addTarget (ts :< ds :<- r) =
                       \ (Target a b c) -> Target a (addsS ts b) (c >> inst)
          Nothing -> return ()
        mapM_ addt ts''
-
-clearInstallTarget :: C ()
-clearInstallTarget = do modifyTargets $ adjustT (phony "install") $
-                                          \ (Target a b _) -> Target a b (return ())
-                        clearBuilt $ phony "install"
-
-cleanTarget :: String -> C ()
-cleanTarget t = do unlessC (return $ isPhony t) $ rm_rf t
-                   clearBuilt t

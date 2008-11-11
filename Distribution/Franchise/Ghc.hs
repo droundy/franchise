@@ -38,7 +38,7 @@ module Distribution.Franchise.Ghc
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
-      package ) where
+      package, installPackageInto ) where
 
 import Control.Monad ( when, filterM )
 import System.Exit ( ExitCode(..) )

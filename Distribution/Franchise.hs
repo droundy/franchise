@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise ( build, buildWithArgs, test, testOne,
-                                buildTarget, clearInstallTarget, cleanTarget,
+                                buildTarget,
                                 executable, privateExecutable,
                                 installBin, addTarget,
                                 replace, replaceLiteral, createFile,
@@ -51,7 +51,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 withLibOutput,
                                 -- defining package properties
                                 package, copyright, license, version,
-                                addExtraData, haveExtraData,
+                                addExtraData, haveExtraData, installPackageInto,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
                                 -- Various utilities for interfacing with darcs

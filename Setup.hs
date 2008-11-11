@@ -36,14 +36,8 @@ buildDoc = do rm_rf "doc/tests"
               let prepareForTest = -- make a local install of franchise for test
                       do setEnv "HOME" (here++"/doc/tests")
                          mkdir "dop/tests/lib"
-                         mv "franchise.config" "franchise.config.correct"
-                         cleanTarget "franchise.config"
-                         clearInstallTarget
-                         addExtraData "libdir" (here++"/doc/tests/lib")
                          pkgFlags ["--user"]
-                         package "franchise" ["Distribution.Franchise"] []
-                         buildTarget "*install*"
-                         mv "franchise.config.correct" "franchise.config"
+                         installPackageInto "franchise" (here++"/doc/tests/lib")
               test prepareForTest $ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
                                        htmls <- concat `fmap` mapM buildHtml (concatMap fst alltests)
