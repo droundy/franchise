@@ -51,6 +51,7 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.ListUtils
 import Distribution.Franchise.StringSet ( toListS )
+import Distribution.Franchise.Env ( setEnv )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -61,6 +62,14 @@ infix 2 <:
                = [x] :< [y,"config.d/ghcFlags","config.d/definitions"] :<- defaultRule { make = ghc_c }
 [stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
 xs <: ys = error $ "can't figure out how to build "++ show xs++" from "++ show ys
+
+maketixdir :: C ()
+maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
+             do -- create directory for coverage output
+                tixdir <- (++"/tix") `fmap` pwd
+                mkdir tixdir
+                setEnv "HPCTIXDIR" tixdir
+                addToRule "*clean*" (rm_rf tixdir)
 
 executable :: String -> String -> [String] -> C String
 executable exname src cfiles =
@@ -106,7 +115,8 @@ ghcDeps dname src announceme =
 
 privateExecutable :: String -> String -> [String] -> C String
 privateExecutable  simpleexname src cfiles0 =
-    do checkMinimumPackages
+    do maketixdir
+       checkMinimumPackages
        aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
@@ -136,7 +146,8 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 
 package :: String -> [String] -> [String] -> C String
 package pn modules cfiles =
-    do packageName pn
+    do maketixdir
+       packageName pn
        whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
        let depend = pn++".depend"
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn

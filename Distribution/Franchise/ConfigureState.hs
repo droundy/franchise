@@ -151,6 +151,8 @@ runWithArgs optsc validCommands runCommand =
                         Option [] ["package"]
                                  (ReqArg (\p -> addPackages [p]) "PACKAGE-NAME")
                           "use a particular ghc package",
+                        Option [] ["enable-hpc"] (NoArg $ ghcFlags ["-fhpc"])
+                          "enable program coverage",
                         Option ['V'] ["version"] (NoArg showVersion)
                                    "show version number"
                       ]

@@ -34,7 +34,7 @@ module Distribution.Franchise.Buildable
       build, buildWithArgs, buildTarget,
       installBin, replace, createFile,
       defaultRule, buildName, build', cleanIt, rm,
-      addTarget, getBuildable, (|<-),
+      addToRule, addTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
@@ -370,10 +370,12 @@ addTarget (ts :< ds :<- r) =
            addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ make r (ts:<ds))
        case clean r (ts:<ds) of
          [] -> return ()
-         toclean -> modifyTargets $ adjustT (phony "clean") $
-                    \ (Target a b c) -> Target a b (c >> mapM_ rm toclean)
+         toclean -> addToRule (phony "clean") (mapM_ rm toclean)
        case install r (ts:<ds) of
          Just inst -> modifyTargets $ adjustT (phony "install") $
                       \ (Target a b c) -> Target a (addsS ts b) (c >> inst)
          Nothing -> return ()
        mapM_ addt ts''
+
+addToRule :: String -> C () -> C ()
+addToRule t j = modifyTargets $ adjustT t $ \ (Target a b c) -> Target a b (c >> j)
