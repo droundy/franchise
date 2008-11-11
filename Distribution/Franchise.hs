@@ -59,6 +59,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 darcsPatchLevel, versionFromDarcs, patchVersionFromDarcs,
                                 -- utilities for interfacing with git
                                 inGit, gitPatchLevel, getTag,
+                                -- utilities for processing markdown files
+                                splitMarkdown, markdownToHtml, markdownStringToHtmlString,
                                 -- utilities for autoheader files
                                 autoHeader,
                                 -- setting compile parameters
@@ -96,3 +98,5 @@ import Distribution.Franchise.Test
 import Distribution.Franchise.Program
 import Distribution.Franchise.Env
 import Distribution.Franchise.ListUtils
+import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
+                                         markdownStringToHtmlString )
