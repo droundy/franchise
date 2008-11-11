@@ -50,6 +50,7 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.ListUtils
+import Distribution.Franchise.StringSet ( toListS )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -141,10 +142,8 @@ package pn modules cfiles =
        build' CanModifyState depend
        checkMinimumPackages -- ensure that we've got at least the prelude...
        (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
-       pre <- getLibDir
        ver <- getVersion
-       let destination = pre++"/"++pn++"-"++ver++"/"
-           guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
+       let guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
            appendExtra f d = do mval <- getExtraData d
                                 case mval of
                                   Nothing -> return ()
@@ -159,8 +158,6 @@ package pn modules cfiles =
                                            "license: "++lic,
                                            "copyright: "++cop,
                                            "maintainer: "++mai,
-                                           "import-dirs: "++ show destination,
-                                           "library-dirs: "++ show destination,
                                            "exposed-modules: "++unwords modules,
                                            "hidden-modules: "++unwords (map objToModName mods \\ modules),
                                            "hs-libraries: "++pn,
@@ -182,21 +179,6 @@ package pn modules cfiles =
                                            "build-depends: "++commaWords (map guessVersion deps)]
                             mapM_ (appendExtra (pn++".cabal"))
                                   ["category", "synopsis", "description"]
-           installme _ = Just $
-                         do putD $ "createDirectoryIfMissing "++ destination
-                            io $ createDirectoryIfMissing True destination
-                            let inst x =
-                                    do putD $ "installing for package "++x
-                                       case reverse $ dropWhile (/= '/') $ reverse x of
-                                         "" -> return ()
-                                         xdn -> io $ createDirectoryIfMissing True
-                                                $ destination++"/"++xdn
-                                       putD $ unwords ["copyFile", x,
-                                                       (destination++"/"++x)]
-                                       io $ copyFile x (destination++"/"++x)
-                            mapM_ inst (("lib"++pn++".a") : his)
-                            pkgflags <- getPkgFlags
-                            system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".config"]
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
                                return o) cfiles
@@ -204,13 +186,38 @@ package pn modules cfiles =
                     :<- defaultRule { make = makeconfig }
        addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makecabal }
+       libdir <- getLibDir
        addTarget $ ["lib"++pn++".a"]
-                  :< ((pn++".config"):mods++cobjs)
+                  :< ((pn++".config"):mods++his++cobjs)
                   :<- defaultRule { make = objects_to_a,
-                                    install = installme,
-                                    clean = \b -> depend : cleanIt b}
+                                    install = \_ -> Just $ installPackageInto pn libdir,
+                                    clean = \b -> (pn++".cfg") : depend : cleanIt b}
        return $ "lib"++pn++".a"
 
+installPackageInto :: String -> String -> C ()
+installPackageInto pn libdir =
+    do ver <- getVersion
+       let destination = libdir++"/"++pn++"-"++ver++"/"
+       config <- cat (pn++".config")
+       mkFile (pn++".cfg") $ unlines [config,
+                                      "import-dirs: "++ show destination,
+                                      "library-dirs: "++ show destination]
+       mt <- getTarget ("lib"++pn++".a")
+       case mt of
+         Nothing -> fail $ "no such package:  "++pn
+         Just (Target _ ds _) ->
+             do putD $ "createDirectoryIfMissing "++ destination
+                io $ createDirectoryIfMissing True destination
+                let inst x = do putD $ "installing for package "++x
+                                case reverse $ dropWhile (/= '/') $ reverse x of
+                                  "" -> return ()
+                                  xdn -> io $ createDirectoryIfMissing True $ destination++"/"++xdn
+                                putD $ unwords ["copyFile", x, (destination++"/"++x)]
+                                io $ copyFile x (destination++"/"++x)
+                    his = filter (".hi" `isSuffixOf`) $ toListS ds
+                mapM_ inst (("lib"++pn++".a") : his)
+                pkgflags <- getPkgFlags
+                system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
 
 objToModName :: String -> String
 objToModName = map todots . takeAllBut 2

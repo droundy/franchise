@@ -35,6 +35,7 @@ module Distribution.Franchise.Buildable
       installBin, replace, createFile,
       defaultRule, buildName, build', cleanIt, rm,
       addTarget, clearInstallTarget, getBuildable, (|<-),
+      getTarget, Target(..),
       phony, extraData )
     where
 
