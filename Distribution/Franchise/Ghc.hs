@@ -44,7 +44,7 @@ import Control.Monad ( when, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe )
 import Data.List ( partition, (\\), isSuffixOf )
-import System.Directory ( createDirectoryIfMissing, copyFile )
+import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -137,6 +137,7 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 package :: String -> [String] -> [String] -> C String
 package pn modules cfiles =
     do packageName pn
+       whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
        let depend = pn++".depend"
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
@@ -174,7 +175,7 @@ package pn modules cfiles =
                                            "build-depends: "++commaWords (map guessVersion deps)]
                             mapM_ (appendExtra (pn++".cabal"))
                                   ["author", "copyright", "homepage", "bug-reports",
-                                   "stability", "package-url", "tested-with",
+                                   "stability", "package-url", "tested-with", "license-file",
                                    "category", "synopsis", "description"]
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
