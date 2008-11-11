@@ -149,14 +149,12 @@ package pn modules cfiles =
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
            makeconfig _ =do lic <- getLicense
-                            cop <- getCopyright
                             mai <- getMaintainer
                             deps <- packages
                             mkFile (pn++".config") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++lic,
-                                           "copyright: "++cop,
                                            "maintainer: "++mai,
                                            "exposed-modules: "++unwords modules,
                                            "hidden-modules: "++unwords (map objToModName mods \\ modules),
@@ -164,21 +162,20 @@ package pn modules cfiles =
                                            "exposed: True",
                                            "depends: "++commaWords deps]
            makecabal  _ =do lic <- getLicense
-                            cop <- getCopyright
                             mai <- getMaintainer
                             deps <- packages
                             mkFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
                                            "license: "++lic,
-                                           "copyright: "++cop,
                                            "maintainer: "++mai,
                                            "exposed-modules: "++unwords modules,
-                                           "",
                                            "build-type: Custom",
                                            "build-depends: "++commaWords (map guessVersion deps)]
                             mapM_ (appendExtra (pn++".cabal"))
-                                  ["category", "synopsis", "description"]
+                                  ["author", "copyright", "homepage", "bug-reports",
+                                   "stability", "package-url", "tested-with",
+                                   "category", "synopsis", "description"]
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
                                return o) cfiles

@@ -43,7 +43,7 @@ module Distribution.Franchise.ConfigureState
       replace, replaceLiteral, replacements,
       getVersion, packages, getPackageVersion,
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
-      getPkgFlags, getCopyright, getLicense,
+      getPkgFlags, getLicense,
       getMaintainer,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
       runConfigureHooks, runPostConfigureHooks,
@@ -237,9 +237,6 @@ getVersion = maybe "0.0" id `fmap` getExtraData "version"
 
 getLicense :: C String
 getLicense = maybe "OtherLicense" id `fmap` getExtraData "license"
-
-getCopyright :: C String
-getCopyright = maybe "???" id `fmap` getExtraData "license"
 
 getMaintainer :: C String
 getMaintainer = do ema <- getEnv "EMAIL"

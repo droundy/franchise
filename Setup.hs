@@ -2,7 +2,7 @@
 import Distribution.Franchise
 import Data.List ( sort, isSuffixOf, isPrefixOf )
 
-configure = do copyright "David Roundy"
+configure = do copyright "Copyright 2008 David Roundy"
                license "BSD3"
                addExtraData "category" "Distribution"
                addExtraData "synopsis"
