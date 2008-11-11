@@ -49,7 +49,7 @@ import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
-import Distribution.Franchise.ListUtils
+import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv )
 
