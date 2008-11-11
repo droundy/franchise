@@ -35,7 +35,6 @@ buildDoc = do rm_rf "doc/tests"
               here <- pwd
               let prepareForTest = -- make a local install of franchise for test
                       do setEnv "HOME" (here++"/doc/tests")
-                         mkdir "dop/tests/lib"
                          pkgFlags ["--user"]
                          installPackageInto "franchise" (here++"/doc/tests/lib")
               test prepareForTest $ concatMap snd alltests
