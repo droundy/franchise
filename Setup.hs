@@ -94,11 +94,6 @@ buildDoc = do rm_rf "doc/tests"
                          (fc, rest) ->
                              (fn, unlines $ map (drop 4) fc) : splitf rest
           splitf [] = []
-          splitOn x (c:cs) = case stripPrefix x (c:cs) of
-                             Just cs' -> Just ([],cs')
-                             Nothing -> do (cs1,cs2) <- splitOn x cs
-                                           Just (c:cs1,cs2)
-          splitOn _ [] = Nothing
 
 htmlHead css x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
                           " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
