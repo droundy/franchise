@@ -107,12 +107,12 @@ depName (n :< _) = n
 buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 
-build :: [C (OptDescr (C ()))] -> C () -> C String -> IO ()
+build :: [C (OptDescr (C ()))] -> C () -> C [String] -> IO ()
 build opts doconf mkbuild =
     do args <- getArgs
        buildWithArgs args opts doconf mkbuild
 
-buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C String -> IO ()
+buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C [String] -> IO ()
 buildWithArgs args opts doconf mkbuild =
        runC args $ runWithArgs opts myargs runcommand
     where myargs = ["configure","build","clean","install"]
@@ -134,7 +134,7 @@ buildWithArgs args opts doconf mkbuild =
                          doconf
                          b <- mkbuild
                          modifyTargets $ adjustT (phony "build") $
-                                           \(Target a ds j) -> Target a (addS b ds) j
+                                           \(Target a ds j) -> Target a (addsS b ds) j
                          runPostConfigureHooks
                          writeConfigureState "config.d"
                          setBuilt $ phony "configure"
@@ -159,7 +159,7 @@ buildWithArgs args opts doconf mkbuild =
                                              putV $ "reconfiguring with flags " ++ unwords fs
                                              runWithArgs opts fs (const configure)
                                      else do b <- mkbuild
-                                             addTarget ([phony "build"]:<[b]:<-defaultRule)
+                                             addTarget ([phony "build"]:<b:<-defaultRule)
                            setBuilt $ phony "configure"
 
 needsWork :: String -> C Bool

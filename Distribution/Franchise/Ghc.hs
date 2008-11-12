@@ -71,10 +71,10 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
                 setEnv "HPCTIXDIR" tixdir
                 addToRule "*clean*" (rm_rf tixdir)
 
-executable :: String -> String -> [String] -> C String
+executable :: String -> String -> [String] -> C [String]
 executable exname src cfiles =
     do exname' <- privateExecutable exname src cfiles
-       Just (x :< y :<- b) <- getBuildable exname'
+       Just (x :< y :<- b) <- getBuildable exname
        addTarget $ x :< y :<- b { install = installBin }
        return exname'
 
@@ -113,7 +113,7 @@ ghcDeps dname src announceme =
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.  It's also used internally by executable.
 
-privateExecutable :: String -> String -> [String] -> C String
+privateExecutable :: String -> String -> [String] -> C [String]
 privateExecutable  simpleexname src cfiles0 =
     do maketixdir
        checkMinimumPackages
@@ -133,7 +133,7 @@ privateExecutable  simpleexname src cfiles0 =
        mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
        addTarget $ [exname, simpleexname] :< (src:objs++cobjs++extraobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
-       return exname
+       return [exname, simpleexname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
@@ -144,7 +144,7 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
-package :: String -> [String] -> [String] -> C String
+package :: String -> [String] -> [String] -> C [String]
 package pn modules cfiles =
     do maketixdir
        packageName pn
@@ -201,7 +201,7 @@ package pn modules cfiles =
                   :<- defaultRule { make = objects_to_a,
                                     install = \_ -> Just $ installPackageInto pn libdir,
                                     clean = \b -> (pn++".cfg") : depend : cleanIt b}
-       return $ "lib"++pn++".a"
+       return [phony pn, "lib"++pn++".a"]
 
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
