@@ -289,11 +289,17 @@ canBuildNow needwork t = do mt <- getTarget t
                               _ -> return True
 
 getBuildable :: String -> C (Maybe Buildable)
-getBuildable t = do mt <- getTarget t
-                    case mt of
-                      Nothing -> return Nothing
-                      Just (Target ts ds how) -> return $ Just (t:toListS ts :< toListS ds
-                                                                     :<- defaultRule { make = const how })
+getBuildable t = do allts <- getTargets
+                    case lookupT t allts of
+                      Just (Target ts ds how) ->
+                          return $ Just (t:toListS ts :< toListS ds
+                                         :<- defaultRule { make = const how })
+                      Nothing ->
+                          case lookupT (phony t) allts of
+                          Nothing -> return Nothing
+                          Just (Target ts ds how) ->
+                              return $ Just (phony t:toListS ts :< toListS ds
+                                             :<- defaultRule { make = const how })
 
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
