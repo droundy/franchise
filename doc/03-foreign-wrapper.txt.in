@@ -57,4 +57,4 @@ file: tests/foreign-wrapper/foreign-wrapper.sh
     runghc Setup.hs build
 ...../test
     ./test | grep 137
-\end{file}
+
