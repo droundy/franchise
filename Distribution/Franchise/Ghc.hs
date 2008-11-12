@@ -131,9 +131,9 @@ privateExecutable  simpleexname src cfiles0 =
            (cfiles, extraobjs) = partition (".c" `isSuffixOf`) cfiles0
            cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
        mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
-       addTarget $ [exname, simpleexname] :< (src:objs++cobjs++extraobjs)
+       addTarget $ [exname, phony simpleexname] :< (src:objs++cobjs++extraobjs)
                   :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
-       return [exname, simpleexname]
+       return [exname, phony simpleexname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
@@ -196,11 +196,13 @@ package pn modules cfiles =
        addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makecabal }
        libdir <- getLibDir
-       addTarget $ ["lib"++pn++".a"]
+       addTarget $ ["lib"++pn++".a", phony pn]
                   :< ((pn++".config"):mods++his++cobjs)
-                  :<- defaultRule { make = objects_to_a,
-                                    install = \_ -> Just $ installPackageInto pn libdir,
-                                    clean = \b -> (pn++".cfg") : depend : cleanIt b}
+                  :<- defaultRule {
+                      make = \_ ->
+                         system "ar" ("cqs":("lib"++pn++".a"):mods++cobjs),
+                      install = \_ -> Just $ installPackageInto pn libdir,
+                      clean = \b -> (pn++".cfg") : depend : cleanIt b}
        return [phony pn, "lib"++pn++".a"]
 
 installPackageInto :: String -> String -> C ()
@@ -284,11 +286,6 @@ ghc_c (_:<ds) = case filter (isSuffixOf ".c") ds of
                 [d] -> ghc system ["-c","-cpp",d]
                 [] -> fail "error 4"
                 _ -> fail "error 5"
-
-objects_to_a :: Dependency -> C ()
-objects_to_a ([outname]:<ds) =
-    system "ar" ("cqs":outname:filter (isSuffixOf ".o") ds)
-objects_to_a _ = error "bug in objects_to_a"
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =

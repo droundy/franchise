@@ -341,8 +341,9 @@ findWork zzz = do putD $ "findWork called on "++zzz
 
 installBin :: Dependency -> Maybe (C ())
 installBin (xs:<_) = Just $ do pref <- getBinDir
-                               putD $ unwords ("copyFile":xs++[pref++"/"])
-                               mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs
+                               let xs' = filter (not . isPhony) xs
+                               putD $ unwords ("copyFile":xs'++[pref++"/"])
+                               mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
 
 createFile :: String -> C ()
 createFile fn = do addTarget $ [fn] :< [fn++".in"] :<-
