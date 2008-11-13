@@ -9,26 +9,26 @@ that your code is linked with a module that exports a particular API.
 We create two packages, `a` and `b`, each of which export the module
 `Foo`, but with a subtly different API.
 
-file: tests/testfind/a/Setup.hs
+file: tests/requireExporting/a/Setup.hs
     import Distribution.Franchise
     main = build [] (version "1.0") (package "a" ["Foo"] [])
 
 The first package, `a`, exports `Foo.foo` and `Foo.a`.
 
-file: tests/testfind/a/Foo.hs
+file: tests/requireExporting/a/Foo.hs
     module Foo ( foo, a ) where
     a :: Int
     a = 10
     foo :: String
     foo = "Foo a"
 
-file: tests/testfind/b/Setup.hs
+file: tests/requireExporting/b/Setup.hs
     import Distribution.Franchise
     main = build [] (version "2.0") (package "b" ["Foo"] [])
 
 The second package, `b`, exports `Foo.foo` and `Foo.b`.
 
-file: tests/testfind/b/Foo.hs
+file: tests/requireExporting/b/Foo.hs
     module Foo ( foo, b ) where
     b :: Int
     b = 20
@@ -39,21 +39,21 @@ Finally, we introduce an executable called `c` that can be configured
 to import either from package `a` or package `b` using
 `requireModuleExporting`.
 
-file: tests/testfind/c/Setup.hs
+file: tests/requireExporting/c/Setup.hs
     import Distribution.Franchise
     req a = requireModuleExporting "Foo" a (a++" :: Int")
     options = [configureFlag "with-a" "" (req "a"),
                configureFlag "with-b" "" (req "b")]
     main = build options (version "1.0") (executable "c" "Main.hs" [])
 
-file: tests/testfind/c/Main.hs
+file: tests/requireExporting/c/Main.hs
     import Foo ( foo )
     main = putStrLn foo
 
 Now we demonstrate that franchise is able to select the desired
 package.
 
-file: tests/testfind/requireExporting.sh
+file: tests/requireExporting/requireExporting.sh
 ....set -ev
     cd a
     runghc Setup.hs install --user
