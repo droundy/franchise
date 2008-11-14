@@ -42,6 +42,7 @@ import Control.Monad ( msum, when )
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseName, releaseRegexp )
 
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
@@ -71,18 +72,6 @@ getRelease t = withRootdir $
                   return "0.0"]
        writeF (releaseName t) v `catchC` \_ -> return ()
        return v
-
-data ReleaseType = Numbered | NumberedPreRc | AnyTag
-
-releaseRegexp :: ReleaseType -> String
-releaseRegexp Numbered = "^[0-9\\.]+$"
-releaseRegexp NumberedPreRc = "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$"
-releaseRegexp AnyTag = "."
-
-releaseName :: ReleaseType -> String
-releaseName Numbered = ".releaseVersion"
-releaseName NumberedPreRc = ".latestRelease"
-releaseName AnyTag = ".lastTag"
 
 versionFromDarcs :: ReleaseType -> C ()
 versionFromDarcs t = do vers <- getRelease t
