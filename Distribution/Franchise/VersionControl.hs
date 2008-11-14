@@ -30,7 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.VersionControl
-    ( getRelease, patchLevel, autoVersion, autoPatchVersion, releaseDescription )
+    ( patchLevel, autoVersion, autoPatchVersion,
+      releaseDescription, releaseName )
     where
 
 import Control.Monad ( when )
@@ -38,7 +39,7 @@ import Control.Monad ( when )
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..),
-                                            releaseName, releaseUnknown )
+                                            releaseFile, releaseUnknown )
 import Distribution.Franchise.Darcs ( inDarcs, darcsRelease, darcsPatchLevel )
 import Distribution.Franchise.Git ( inGit, gitRelease, gitPatchLevel )
 
@@ -55,13 +56,13 @@ inVC j = do ind <- inDarcs
                                   else donone
     where donone = none j `catchC` \_ -> return $ panic j
 
-getRelease :: ReleaseType -> C String
-getRelease t = withRootdir $
+releaseName :: ReleaseType -> C String
+releaseName t = withRootdir $
                do x <- inVC $ VC (darcsRelease t) (gitRelease t) readV (releaseUnknown t)
                   when (x /= releaseUnknown t) $
-                       writeF (releaseName t) x `catchC` \_ -> return ()
+                       writeF (releaseFile t) x `catchC` \_ -> return ()
                   return x
-    where readV = do x:_ <- words `fmap` cat (releaseName t)
+    where readV = do x:_ <- words `fmap` cat (releaseFile t)
                      return x
 
 patchLevel :: ReleaseType -> C Int
@@ -69,19 +70,19 @@ patchLevel t = withRootdir $
                do level <- inVC $ VC (darcsPatchLevel t) (gitPatchLevel t) readL (-1)
                   writeF dotfile (show level) `catchC` \_ -> return ()
                   return level
-     where dotfile = releaseName t++"PatchLevel"
+     where dotfile = releaseFile t++"PatchLevel"
            readL = do [(i,"")] <- reads `fmap` cat dotfile
                       return i
 
 autoVersion :: ReleaseType -> C ()
-autoVersion t = do vers <- getRelease t
+autoVersion t = do vers <- releaseName t
                    oldversion <- getVersion
                    when (oldversion /= vers) $
                         do version vers
                            putS $ "version is now "++vers
 
 autoPatchVersion :: ReleaseType -> C ()
-autoPatchVersion t = do r <- getRelease t
+autoPatchVersion t = do r <- releaseName t
                         p <- patchLevel t
                         let vers = if p == 0 || p == -1
                                    then r
@@ -92,7 +93,7 @@ autoPatchVersion t = do r <- getRelease t
                                 putS $ "version is now "++vers
 
 releaseDescription :: ReleaseType -> C String
-releaseDescription t = do r <- getRelease t
+releaseDescription t = do r <- releaseName t
                           l <- patchLevel t
                           return $ case l of
                                    0 -> r

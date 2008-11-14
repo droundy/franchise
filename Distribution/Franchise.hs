@@ -59,7 +59,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- generalized version control support
                                 inDarcs, inGit,
                                 ReleaseType(..),
-                                autoVersion, autoPatchVersion, releaseDescription,
+                                autoVersion, autoPatchVersion,
+                                releaseDescription, releaseName,
                                 -- utilities for processing markdown files
                                 splitMarkdown, markdownToHtml, markdownStringToHtmlString,
                                 -- utilities for autoheader files

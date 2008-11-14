@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ReleaseType
-    ( ReleaseType(..), releaseRegexp, releaseName, releasePredicate, releaseUnknown )
+    ( ReleaseType(..), releaseRegexp, releaseFile, releasePredicate, releaseUnknown )
         where
 
 data ReleaseType = Numbered | NumberedPreRc | AnyTag
@@ -45,10 +45,10 @@ releaseUnknown Numbered = "0.0"
 releaseUnknown NumberedPreRc = "0.0-pre"
 releaseUnknown AnyTag = "unknown"
 
-releaseName :: ReleaseType -> String
-releaseName Numbered = ".releaseVersion"
-releaseName NumberedPreRc = ".latestRelease"
-releaseName AnyTag = ".lastTag"
+releaseFile :: ReleaseType -> String
+releaseFile Numbered = ".releaseVersion"
+releaseFile NumberedPreRc = ".latestRelease"
+releaseFile AnyTag = ".lastTag"
 
 releasePredicate :: ReleaseType -> String -> Bool
 releasePredicate Numbered = all (`elem` numbersDot)
