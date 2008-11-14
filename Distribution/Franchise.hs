@@ -55,8 +55,8 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
                                 -- Various utilities for interfacing with darcs
-                                inDarcs, darcsDist, dist,
-                                darcsPatchLevel, versionFromDarcs, patchVersionFromDarcs,
+                                inDarcs, darcsDist, tagStringFromDarcs,
+                                ReleaseType(..), versionFromDarcs, patchVersionFromDarcs,
                                 -- utilities for interfacing with git
                                 inGit, gitPatchLevel, getTag,
                                 -- utilities for processing markdown files

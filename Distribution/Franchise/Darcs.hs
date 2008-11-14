@@ -29,8 +29,10 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Darcs ( inDarcs, darcsPatchLevel, darcsDist, dist,
-                                      versionFromDarcs, patchVersionFromDarcs )
+module Distribution.Franchise.Darcs ( ReleaseType(..), inDarcs, darcsDist,
+                                      getRelease,
+                                      versionFromDarcs, patchVersionFromDarcs,
+                                      tagStringFromDarcs )
     where
 
 import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
@@ -44,56 +46,79 @@ import Distribution.Franchise.Util
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
 
-data Literal = Literal String
-instance Show Literal where
-    showsPrec _ (Literal x) = showString x
-
-darcsPatchLevel :: String -> C Int
-darcsPatchLevel true_v = withRootdir $
+darcsPatchLevel :: ReleaseType -> C Int
+darcsPatchLevel t = withRootdir $
            do True <- inDarcs
-              patches' <- systemOut "darcs" ["changes","--from-tag",true_v,"--count"]
+              patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
               ((patches'',_):_) <- return $ reads patches'
               let level = max 0 (patches'' - 1)
-              writeF ".patchLevel" (show level) `catchC` \_ -> return ()
+              writeF dotfile (show level) `catchC` \_ -> return ()
               return level
-             `catchC` \_ -> do [(i,"")] <- reads `fmap` cat ".patchLevel"
+             `catchC` \_ -> do [(i,"")] <- reads `fmap` cat dotfile
                                return i
                                `catchC` \_ -> return 0
+    where dotfile = releaseName t++"PatchLevel"
 
-getRelease :: C String
-getRelease = withRootdir $
+getRelease :: ReleaseType -> C String
+getRelease t = withRootdir $
     do v <- msum [do True <- inDarcs
-                     xxx <- systemOut "darcs" ["changes","-t",
-                                               "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$",
-                                               "--reverse"]
+                     xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
                      ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
                                       map words $ reverse $ lines xxx
                      return zzz,
-                  do x:_ <- words `fmap` cat ".releaseVersion"
+                  do x:_ <- words `fmap` cat (releaseName t)
                      return x,
                   return "0.0"]
-       writeF ".releaseVersion" v `catchC` \_ -> return ()
+       writeF (releaseName t) v `catchC` \_ -> return ()
        return v
 
-versionFromDarcs :: C ()
-versionFromDarcs = do vers <- getRelease
-                      oldversion <- getVersion
-                      when (oldversion /= vers) $
-                           do version vers
-                              putS $ "version is now "++vers
+data ReleaseType = Numbered | NumberedPreRc | AnyTag
 
-patchVersionFromDarcs :: C ()
-patchVersionFromDarcs = do r <- getRelease
-                           p <- darcsPatchLevel r
-                           let vers = if p == 0 then r else r++'.':show p
-                           oldversion <- getVersion
-                           when (oldversion /= vers) $
-                                do version vers
-                                   putS $ "version is now "++vers
+releaseRegexp :: ReleaseType -> String
+releaseRegexp Numbered = "^[0-9\\.]+$"
+releaseRegexp NumberedPreRc = "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$"
+releaseRegexp AnyTag = "."
+
+releaseName :: ReleaseType -> String
+releaseName Numbered = ".releaseVersion"
+releaseName NumberedPreRc = ".latestRelease"
+releaseName AnyTag = ".lastTag"
+
+versionFromDarcs :: ReleaseType -> C ()
+versionFromDarcs t = do vers <- getRelease t
+                        oldversion <- getVersion
+                        when (oldversion /= vers) $
+                             do version vers
+                                putS $ "version is now "++vers
+
+patchVersionFromDarcs :: ReleaseType -> C ()
+patchVersionFromDarcs t = do r <- getRelease t
+                             p <- darcsPatchLevel t
+                             let vers = if p == 0 then r else r++'.':show p
+                             oldversion <- getVersion
+                             when (oldversion /= vers) $
+                                  do version vers
+                                     putS $ "version is now "++vers
+
+tagStringFromDarcs :: C String
+tagStringFromDarcs = do r <- getRelease AnyTag
+                        t <- darcsPatchLevel AnyTag
+                        return $ case t of
+                                 0 -> r
+                                 1 -> r++" + one patch"
+                                 _ -> r++" + "++show t++" patches"
 
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
+       -- let's ensure that .releaseVersion, .latestRelease and .lastTag
+       -- exist to make it easier to track where this tarball came from...
+       getRelease NumberedPreRc
+       getRelease Numbered
+       getRelease AnyTag
+       darcsPatchLevel Numbered
+       darcsPatchLevel NumberedPreRc
+       darcsPatchLevel AnyTag
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
            mkdist = do putS $ "making tarball as "++tarname
@@ -101,7 +126,11 @@ darcsDist dn tocopy = withRootdir $
                        rm_rf distname
                        system "tar" ["zxf",tarname]
                        withDirectory distname $ do dist ".releaseVersion"
-                                                   dist ".patchLevel"
+                                                   dist ".latestRelease"
+                                                   dist ".lastTag"
+                                                   dist ".releaseVersionPatchLevel"
+                                                   dist ".latestReleasePatchLevel"
+                                                   dist ".lastTagPatchLevel"
                                                    mapM_ dist tocopy
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
