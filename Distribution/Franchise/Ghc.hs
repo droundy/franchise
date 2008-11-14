@@ -482,7 +482,8 @@ mungePackage :: String -> Maybe String
 mungePackage [] = Nothing
 mungePackage x@(_:r) = csum [mopt, mungePackage r]
    where mopt = do xxx <- stripPrefix "member of package " x
-                   listToMaybe $ map (takeWhile (/=',')) $
+                   listToMaybe $ filter ('-' `elem`) $
+                                 map (takeWhile (/=',')) $
                                  map (takeWhile (/=' ')) $ words xxx
 
 findPackagesProvidingModule :: String -> C [String]
