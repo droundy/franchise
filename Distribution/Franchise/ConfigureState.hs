@@ -109,6 +109,9 @@ runWithArgs optsc validCommands runCommand =
        withEnv "PACKAGES" (addPackages . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
+       withEnv "LIBDIR" (addExtraData "libdir")
+       withEnv "BINDIR" (addExtraData "bindir")
+       withEnv "PREFIX" (addExtraData "prefix")
        opts <- sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            inbrackets x = "["++x++"]"

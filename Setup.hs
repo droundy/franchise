@@ -35,6 +35,11 @@ buildDoc = do rm_rf "doc/tests"
               here <- pwd
               let prepareForTest = -- make a local install of franchise for test
                       do setEnv "HOME" (here++"/doc/tests")
+                         setEnv "PREFIX" (here++"/doc/tests/local")
+                         amw <- amInWindows
+                         setEnv "GHC_PACKAGE_CONF" $
+                                if amw then here++"\\doc\\tests\\local\\.ghc-package-conf;"
+                                       else here++"/doc/tests/local/.ghc-package-conf:"
                          pkgFlags ["--user"]
                          installPackageInto "franchise" (here++"/doc/tests/lib")
               test prepareForTest $ concatMap snd alltests
