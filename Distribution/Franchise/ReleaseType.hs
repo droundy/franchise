@@ -30,7 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ReleaseType
-    ( ReleaseType(..), releaseRegexp, releaseName, releasePredicate ) where
+    ( ReleaseType(..), releaseRegexp, releaseName, releasePredicate, releaseUnknown )
+        where
 
 data ReleaseType = Numbered | NumberedPreRc | AnyTag
 
@@ -38,6 +39,11 @@ releaseRegexp :: ReleaseType -> String
 releaseRegexp Numbered = "^[0-9\\.]+$"
 releaseRegexp NumberedPreRc = "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$"
 releaseRegexp AnyTag = "."
+
+releaseUnknown :: ReleaseType -> String
+releaseUnknown Numbered = "0.0"
+releaseUnknown NumberedPreRc = "0.0-pre"
+releaseUnknown AnyTag = "unknown"
 
 releaseName :: ReleaseType -> String
 releaseName Numbered = ".releaseVersion"

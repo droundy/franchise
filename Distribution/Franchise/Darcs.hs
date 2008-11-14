@@ -29,85 +29,47 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Darcs ( ReleaseType(..), inDarcs, darcsDist,
-                                      getRelease,
-                                      versionFromDarcs, patchVersionFromDarcs,
-                                      tagStringFromDarcs )
+module Distribution.Franchise.Darcs ( inDarcs, darcsDist, darcsRelease, darcsPatchLevel )
     where
 
 import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
                           getDirectoryContents )
-import Control.Monad ( msum, when )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
-import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseName, releaseRegexp )
+import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseRegexp )
 
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
 
 darcsPatchLevel :: ReleaseType -> C Int
-darcsPatchLevel t = withRootdir $
+darcsPatchLevel t =
            do True <- inDarcs
               patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
               ((patches'',_):_) <- return $ reads patches'
-              let level = max 0 (patches'' - 1)
-              writeF dotfile (show level) `catchC` \_ -> return ()
-              return level
-             `catchC` \_ -> do [(i,"")] <- reads `fmap` cat dotfile
-                               return i
-                               `catchC` \_ -> return 0
-    where dotfile = releaseName t++"PatchLevel"
+              return $  max 0 (patches'' - 1)
 
-getRelease :: ReleaseType -> C String
-getRelease t = withRootdir $
-    do v <- msum [do True <- inDarcs
-                     xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
-                     ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
-                                      map words $ reverse $ lines xxx
-                     return zzz,
-                  do x:_ <- words `fmap` cat (releaseName t)
-                     return x,
-                  return "0.0"]
-       writeF (releaseName t) v `catchC` \_ -> return ()
-       return v
-
-versionFromDarcs :: ReleaseType -> C ()
-versionFromDarcs t = do vers <- getRelease t
-                        oldversion <- getVersion
-                        when (oldversion /= vers) $
-                             do version vers
-                                putS $ "version is now "++vers
-
-patchVersionFromDarcs :: ReleaseType -> C ()
-patchVersionFromDarcs t = do r <- getRelease t
-                             p <- darcsPatchLevel t
-                             let vers = if p == 0 then r else r++'.':show p
-                             oldversion <- getVersion
-                             when (oldversion /= vers) $
-                                  do version vers
-                                     putS $ "version is now "++vers
-
-tagStringFromDarcs :: C String
-tagStringFromDarcs = do r <- getRelease AnyTag
-                        t <- darcsPatchLevel AnyTag
-                        return $ case t of
-                                 0 -> r
-                                 1 -> r++" + one patch"
-                                 _ -> r++" + "++show t++" patches"
+darcsRelease :: ReleaseType -> C String
+darcsRelease t =
+    do True <- inDarcs
+       xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
+       ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
+                        map words $ reverse $ lines xxx
+       return zzz
 
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
-       -- let's ensure that .releaseVersion, .latestRelease and .lastTag
-       -- exist to make it easier to track where this tarball came from...
-       getRelease NumberedPreRc
-       getRelease Numbered
-       getRelease AnyTag
-       darcsPatchLevel Numbered
-       darcsPatchLevel NumberedPreRc
-       darcsPatchLevel AnyTag
+       whenC inDarcs $
+             do -- let's ensure that .releaseVersion, .latestRelease and .lastTag
+                -- exist to make it easier to track where this tarball came from...
+                darcsPatchLevel Numbered
+                darcsPatchLevel NumberedPreRc
+                darcsPatchLevel AnyTag
+                darcsRelease NumberedPreRc
+                darcsRelease Numbered
+                darcsRelease AnyTag
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
            mkdist = do putS $ "making tarball as "++tarname

@@ -29,40 +29,26 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Git ( inGit, gitPatchLevel, getTag ) where
-import System.Directory ( doesFileExist, doesDirectoryExist )
-import Control.Monad ( unless, msum )
+module Distribution.Franchise.Git ( inGit, gitPatchLevel, gitRelease ) where
+
+import System.Directory ( doesDirectoryExist )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.ReleaseType
 
 inGit :: C Bool
 inGit = io $ doesDirectoryExist ".git"
 
-gitPatchLevel :: String -> C Int
-gitPatchLevel ver = withRootdir $ do v <- inGit
-                                     unless v $ fail "Not in a git repository!"
-                                     b <- io $ doesFileExist ".patchLevel"
-                                     if b then returnPatchLvl else getPatchLvl
-    where returnPatchLvl = do [(i,"")] <- reads `fmap` cat ".patchLevel"
-                              return i
-                             `catchC` \_ -> return 0
-          getPatchLvl = do patches <- systemOut "git" ["log",ver++"..","--pretty=oneline"]
-                           let patchlvl = max 0 $ length (lines patches)
-                           writeF ".patchLevel" (show patchlvl) `catchC` \_ -> return ()
-                           return patchlvl
-                          `catchC` \_ -> return 0
+gitPatchLevel :: ReleaseType -> C Int
+gitPatchLevel t = do ver <- gitRelease t
+                     (length . lines) `fmap` systemOut "git" ["log",ver++"..","--pretty=oneline"]
 
-getTag :: C String
-getTag = withRootdir $
-         do b <- inGit
-            unless b $ fail "Not in a git repository!"
-            v <- msum [ do xxx <- systemOut "git" ["tag"]
-                           let v = (reverse . lines) xxx
-                           if (null v) then return "0.0"
-                            else return $ head v
-                      , do x:_ <- words `fmap` cat ".releaseVersion"
-                           return x
-                      , return "0.0"]
-            writeF ".releaseVersion" v `catchC` \_ -> return ()
-            return v
+gitTags :: C [String]
+gitTags = (reverse . lines) `fmap` systemOut "git" ["tag"]
+
+gitRelease :: ReleaseType -> C String
+gitRelease t = do tags <- gitTags
+                  case filter (releasePredicate t) tags of
+                    [] -> fail "no such git tag!"
+                    (v:_) -> return v

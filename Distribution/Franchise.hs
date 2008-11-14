@@ -55,10 +55,11 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,
                                 -- Various utilities for interfacing with darcs
-                                inDarcs, darcsDist, tagStringFromDarcs,
-                                ReleaseType(..), versionFromDarcs, patchVersionFromDarcs,
-                                -- utilities for interfacing with git
-                                inGit, gitPatchLevel, getTag,
+                                darcsDist,
+                                -- generalized version control support
+                                inDarcs, inGit,
+                                ReleaseType(..),
+                                autoVersion, autoPatchVersion, tagDescription,
                                 -- utilities for processing markdown files
                                 splitMarkdown, markdownToHtml, markdownStringToHtmlString,
                                 -- utilities for autoheader files
@@ -90,8 +91,10 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
-import Distribution.Franchise.Darcs
-import Distribution.Franchise.Git
+import Distribution.Franchise.ReleaseType ( ReleaseType(..) )
+import Distribution.Franchise.VersionControl
+import Distribution.Franchise.Darcs ( inDarcs, darcsDist )
+import Distribution.Franchise.Git ( inGit )
 import Distribution.Franchise.AutoHeader
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
