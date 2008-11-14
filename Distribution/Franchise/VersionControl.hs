@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.VersionControl
-    ( getRelease, patchLevel, autoVersion, autoPatchVersion, tagDescription )
+    ( getRelease, patchLevel, autoVersion, autoPatchVersion, releaseDescription )
     where
 
 import Control.Monad ( when )
@@ -91,10 +91,10 @@ autoPatchVersion t = do r <- getRelease t
                              do version vers
                                 putS $ "version is now "++vers
 
-tagDescription :: C String
-tagDescription = do r <- getRelease AnyTag
-                    t <- patchLevel AnyTag
-                    return $ case t of
-                             0 -> r
-                             1 -> r++" + one patch"
-                             _ -> r++" + "++show t++" patches"
+releaseDescription :: ReleaseType -> C String
+releaseDescription t = do r <- getRelease t
+                          l <- patchLevel t
+                          return $ case l of
+                                   0 -> r
+                                   1 -> r++" + one patch"
+                                   _ -> r++" + "++show l++" patches"
