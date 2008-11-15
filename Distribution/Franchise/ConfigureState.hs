@@ -538,8 +538,13 @@ rememberDirectory = do mcwd <- getCurrentSubdir
                          Just cwd -> return (withRootdir . withDirectory cwd)
                          Nothing -> return withRootdir
 
+-- | getCurrentSubdir returns the current subdirectory, and also ensures
+-- that it exists.
 getCurrentSubdir :: C (Maybe String)
-getCurrentSubdir = gets currentSubDirectory
+getCurrentSubdir = do sd <- gets currentSubDirectory
+                      case sd of Just d -> withRootdir $ mkdir d
+                                 Nothing -> return ()
+                      return sd
 
 processFilePath :: String -> C String
 processFilePath ('*':f) = return ('*':f) -- This is a phony target
