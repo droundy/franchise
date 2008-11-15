@@ -51,7 +51,7 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.StringSet ( toListS )
-import Distribution.Franchise.Env ( setEnv )
+import Distribution.Franchise.Env ( setEnv, getEnv )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -228,7 +228,11 @@ installPackageInto pn libdir =
                     his = filter (".hi" `isSuffixOf`) $ toListS ds
                 mapM_ inst (("lib"++pn++".a") : his)
                 pkgflags <- getPkgFlags
-                system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
+                mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
+                case mpf of
+                  Nothing -> system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
+                  Just pf -> system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg",
+                                                             "--package-conf="++pf]
 
 objToModName :: String -> String
 objToModName = map todots . takeAllBut 2
