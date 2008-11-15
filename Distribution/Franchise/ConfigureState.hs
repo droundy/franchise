@@ -55,7 +55,7 @@ module Distribution.Franchise.ConfigureState
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
       withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
-      quietly,
+      quietly, silently,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
       put, get, gets, modify )
@@ -715,6 +715,27 @@ quietly j = do v <- getVerbosity
                x <- j
                C $ \ts -> return $ Right ((), ts { verbosity = v })
                return x
+
+-- silently guarantees that the command it's passed won't write anything
+-- either to the screen or to the log file, unless we're in debug mode.
+
+silently :: C a -> C a
+silently (C j) =
+  C $ \ts ->
+  if verbosity ts == Debug
+  then j ts
+  else
+    do ch <- newChan
+       ch2 <- newChan
+       let silentthread = do readChan ch
+                             writeChan ch2 ()
+                             silentthread
+       forkIO silentthread
+       v <- j $ ts { outputChan = ch, syncChan = ch2 }
+       case v of
+         Right (a, ts') -> return $ Right (a, ts' { outputChan = outputChan ts,
+                                                    syncChan = syncChan ts })
+         Left x -> return $ Left x
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of
