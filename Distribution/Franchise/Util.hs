@@ -33,7 +33,6 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemOutErr, systemInOut,
                                      mkFile, cat, pwd, ls, mv,
-                                     endsWithOneOf,
                                      isFile,
                                      bracketC, csum, finallyC, bracketC_ )
     where
@@ -48,7 +47,6 @@ import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
 import Control.Monad ( MonadPlus, mplus )
 import System.IO ( hGetContents, BufferMode(..),
                    hGetLine, hSetBuffering, hPutStr, hClose )
-import Data.List ( isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnvironment )
@@ -71,12 +69,6 @@ waitForProcessNonBlocking = if rtsSupportsBoundThreads
                            Nothing -> do io $ threadDelay n
                                          putD $ "Waiting for process... " ++ show n
                                          wfp (min 100000 (n+1+n`div`4)) pid
-
--- | Checks if a string ends with any given suffix
-endsWithOneOf :: [String] -- ^ List of strings to check
-              -> String   -- ^ String to check against
-              -> Bool
-endsWithOneOf xs y = any (\x -> x `isSuffixOf` y) xs
 
 -- | Run a command
 system :: String   -- ^ Command
