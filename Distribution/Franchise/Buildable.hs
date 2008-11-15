@@ -248,7 +248,6 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                                          "  This depends on "++ unwords (toListS xs0)]
                                       makettt `catchC`
                                                \e -> do putV $ errorBuilding e ttt
-                                                        putV e
                                                         io $ writeChan chan $ Left e
                                       io $ writeChan chan $ Right (ttt, ts)
                               else do putD $ "I get to skip one! " ++ ttt
@@ -260,16 +259,15 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                  mapM_ buildone canb
                  md <- io $ readChan chan
                  case md of
-                   Left e -> do let estr = errorBuilding e b
-                                putV (estr++'\n':e)
-                                fail estr
+                   Left e -> do putV $ errorBuilding e b
+                                fail $ errorBuilding e b
                    Right (d,ts) -> do putD $ "Done building "++ show d
                                       mapM_ setBuilt $ d : toListS ts
                                       buildthem chan (delS d (addsS canb $ inprogress))
                                                      (depb \\ toListS ts)
           errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
           errorBuilding e f | ".depend" `isSuffixOf` f = e
-          errorBuilding e bn = "Error building "++bn++'\n':e
+          errorBuilding e bn = "Error building "++unphony bn++'\n':e
           filterDupTargets [] = return []
           filterDupTargets (t:ts) =
               do Just (Target xs _ _) <- getTarget t
