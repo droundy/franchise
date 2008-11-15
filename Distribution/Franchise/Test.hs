@@ -71,7 +71,7 @@ pad x0 = if length x < 65
                          _ -> x0
               _ -> x0
 
-data TestResult = Passed | Failed | Surprise | Expected
+data TestResult = Passed | Failed | Surprise | Expected deriving ( Eq )
 
 prepareForTest :: C () -> C ()
 prepareForTest initialize =
@@ -90,28 +90,23 @@ test ts0 =
     do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
        addTarget $ [phony "test"] :< [phony "build", phony "prepare-for-test"]
            |<- defaultRule { make = const $ do begin
-                                               runtests 0 0 0 0 ts0 }
-    where 
-          runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
-          runtests npassed 0 0 0 [] = putAll npassed "test" "passed!"
-          runtests npassed oddpass expectedfail 0 [] =
+                                               results <- mapM runSingleTest ts0
+                                               announceResults (length $ filter (==Passed) results)
+                                                               (length $ filter (==Surprise) results)
+                                                               (length $ filter (==Expected) results)
+                                                               (length $ filter (==Failed) results) }
+    where announceResults npassed 0 0 0 = putAll npassed "test" "passed!"
+          announceResults npassed oddpass expectedfail 0 =
               do putNonZero expectedfail "test" "failed as expected."
                  putNonZero oddpass "test" " unexpectedly passed!"
                  putCountable npassed "test" "passed."
-          runtests 0 0 0 nfailed [] = do putAll nfailed "test" "FAILED!"
-                                         fail "tests failed!"
-          runtests npassed oddpass expectedfail nfailed [] =
+          announceResults 0 0 0 nfailed = do putAll nfailed "test" "FAILED!"
+                                             fail "tests failed!"
+          announceResults npassed oddpass expectedfail nfailed =
               do putS $ show nfailed++"/"++show (npassed+nfailed)++" tests FAILED!"
                  putNonZero expectedfail "test" "failed as expected."
                  putNonZero oddpass "test" "unexpectedly passed!"
                  fail "tests failed!"
-          runtests np oddpasses expectedfail nfailed (t:ts) =
-              do tOK <- runSingleTest t
-                 case tOK of
-                   Passed -> runtests (np+1) oddpasses expectedfail nfailed ts
-                   Failed -> runtests np oddpasses expectedfail (nfailed+1) ts
-                   Surprise -> runtests np (oddpasses+1) expectedfail nfailed ts
-                   Expected -> runtests np oddpasses (expectedfail+1) nfailed ts
           runSingleTest t =
               do quietly $ build' CannotModifyState t
                  if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
