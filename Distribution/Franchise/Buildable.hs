@@ -382,5 +382,9 @@ addTarget (ts :< ds :<- r) =
          Nothing -> return ()
        mapM_ addt ts''
 
+{-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
-addToRule t j = modifyTargets $ adjustT t $ \ (Target a b c) -> Target a b (j >> c)
+addToRule t j = modifyTargets $ adjustT' t $ \ (Target a b c) -> Target a b (j >> c)
+    where adjustT' t f m = case lookupT t m of
+                           Just _ -> adjustT t f m
+                           Nothing -> adjustT (phony t) f m
