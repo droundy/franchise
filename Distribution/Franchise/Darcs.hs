@@ -29,6 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
+{-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Darcs ( inDarcs, darcsDist, darcsRelease, darcsPatchLevel )
     where
 
@@ -41,18 +42,15 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseRegexp )
 import Distribution.Franchise.Permissions ( setExecutable )
 
-{-# NOINLINE inDarcs #-}
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
 
-{-# NOINLINE darcsPatchLevel #-}
 darcsPatchLevel :: ReleaseType -> C Int
 darcsPatchLevel t =
            do patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
               ((patches'',_):_) <- return $ reads patches'
               return $  max 0 (patches'' - 1)
 
-{-# NOINLINE darcsRelease #-}
 darcsRelease :: ReleaseType -> C String
 darcsRelease t =
     do xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
@@ -60,7 +58,6 @@ darcsRelease t =
                         map words $ reverse $ lines xxx
        return zzz
 
-{-# NOINLINE darcsDist #-}
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion

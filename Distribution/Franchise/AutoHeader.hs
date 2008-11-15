@@ -1,4 +1,5 @@
 {-# LANGUAGE PatternGuards #-}
+{-# OPTIONS_GHC -fomit-interface-pragmas #-}
 
 module Distribution.Franchise.AutoHeader ( autoHeader ) where
 

@@ -29,13 +29,13 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
+{-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Permissions ( setExecutable ) where
 
 import System.Directory ( getPermissions, setPermissions, executable )
 
 import Distribution.Franchise.ConfigureState ( C, io )
 
-{-# NOINLINE setExecutable #-}
 setExecutable :: FilePath -> C ()
 setExecutable f = io $ do p <- getPermissions f
                           setPermissions f $ p { executable = True }

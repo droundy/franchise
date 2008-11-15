@@ -29,6 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
+{-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Endian ( amLittleEndian ) where
 
 import Foreign.Marshal.Utils ( with )

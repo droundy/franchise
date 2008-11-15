@@ -29,6 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
+{-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Env ( setEnv, getEnv, addToPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
