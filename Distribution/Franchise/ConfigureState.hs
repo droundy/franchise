@@ -389,6 +389,7 @@ mkdir :: FilePath -> C ()
 mkdir "" = return ()
 mkdir d0 = do d <- processFilePath d0
               unlessC (io $ doesDirectoryExist d) $ do mkdir $ dirname d0
+                                                       putV $ "mkdir "++d0
                                                        io $ createDirectory d
 
 splitPath :: FilePath -> (FilePath, FilePath)
