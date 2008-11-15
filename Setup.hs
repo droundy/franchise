@@ -33,7 +33,7 @@ buildDoc = do rm_rf "doc/tests"
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
               here <- pwd
-              let prepareForTest = -- make a local install of franchise for test
+              beginTestWith $ -- make a local install of franchise for test
                       do setEnv "HOME" (here++"/doc/tests")
                          setEnv "PREFIX" (here++"/doc/tests/local")
                          amw <- amInWindows
@@ -43,7 +43,7 @@ buildDoc = do rm_rf "doc/tests"
                          setEnv "FRANCHISE_GHC_PACKAGE_CONF" $ init pfile
                          pkgFlags ["--user"]
                          installPackageInto "franchise" (here++"/doc/tests/local/lib")
-              test prepareForTest $ concatMap snd alltests
+              test $ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
                                        htmls <- concat `fmap` mapM (\i -> markdownToHtml "../doc.css" i "")
                                                                    (concatMap fst alltests)

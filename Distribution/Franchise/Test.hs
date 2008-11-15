@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testOne )
+module Distribution.Franchise.Test ( test, testOne, prepareForTest, beginTestWith )
     where
 
 import System.Exit ( ExitCode(..) )
@@ -47,12 +47,14 @@ testOne :: String -> String -> C String
 testOne r f = do withcwd <- rememberDirectory
                  let testname = "*"++tn f++"*"
                      tn x = maybe x tn $ stripPrefix "../" x
-                 addTarget $ [testname] :< [phony "build"]
+                 addTarget $ [testname] :< [phony "build", phony "prepare-for-test"]
                            -- no dependencies, so it'll get automatically run
                            |<- defaultRule { make = const $ runtest withcwd }
                  return $ testname
     where runtest withcwd =
-              do (ec,out) <- withcwd $ do (ec,out) <- quietly $ withcwd $ systemOutErr r [f]
+              do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+                 (ec,out) <- withcwd $ do begin
+                                          (ec,out) <- quietly $ withcwd $ systemOutErr r [f]
                                           writeF (f++".output") out
                                           return (ec,out)
                  putV $ unlines $ map (\l->('|':' ':l)) $ lines out
@@ -75,11 +77,24 @@ pad x0 = if length x < 65
 
 data TestResult = Passed | Failed | Surprise | Expected
 
-test :: C () -> [String] -> C ()
-test initialize ts0 =
-    addTarget $ [phony "test"] :< [phony "build"]
-        |<- defaultRule { make = const $ do initialize
-                                            runtests 0 0 0 0 ts0 }
+prepareForTest :: C () -> C ()
+prepareForTest initialize =
+    addTarget $ [phony "prepare-for-test"] :< [] |<- defaultRule { make = const initialize }
+
+beginTestWith :: C () -> C ()
+beginTestWith initialize =
+    addTarget $ [phony "begin-test"] :< []
+        |<- defaultRule { make = const $ unlessC (haveExtraData "began-test") $
+                                         do putV "beginning test..."
+                                            initialize
+                                            addExtraData "began-test" "" }
+
+test :: [String] -> C ()
+test ts0 =
+    do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+       addTarget $ [phony "test"] :< [phony "build", phony "prepare-for-test"]
+           |<- defaultRule { make = const $ do begin
+                                               runtests 0 0 0 0 ts0 }
     where 
           runtests :: Int -> Int -> Int -> Int -> [String] -> C ()
           runtests npassed 0 0 0 [] = putAll npassed "test" "passed!"

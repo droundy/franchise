@@ -51,7 +51,7 @@ file: tests/hpc/Setup.hs
     
     main = build [] (return ()) $
            do ts <- mapM (testOne "bash") ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]
-              test (return ()) ts
+              test ts
               executable "main" "main.hs" []
 
 Testing it out

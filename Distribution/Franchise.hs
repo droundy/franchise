@@ -29,13 +29,15 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( build, buildWithArgs, test, testOne,
+module Distribution.Franchise ( build, buildWithArgs,
                                 buildTarget,
                                 executable, privateExecutable,
                                 installBin, addTarget,
                                 replace, replaceLiteral, createFile,
                                 define, defineAs, isDefined,
                                 io, catchC, unlessC, whenC,
+                                -- test suite helpers
+                                test, testOne, beginTestWith, prepareForTest,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
