@@ -48,16 +48,14 @@ inDarcs = io $ doesDirectoryExist "_darcs"
 {-# NOINLINE darcsPatchLevel #-}
 darcsPatchLevel :: ReleaseType -> C Int
 darcsPatchLevel t =
-           do True <- inDarcs
-              patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
+           do patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
               ((patches'',_):_) <- return $ reads patches'
               return $  max 0 (patches'' - 1)
 
 {-# NOINLINE darcsRelease #-}
 darcsRelease :: ReleaseType -> C String
 darcsRelease t =
-    do True <- inDarcs
-       xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
+    do xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
        ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
                         map words $ reverse $ lines xxx
        return zzz
