@@ -54,7 +54,7 @@ buildDoc = do rm_rf "doc/tests"
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne "bash" t) tests
+                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne t "bash" t >> return t) tests
                              return ([txtf],ts)
           buildIndex inps =
                   do withd <- rememberDirectory

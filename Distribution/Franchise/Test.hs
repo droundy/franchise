@@ -39,23 +39,19 @@ import Data.List ( isPrefixOf )
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
-import Distribution.Franchise.ListUtils ( stripPrefix )
 
 -- | Create a build target for test suites.
 
-testOne :: String -> String -> C String
-testOne r f = do withcwd <- rememberDirectory
-                 let testname = "*"++tn f++"*"
-                     tn x = maybe x tn $ stripPrefix "../" x
-                 addTarget $ [testname] :< [phony "build", phony "prepare-for-test"]
-                           -- no dependencies, so it'll get automatically run
-                           |<- defaultRule { make = const $ runtest withcwd }
-                 return $ testname
+testOne :: String -> String -> String -> C ()
+testOne n r f = do withcwd <- rememberDirectory
+                   addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
+                             -- no dependencies, so it'll get automatically run
+                             |<- defaultRule { make = const $ runtest withcwd }
     where runtest withcwd =
               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
                  (ec,out) <- withcwd $ do begin
                                           (ec,out) <- silently $ withcwd $ systemOutErr r [f]
-                                          writeF (f++".output") out
+                                          writeF (n++".output") out
                                           return (ec,out)
                  putV $ unlines $ map (\l->('|':' ':l)) $ lines out
                  case ec of
