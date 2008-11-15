@@ -677,9 +677,10 @@ putS str = whenC ((>= Normal) `fmap` getVerbosity) $
               putM Logfile str
 
 putV :: String -> C ()
-putV str = do amv <- (> Normal) `fmap` getVerbosity
-              if amv then putS str
-                     else putM Logfile str
+putV str = do v <- getVerbosity
+              case v of Quiet -> return ()
+                        Normal -> putM Logfile str
+                        _ -> putS str
 
 putD :: String -> C ()
 putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
