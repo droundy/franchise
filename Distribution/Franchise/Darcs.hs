@@ -40,9 +40,11 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseRegexp )
 
+{-# NOINLINE inDarcs #-}
 inDarcs :: C Bool
 inDarcs = io $ doesDirectoryExist "_darcs"
 
+{-# NOINLINE darcsPatchLevel #-}
 darcsPatchLevel :: ReleaseType -> C Int
 darcsPatchLevel t =
            do True <- inDarcs
@@ -50,6 +52,7 @@ darcsPatchLevel t =
               ((patches'',_):_) <- return $ reads patches'
               return $  max 0 (patches'' - 1)
 
+{-# NOINLINE darcsRelease #-}
 darcsRelease :: ReleaseType -> C String
 darcsRelease t =
     do True <- inDarcs
@@ -58,6 +61,7 @@ darcsRelease t =
                         map words $ reverse $ lines xxx
        return zzz
 
+{-# NOINLINE darcsDist #-}
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
