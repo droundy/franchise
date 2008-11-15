@@ -39,6 +39,7 @@ import Data.List ( isPrefixOf )
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.Parallel ( mapC )
 
 -- | Create a build target for test suites.
 
@@ -90,7 +91,7 @@ test ts0 =
     do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
        addTarget $ [phony "test"] :< [phony "build", phony "prepare-for-test"]
            |<- defaultRule { make = const $ do begin
-                                               results <- mapM runSingleTest ts0
+                                               results <- mapC runSingleTest ts0
                                                announceResults (length $ filter (==Passed) results)
                                                                (length $ filter (==Surprise) results)
                                                                (length $ filter (==Expected) results)
