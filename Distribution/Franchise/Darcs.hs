@@ -39,6 +39,7 @@ import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseRegexp )
+import Distribution.Franchise.Permissions ( setExecutable )
 
 {-# NOINLINE inDarcs #-}
 inDarcs :: C Bool
@@ -87,6 +88,7 @@ darcsDist dn tocopy = withRootdir $
                                                    dist ".latestReleasePatchLevel"
                                                    dist ".lastTagPatchLevel"
                                                    mapM_ dist tocopy
+                                                   setExecutable "Setup.hs" `catchC` \_ -> return ()
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
        addTarget $ ["sdist",tarname] :< tocopy
