@@ -357,7 +357,9 @@ createFile fn = do addTarget $ [fn] :< [fn++".in"] :<-
 actuallyCreateFile :: String -> C ()
 actuallyCreateFile fn = do x <- cat (fn++".in")
                            r <- replacements
-                           io $ writeFile fn $ repl r x
+                           case repl r x of
+                             x' | x' /= x -> io $ writeFile fn $ repl r x
+                                | otherwise -> return ()
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
           r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
