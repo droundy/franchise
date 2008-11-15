@@ -383,4 +383,4 @@ addTarget (ts :< ds :<- r) =
        mapM_ addt ts''
 
 addToRule :: String -> C () -> C ()
-addToRule t j = modifyTargets $ adjustT t $ \ (Target a b c) -> Target a b (c >> j)
+addToRule t j = modifyTargets $ adjustT t $ \ (Target a b c) -> Target a b (j >> c)
