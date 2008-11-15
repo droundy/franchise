@@ -53,10 +53,10 @@ darcsPatchLevel t =
 
 darcsRelease :: ReleaseType -> C String
 darcsRelease t =
-    do xxx <- systemOut "darcs" ["changes","-t",releaseRegexp t,"--reverse"]
-       ((_:zzz:_):_) <- return $ filter ("tagged" `elem`) $
+    do xxx <- systemOut "darcs" ["annotate","-t",releaseRegexp t,"-s"]
+       ((_:zzz):_) <- return $ filter ("tagged" `elem`) $
                         map words $ reverse $ lines xxx
-       return zzz
+       return $ unwords zzz
 
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
