@@ -486,7 +486,10 @@ mungePackage :: String -> Maybe String
 mungePackage [] = Nothing
 mungePackage x@(_:r) = csum [mopt, mungePackage r]
    where mopt = do xxx <- stripPrefix "member of package " x
-                   listToMaybe $ filter ('-' `elem`) $
+                   listToMaybe $
+#if __GLASGOW_HASKELL__ >= 610
+                                 filter ('-' `elem`) $
+#endif
                                  map (takeWhile (/=',')) $
                                  map (takeWhile (/=' ')) $ words xxx
 
