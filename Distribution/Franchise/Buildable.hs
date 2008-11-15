@@ -125,7 +125,7 @@ buildWithArgs args opts doconf mkbuild =
                                          build' CannotModifyState tt
                               ts -> fail $ unlines ["No such target: "++t,
                                                     "Perhaps you meant one of "++
-                                                    unwords ts++"?"]
+                                                    unwords (map unphony ts)++"?"]
           configure = unlessC (isBuilt $ phony "configure") $
                       do fs <- gets commandLine
                          putS $ "configuring: "++unwords fs
