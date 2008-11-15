@@ -29,14 +29,14 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.Env ( setEnv, getEnv,
+module Distribution.Franchise.Env ( setEnv, getEnv, addToPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
 import qualified System.Environment as E ( getEnv, getEnvironment )
 
 import Distribution.Franchise.ConfigureState
-    ( C, getAllExtraData, getExtraData, addExtraData, io, catchC )
+    ( C, getAllExtraData, getExtraData, addExtraData, io, catchC, amInWindows )
 import Distribution.Franchise.ListUtils ( stripPrefix )
 
 getEnv :: String -> C (Maybe String)
@@ -58,3 +58,12 @@ getEnvironment :: C [(String, String)]
 getEnvironment = do pe <- getPrivateEnvironment
                     e <- io E.getEnvironment
                     return (pe ++ filter ((`notElem` (map fst pe)) . fst) e)
+
+-- WARNING: on Windows, addToPath affects only the path used by programs we
+-- call, not the path we use to find programs we call!
+
+addToPath :: FilePath -> C ()
+addToPath d = do amw <- amInWindows
+                 oldpath <- maybe "" id `fmap` getEnv "PATH"
+                 setEnv "PATH" $ if amw then d++';':oldpath
+                                        else d++':':oldpath

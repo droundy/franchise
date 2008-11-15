@@ -76,7 +76,7 @@ module Distribution.Franchise ( build, buildWithArgs, test, testOne,
                                 -- string-processing...
                                 stripPrefix,
                                 -- environment-handling functions
-                                setEnv, getEnv,
+                                setEnv, getEnv, addToPath,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
                                 -- for handy preprocessing...
