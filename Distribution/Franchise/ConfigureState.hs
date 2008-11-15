@@ -691,10 +691,11 @@ getNoRemove = C $ \ts -> return $ Right (noRemove ts, ts)
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
                     case v of
-                      Normal -> putM Stdout str
-                      Verbose -> putM Stdout vstr
-                      _ -> return ()
-                    putM Logfile vstr
+                      Quiet -> putM Logfile str
+                      Normal -> do putM Stdout str
+                                   putM Logfile vstr
+                      _ -> do putM Stdout vstr
+                              putM Logfile vstr
 
 putM :: (String -> LogMessage) -> String -> C ()
 putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
