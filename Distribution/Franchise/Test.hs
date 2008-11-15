@@ -39,12 +39,14 @@ import Data.List ( isPrefixOf )
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.ListUtils ( stripPrefix )
 
 -- | Create a build target for test suites.
 
 testOne :: String -> String -> C String
 testOne r f = do withcwd <- rememberDirectory
-                 let testname = "*"++f++"*"
+                 let testname = "*"++tn f++"*"
+                     tn x = maybe x tn $ stripPrefix "../" x
                  addTarget $ [testname] :< [phony "build"]
                            -- no dependencies, so it'll get automatically run
                            |<- defaultRule { make = const $ runtest withcwd }
