@@ -31,7 +31,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
-                                     systemOutErr, systemInOut,
+                                     systemInOut,
+                                     systemOutErrToFile,
                                      mkFile, cat, pwd, ls, mv,
                                      isFile,
                                      bracketC, csum, finallyC, bracketC_ )
@@ -40,13 +41,11 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
 import System.Exit ( ExitCode(..) )
 import System.Directory ( getCurrentDirectory, getDirectoryContents,
                           doesFileExist, renameFile )
-import System.Process ( ProcessHandle, runInteractiveProcess,
+import System.Process ( ProcessHandle, runInteractiveProcess, runProcess,
                         waitForProcess, getProcessExitCode )
-import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads,
-                            forkIO, newChan, readChan, writeChan )
+import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads, forkIO )
 import Control.Monad ( MonadPlus, mplus )
-import System.IO ( hGetContents, BufferMode(..),
-                   hGetLine, hSetBuffering, hPutStr, hClose )
+import System.IO ( hGetContents, openFile, IOMode(..), hPutStr, hClose )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnvironment )
@@ -129,43 +128,20 @@ systemErr c args = do sd <- getCurrentSubdir
                         ExitFailure 127 -> fail $ c ++ ": command not found"
                         _ -> return (ec, err)
 
--- | Run a process with a list of arguments and return anything from
--- /stderr/ or /stdout/
-systemOutErr :: String -> [String] -> C (ExitCode, String)
-systemOutErr c args =
+-- | Run a process with a list of arguments and send anything from
+-- /stderr/ or /stdout/ to a file
+systemOutErrToFile :: String -> [String] -> String -> C ExitCode
+systemOutErrToFile c args outf0 =
     do sd <- getCurrentSubdir
        let long = unwords (c:args)
            short = if length args < 2 then long
                                       else '[':c++"]"
        putSV short long
        env <- Just `fmap` getEnvironment
-       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
-       io $ hSetBuffering o LineBuffering
-       io $ hSetBuffering e LineBuffering
-       ch <- io $ newChan
-       -- WARNING: beware of hokeyness ahead!
-       let readWrite i = do x <- hGetLine i
-                            writeChan ch $ Just x
-                            readWrite i
-                         `catch` \_ -> writeChan ch Nothing
-           readEO = do x <- readChan ch
-                       case x of
-                         Just l -> do y <- readEO
-                                      return $ l:y
-                         Nothing -> readEO'
-           readEO' = do x <- readChan ch
-                        case x of
-                          Just l -> do y <- readEO'
-                                       return $ l:y
-                          Nothing -> return []
-       io $ forkIO $ readWrite o
-       io $ forkIO $ readWrite e
-       outerr <- io readEO
-       ec <- waitForProcessNonBlocking pid
-       io $ threadDelay 1000
-       case ec of
-         ExitFailure 127 -> fail $ c ++ ": command not found\n\n"++unlines outerr
-         _ -> return (ec, unlines outerr)
+       outf <- processFilePath outf0
+       h <- io $ openFile outf WriteMode
+       pid <- io $ runProcess c args sd env Nothing (Just h) (Just h)
+       io $ waitForProcess pid
 
 -- | Run a process with a list of arguments and get the resulting output from stdout.
 systemOut :: String   -- ^ Program name

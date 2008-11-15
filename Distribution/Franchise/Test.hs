@@ -50,8 +50,8 @@ testOne n r f = do withcwd <- rememberDirectory
     where runtest withcwd =
               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
                  (ec,out) <- withcwd $ do begin
-                                          (ec,out) <- silently $ withcwd $ systemOutErr r [f]
-                                          writeF (n++".output") out
+                                          ec <- silently $ systemOutErrToFile r [f] (n++".out")
+                                          out <- cat (n++".out")
                                           return (ec,out)
                  putV $ unlines $ map (\l->('|':' ':l)) $ lines out
                  case ec of
