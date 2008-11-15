@@ -129,13 +129,13 @@ buildWithArgs args opts doconf mkbuild =
           configure = unlessC (isBuilt $ phony "configure") $
                       do fs <- gets commandLine
                          putS $ "configuring: "++unwords fs
-                         rm "config.d/commandLine"
                          runConfigureHooks
                          doconf
                          b <- mkbuild
                          modifyTargets $ adjustT (phony "build") $
                                            \(Target a ds j) -> Target a (addsS b ds) j
                          runPostConfigureHooks
+                         rm "config.d/commandLine"
                          writeConfigureState "config.d"
                          setBuilt $ phony "configure"
                          putS "configure successful."
