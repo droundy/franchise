@@ -54,7 +54,7 @@ testOne r f = do withcwd <- rememberDirectory
     where runtest withcwd =
               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
                  (ec,out) <- withcwd $ do begin
-                                          (ec,out) <- quietly $ withcwd $ systemOutErr r [f]
+                                          (ec,out) <- silently $ withcwd $ systemOutErr r [f]
                                           writeF (f++".output") out
                                           return (ec,out)
                  putV $ unlines $ map (\l->('|':' ':l)) $ lines out
