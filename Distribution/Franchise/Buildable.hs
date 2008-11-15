@@ -384,7 +384,7 @@ addTarget (ts :< ds :<- r) =
 
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
-addToRule t j = modifyTargets $ adjustT' t $ \ (Target a b c) -> Target a b (j >> c)
+addToRule targ j = modifyTargets $ adjustT' targ $ \ (Target a b c) -> Target a b (j >> c)
     where adjustT' t f m = case lookupT t m of
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m
