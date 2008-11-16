@@ -43,7 +43,7 @@ module Distribution.Franchise.Ghc
 import Control.Monad ( when, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe )
-import Data.List ( partition, (\\), isSuffixOf )
+import Data.List ( partition, (\\), isSuffixOf, isPrefixOf, nub )
 import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
 
 import Distribution.Franchise.Util
@@ -114,7 +114,7 @@ ghcDeps dname src announceme =
 -- not to be installed.  It's also used internally by executable.
 
 privateExecutable :: String -> String -> [String] -> C [String]
-privateExecutable  simpleexname src cfiles0 =
+privateExecutable  simpleexname src0 cfiles0 =
     do maketixdir
        checkMinimumPackages
        aminwin <- amInWindows
@@ -122,8 +122,12 @@ privateExecutable  simpleexname src cfiles0 =
                  then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
                          return (simpleexname++".exe")
                  else return simpleexname
-       whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
+       whenJust (directoryPart src0) $ \d -> ghcFlags ["-i"++d, "-I"++d]
+       getHscs -- make sure to run hsc2hs on files we know about first...
        let depend = exname++".depend"
+       src <- if ".hsc" `isSuffixOf` src0
+              then do addHsc src0; return $ init src0
+              else return src0
        ghcDeps depend [src] $ putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend
        (objs,_) <- io (readFile depend) >>= parseDeps []
@@ -149,6 +153,7 @@ package pn modules cfiles =
     do maketixdir
        packageName pn
        whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
+       getHscs -- to build any hsc files we need to.
        let depend = pn++".depend"
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
@@ -265,6 +270,14 @@ parseDeps extradeps x = do mapM_ addTarget builds
                            ([z, takeAllBut 2 z++".hi"] <: y:map snd ys++extradeps) : pd r'
               where (ys,r') = partition ((==z).fst) r
           pd _ = error "bug in parseDeps pd"
+
+hsc2hs :: (String -> [String] -> C a) -> [String] -> C a
+hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
+                     defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
+                     cf <- map ("--cflag="++) `fmap` getCFlags
+                     ld <- map ("--lflag="++) `fmap` getLdFlags
+                     let opts = fl ++ defs ++ ld ++ cf
+                     sys "hsc2hs" $ opts++args
 
 ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
@@ -449,8 +462,13 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                       Nothing -> fail e
                       Just m -> seekPackageForModule m]
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      ps <- findPackagesProvidingModule m
-                                      tryThesePackages m ps
+                                      mhsc <- findHscModule m
+                                      case mhsc of
+                                        Just hsc -> do putV $ "found hsc file "++hsc
+                                                       runghcErr >>= lookForPackages
+                                        Nothing ->
+                                            do ps <- findPackagesProvidingModule m
+                                               tryThesePackages m ps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m [p] =
                         do putV $ "looking for module "++m++" in package "++p++"..."
@@ -492,6 +510,36 @@ mungePackage x@(_:r) = csum [mopt, mungePackage r]
 #endif
                                  map (takeWhile (/=',')) $
                                  map (takeWhile (/=' ')) $ words xxx
+
+ghcPaths :: C [String]
+ghcPaths = ((".":) . map (drop 2) . filter ("-i" `isPrefixOf`)) `fmap` getGhcFlags
+
+findHscModule :: String -> C (Maybe String)
+findHscModule m =
+    do ps <- ghcPaths
+       let hscname = '/':map topath m++".hsc"
+           topath '.' = '/'
+           topath x = x
+       x <- filterM (io . doesFileExist) $ map (++hscname) ps
+       case x of
+         [] -> return Nothing
+         (hsc:_) -> do addHsc hsc; return $ Just hsc
+
+addHsc :: String -> C ()
+addHsc hsc = do hscs <- getHscs
+                addExtraData "hsc2hs" $ show $ nub (hsc:hscs)
+                let hscit = hsc2hs system [hsc]
+                addTarget $ [init hsc] :< [hsc] :<- defaultRule { make = const hscit }
+                hscit
+
+getHscs :: C [String]
+getHscs = do mhscs <- getExtraData "hsc2hs"
+             let hscs = case reads `fmap` mhscs of
+                        Just [(xx,"")] -> xx
+                        _ -> []
+             mapM_ (\hsc -> addTarget $ [init hsc] :< [hsc]
+                            :<- defaultRule { make = const $ hsc2hs system [hsc] }) hscs
+             return hscs
 
 findPackagesProvidingModule :: String -> C [String]
 findPackagesProvidingModule m =
