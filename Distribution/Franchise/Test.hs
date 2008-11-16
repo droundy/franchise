@@ -109,7 +109,7 @@ test ts0 =
                  putNonZero oddpass "test" "unexpectedly passed!"
                  fail "tests failed!"
           runSingleTest t =
-              do quietly $ build' CannotModifyState t
+              do silently $ build' CannotModifyState t
                  if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
                    then do putS $ pad t++" unexpectedly succeeded!"
                            return Surprise
