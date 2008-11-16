@@ -677,10 +677,9 @@ putS str = whenC ((>= Normal) `fmap` getVerbosity) $
               putM Logfile str
 
 putV :: String -> C ()
-putV str = do v <- getVerbosity
-              case v of Quiet -> return ()
-                        Normal -> putM Logfile str
-                        _ -> putS str
+putV str = do amv <- (> Normal) `fmap` getVerbosity
+              if amv then putS str
+                     else putM Logfile str
 
 putD :: String -> C ()
 putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
@@ -691,11 +690,10 @@ getNoRemove = C $ \ts -> return $ Right (noRemove ts, ts)
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
                     case v of
-                      Quiet -> putM Logfile str
-                      Normal -> do putM Stdout str
-                                   putM Logfile vstr
-                      _ -> do putM Stdout vstr
-                              putM Logfile vstr
+                      Normal -> putM Stdout str
+                      Verbose -> putM Stdout vstr
+                      _ -> return ()
+                    putM Logfile vstr
 
 putM :: (String -> LogMessage) -> String -> C ()
 putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
