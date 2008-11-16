@@ -366,25 +366,27 @@ actuallyCreateFile fn = do x <- cat (fn++".in")
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =
-    do mapM_ clearBuilt ts
+    do withd <- rememberDirectory
+       mapM_ clearBuilt ts
        ts' <- mapM processFilePath ts
        ds' <- fromListS `fmap` mapM processFilePath ds
        let fixt t = (t, delS t allts)
            allts = fromListS ts'
            ts'' = map fixt ts'
-           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ make r (ts:<ds))
+           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ withd $ make r (ts:<ds))
        case clean r (ts:<ds) of
          [] -> return ()
          toclean -> addToRule (phony "clean") (mapM_ rm toclean)
        case install r (ts:<ds) of
          Just inst -> modifyTargets $ adjustT (phony "install") $
-                      \ (Target a b c) -> Target a (addsS ts b) (c >> inst)
+                      \ (Target a b c) -> Target a (addsS ts b) (c >> withd inst)
          Nothing -> return ()
        mapM_ addt ts''
 
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
-addToRule targ j = modifyTargets $ adjustT' targ $ \ (Target a b c) -> Target a b (j >> c)
+addToRule targ j = do withd <- rememberDirectory
+                      modifyTargets $ adjustT' targ $ \ (Target a b c) -> Target a b (withd j >> c)
     where adjustT' t f m = case lookupT t m of
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m
