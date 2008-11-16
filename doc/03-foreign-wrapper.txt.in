@@ -2,11 +2,8 @@
 A foreign function interface wrapper
 ====================================
 
-This example demonstrates how to compile an executable that uses the
-FFI to export a Haskell function to C.  This is currently highly
-inelegant, as we really ought to do this automatically.
-Unfortunately, the dependency-generation of ghc apparently ignores
-these files.  :(
+This example demonstrates how to compile an executable that uses the FFI to
+export a Haskell function to C.  This is actually quite easy.
 
 The C source
 ------------
@@ -22,10 +19,13 @@ file: tests/foreign-wrapper/printit.c
 The Haskell source
 ------------------
 
-We call this C function giving it a very simple
+We put the ffi interactions into a module called `TestModule`, which will
+export two functions, `wrap`, which converts a Haskell function in to a C
+function pointer, and `printit`, which accepts a C function pointer and
+prints its output.
 
-file: tests/foreign-wrapper/test.hs
-    module Main where
+file: tests/foreign-wrapper/TestModule.hs
+    module TestModule ( wrap, printit ) where
     
     import Foreign.C.Types ( CInt )
     import Foreign.Ptr ( FunPtr )
@@ -34,6 +34,13 @@ file: tests/foreign-wrapper/test.hs
                                         -> IO (FunPtr (IO CInt))
     foreign import ccall "printit" printit
           :: FunPtr (IO CInt) -> IO ()
+
+The main function, meanwhile, just uses the two functions defined in
+`TestModule` to print the number 137.
+
+file: tests/foreign-wrapper/test.hs
+    module Main where
+    import TestModule
     
     main = do fp <- wrap (return 137)
               printit fp
@@ -41,13 +48,15 @@ file: tests/foreign-wrapper/test.hs
 The Setup.hs file
 -----------------
 
-Here's the ``Setup.hs`` file.  As you can see, we have to manually
+Here's the ``Setup.hs`` file.  The only trickiness we need is to tell ghc
+to use the FFI.  This could alternatively have been achieved using a pragma
+at the top of the `TestModule.hs` file.
 
 file: tests/foreign-wrapper/Setup.hs
     import Distribution.Franchise
     
     main = build [] (ghcFlags ["-fffi"]) $
-           executable "test" "test.hs" ["printit.c","test_stub.o"]
+           executable "test" "test.hs" ["printit.c"]
 
 A simple test script
 --------------------

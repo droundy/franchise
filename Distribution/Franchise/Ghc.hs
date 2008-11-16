@@ -131,12 +131,15 @@ privateExecutable  simpleexname src0 cfiles0 =
        ghcDeps depend [src] $ putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend
        (objs,_) <- io (readFile depend) >>= parseDeps []
-       let mk _ = do ghc system (objs++ cobjs ++ extraobjs ++ ["-o",exname])
+       let mk _ = do stubos <- filterM (io . doesFileExist) $ map (stubit "o") objs
+                     ghc system (objs++ cobjs ++ extraobjs ++ stubos ++ ["-o",exname])
+           stubit c x = take (length x - 2) x ++ "_stub."++c
            (cfiles, extraobjs) = partition (".c" `isSuffixOf`) cfiles0
            cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
        mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
        addTarget $ [exname, phony simpleexname] :< (src:objs++cobjs++extraobjs)
-                  :<- defaultRule { make = mk, clean = \b -> depend : cleanIt b }
+                  :<- defaultRule { make = mk, clean = \b -> depend : map (stubit "o") objs ++
+                                                                      map (stubit "c") objs ++ cleanIt b }
        return [exname, phony simpleexname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
@@ -205,10 +208,13 @@ package pn modules cfiles =
                   :< ((pn++".config"):mods++his++cobjs)
                   :<- defaultRule {
                       make = \_ ->
-                         system "ar" ("cqs":("lib"++pn++".a"):mods++cobjs),
+                         do stubos <- filterM (io . doesFileExist) $ map (stubit "o") mods
+                            system "ar" ("cqs":("lib"++pn++".a"):mods++cobjs++stubos),
                       install = \_ -> Just $ installPackageInto pn libdir,
-                      clean = \b -> (pn++".cfg") : depend : cleanIt b}
+                      clean = \b -> (pn++".cfg") : depend : map (stubit "o") mods ++
+                                                            map (stubit "c") mods ++ cleanIt b}
        return [phony pn, "lib"++pn++".a"]
+    where stubit c x = take (length x - 2) x ++ "_stub."++c
 
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
