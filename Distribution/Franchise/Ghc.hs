@@ -57,9 +57,13 @@ infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
 [x,h] <: y | isSuffixOf ".o" x && any (endsWithOneOf [".hs",".lhs"]) y
              = [x,h] :< (y++["config.d/ghcFlags","config.d/definitions"])
-               :<- defaultRule { make = ghc_hs_to_o }
+               :<- defaultRule { make = const $ case filter (endsWithOneOf [".hs",".lhs"]) y of
+                                                  [d] -> ghc system ["-c",d]
+                                                  [] -> fail "error 1"
+                                                  _ -> fail "error 2" }
 [x] <: [y] | ".o" `isSuffixOf` x && ".c" `isSuffixOf` y
-               = [x] :< [y,"config.d/ghcFlags","config.d/definitions"] :<- defaultRule { make = ghc_c }
+               = [x] :< [y,"config.d/ghcFlags","config.d/definitions"]
+                 :<- defaultRule { make = const $ ghc system ["-c","-cpp",y] }
 [stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
 xs <: ys = error $ "can't figure out how to build "++ show xs++" from "++ show ys
 
@@ -297,18 +301,6 @@ ghc sys args = do pn <- getPackageVersion
                   case pn of
                     Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++packs++args
                     Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
-
-ghc_hs_to_o :: Dependency -> C ()
-ghc_hs_to_o (_:<ds) = case filter (endsWithOneOf [".hs",".lhs"]) ds of
-                      [d] -> ghc system ["-c",d]
-                      [] -> fail "error 1"
-                      _ -> fail "error 2"
-
-ghc_c :: Dependency -> C ()
-ghc_c (_:<ds) = case filter (isSuffixOf ".c") ds of
-                [d] -> ghc system ["-c","-cpp",d]
-                [] -> fail "error 4"
-                _ -> fail "error 5"
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
