@@ -487,10 +487,10 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                       Nothing -> fail e
                       Just m -> seekPackageForModule m]
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      mhsc <- findHscModule m
-                                      case mhsc of
-                                        Just hsc -> do putV $ "found hsc file "++hsc
-                                                       runghcErr >>= lookForPackages
+                                      mrule <- findRuleForModule m
+                                      case mrule of
+                                        Just rulename -> do putV $ "found "++rulename
+                                                            runghcErr >>= lookForPackages
                                         Nothing ->
                                             do ps <- findPackagesProvidingModule m
                                                tryThesePackages m ps
@@ -539,16 +539,22 @@ mungePackage x@(_:r) = csum [mopt, mungePackage r]
 ghcPaths :: C [String]
 ghcPaths = ((".":) . map (drop 2) . filter ("-i" `isPrefixOf`)) `fmap` getGhcFlags
 
-findHscModule :: String -> C (Maybe String)
-findHscModule m =
+findRuleForModule :: String -> C (Maybe String)
+findRuleForModule m =
     do ps <- ghcPaths
        let hscname = '/':map topath m++".hsc"
+           hsname = '/':map topath m++".hsc"
+           lhsname = '/':map topath m++".hsc"
            topath '.' = '/'
            topath x = x
+       haverule <- filterM (fmap isJust . getTarget) $ concatMap (\p -> [p++hsname,p++lhsname]) ps
        x <- filterM (io . doesFileExist) $ map (++hscname) ps
-       case x of
-         [] -> return Nothing
-         (hsc:_) -> do addHsc hsc; return $ Just hsc
+       case haverule of
+         (hs:_) -> do build' CanModifyState hs
+                      return $ Just $ "rule for file "++hs
+         [] ->case x of
+                [] -> return Nothing
+                (hsc:_) -> do addHsc hsc; return $ Just $ "hsc file "++hsc
 
 addHsc :: String -> C ()
 addHsc hsc = do hscs <- getHscs
