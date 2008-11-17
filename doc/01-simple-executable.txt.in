@@ -14,28 +14,34 @@ Setup.hs
 --------
 
 To use `franchise`, you need a `Setup.hs` file.  Every `Setup.hs` file will
-import `Distribution.Franchise`.  In the future I plan to make the import
+import [Distribution.Franchise][].  In the future I plan to make the import
 include an API version number, so we can extend the API without breaking
-any existing scripts, but for now, just import `Distribution.Franchise`.
+any existing scripts, but for now, just import [Distribution.Franchise][].
 
-The main function of every `Setup.hs` script is given by the [`build`
-function](haddock/Distribution-Franchise.html#v%3Abuild)---which could
-use some work.  This function currently accepts three arguments.  The first
-is a list of flags accepted by the `Setup.hs` script.  Franchise supports a
-number of flags by default, such as `--prefix`, `--disable-optimze` and
-`--enable-hpc`, so you often won't need to specify any of this yourself.
+[Distribution.Franchise]: haddock/Distribution-Franchise.html
 
-The second argument of `build` is the "configure" function, which is only
+The main function of every `Setup.hs` script is given by the [build][]
+function---which could use some work.  This function currently accepts
+three arguments.  The first is a list of flags accepted by the `Setup.hs`
+script.  Franchise supports a number of flags by default, such as
+`--prefix`, `--disable-optimze` and `--enable-hpc`, so you often won't need
+to specify any of this yourself.
+
+[build]: haddock/Distribution-Franchise.html#v%3Abuild
+
+The second argument of [build][] is the "configure" function, which is only
 run when franchise is "configuring" your application.  I hope to eventually
 merge this with the final argument, which is the "build" function, which is
 run every time `Setup.hs` is executed, and defines an arbitrary number of
 build targets.  The return value of this function is the target that is
 built when `Setup.hs build` is run---that is, the default build target.
 
-In our example, we build a single executable, using the `executable`
+In our example, we build a single executable, using the [executable][]
 function, which accepts the name of the executable, the name of the "main"
 file and a list of any C files that are needed (since we can't track
 dependencies on C files).
+
+[executable]: haddock/Distribution-Franchise.html#v%3Aexecutable
 
 file: tests/simple/Setup.hs
     import Distribution.Franchise
