@@ -350,14 +350,10 @@ installBin (xs:<_) = Just $ do pref <- getBinDir
                                mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
 
 createFile :: String -> C ()
-createFile fn = do addTarget $ [fn] :< [fn++".in"] :<-
-                             defaultRule { make = \_ -> actuallyCreateFile fn }
-                   actuallyCreateFile fn
-
-actuallyCreateFile :: String -> C ()
-actuallyCreateFile fn = do x <- cat (fn++".in")
-                           r <- replacements
-                           writeF fn $ repl r x
+createFile fn = addTarget $ [fn] :< [fn++".in"] :<-
+                defaultRule { make = \_ ->  do x <- cat (fn++".in")
+                                               r <- replacements
+                                               writeF fn $ repl r x }
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
           r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
