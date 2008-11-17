@@ -172,6 +172,7 @@ package pn modules cfiles =
                                 case mval of
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
+           hiddenmodules = map objToModName mods \\ modules
            makeconfig _ =do lic <- getLicense
                             mai <- getMaintainer
                             deps <- packages
@@ -181,7 +182,7 @@ package pn modules cfiles =
                                            "license: "++lic,
                                            "maintainer: "++mai,
                                            "exposed-modules: "++unwords modules,
-                                           "hidden-modules: "++unwords (map objToModName mods \\ modules),
+                                           "hidden-modules: "++unwords hiddenmodules,
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
@@ -200,6 +201,18 @@ package pn modules cfiles =
                                   ["author", "copyright", "homepage", "bug-reports",
                                    "stability", "package-url", "tested-with", "license-file",
                                    "category", "synopsis", "description"]
+       preprocsources <- preprocessedTargets his
+       mhaddockdir <- getExtraData "haddock-directory"
+       let haddockdir = maybe "haddock" id mhaddockdir
+       addTarget $ [phony "haddock", haddockdir++"/index.html"] :< preprocsources :<-
+                 defaultRule { make = const $
+                               do rm_rf haddockdir
+                                  mkdir haddockdir
+                                  mcss <- getExtraData "css"
+                                  let cssflag = maybe [] (\f -> ["--css",f]) mcss
+                                  system "haddock" ("-h":preprocsources++
+                                                    concatMap (\hm -> ["--hide",hm]) hiddenmodules++
+                                                    cssflag++["-o",haddockdir]) }
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
                                return o) cfiles
@@ -220,6 +233,20 @@ package pn modules cfiles =
        return [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
 
+preprocessedTargets :: [String] -> C [String]
+preprocessedTargets his =
+    do targets <- catMaybes `fmap` mapM getTarget his
+       let sources = nub $ filter (\x -> ".hs" `isSuffixOf` x || ".lhs" `isSuffixOf` x) $
+                     concatMap (toListS . dependencies) targets
+           preproc s = do let preprocs = ".preproc/"++s
+                          addTarget $ [preprocs] :< [s] :<-
+                            defaultRule { make = const $
+                                          do mkdir $ dirname preprocs
+                                             ghc system ["-cpp","-E","-optP-P","-D__HADDOCK__",
+                                                         s, "-o", preprocs] }
+                          return preprocs
+       mapM preproc sources
+
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
     do ver <- getVersion
@@ -235,7 +262,7 @@ installPackageInto pn libdir =
              do putD $ "createDirectoryIfMissing "++ destination
                 io $ createDirectoryIfMissing True destination
                 let inst x = do putD $ "installing for package "++x
-                                case reverse $ dropWhile (/= '/') $ reverse x of
+                                case dirname x of
                                   "" -> return ()
                                   xdn -> io $ createDirectoryIfMissing True $ destination++"/"++xdn
                                 putD $ unwords ["copyFile", x, (destination++"/"++x)]

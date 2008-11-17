@@ -29,6 +29,7 @@ main = build [] configure $ do -- autoVersion doesn't go in configure
                                package "franchise" ["Distribution.Franchise"] []
 
 buildDoc = do rm_rf "doc/tests"
+              addExtraData "haddock-directory" "doc/manual/haddock"
               addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
@@ -48,7 +49,7 @@ buildDoc = do rm_rf "doc/tests"
                                        htmls <- concat `fmap` mapM (\i -> markdownToHtml "../doc.css" i "")
                                                                    (concatMap fst alltests)
                                        addTarget $ ["*manual*","*html*"] :<
-                                                     ("manual/index.html":htmls) |<- defaultRule
+                                                     ("*haddock*":"manual/index.html":htmls) |<- defaultRule
     where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
           buildOneDoc f = do tests0@(txtf:_) <- splitMarkdown f ("manual/"++take (length f-3) f)
                              let tests = map splitPath $

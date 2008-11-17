@@ -18,12 +18,12 @@ import `Distribution.Franchise`.  In the future I plan to make the import
 include an API version number, so we can extend the API without breaking
 any existing scripts, but for now, just import `Distribution.Franchise`.
 
-The main function of every `Setup.hs` script is given by the `build`
-function---which could use some work.  This function currently accepts
-three arguments.  The first is a list of flags accepted by the `Setup.hs`
-script.  Franchise supports a number of flags by default, such as
-`--prefix`, `--disable-optimze` and `--enable-hpc`, so you often won't need
-to specify any of this yourself.
+The main function of every `Setup.hs` script is given by the [`build`
+function](haddock/Distribution-Franchise.html#v%3Abuild)---which could
+use some work.  This function currently accepts three arguments.  The first
+is a list of flags accepted by the `Setup.hs` script.  Franchise supports a
+number of flags by default, such as `--prefix`, `--disable-optimze` and
+`--enable-hpc`, so you often won't need to specify any of this yourself.
 
 The second argument of `build` is the "configure" function, which is only
 run when franchise is "configuring" your application.  I hope to eventually

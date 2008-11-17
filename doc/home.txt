@@ -12,6 +12,9 @@ which packages, libraries and tools are present.
 For more information, see the [rudimentary manual and test
 suite](doc/manual/index.html).
 
+In addition, there is now [haddock documentation of the franchise
+API](doc/manual/haddock/index.html).
+
 ## Getting the code
 
 You can get franchise with darcs using
