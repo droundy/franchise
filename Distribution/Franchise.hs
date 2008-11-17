@@ -29,7 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( build, buildWithArgs,
+module Distribution.Franchise ( C, build, buildWithArgs,
                                 buildTarget,
                                 executable, privateExecutable,
                                 installBin, addTarget,
