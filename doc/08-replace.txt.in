@@ -1,10 +1,11 @@
 Using replace to generate source files
 ======================================
 
-Here we illustrate how you can use [replace][] to modify files, much like
-`AC_SUBST` in autoconf.
+Here we illustrate how you can use [replace][] and [createFile][] to
+generate files, much like `AC_SUBST` and `AC_CONFIG_FILES` in autoconf.
 
 [replace]: haddock/Distribution-Franchise.html#v%3Areplace
+[createFile]: haddock/Distribution-Franchise.html#v%3AcreateFile
 
 file: tests/replace/Foo.hs.in
     module Foo where
