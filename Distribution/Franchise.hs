@@ -43,7 +43,7 @@ module Distribution.Franchise ( C, build, buildWithArgs,
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
-                                defaultRule, build', CanModifyState(..),
+                                defaultRule,
                                 -- Handy module-searching
                                 requireModule, lookForModule, withModule,
                                 requireModuleExporting, lookForModuleExporting, withModuleExporting,
