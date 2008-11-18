@@ -17,7 +17,7 @@ type.
 [define]: haddock/Distribution-Franchise.html#v%3Adefine
 [defineAs]: haddock/Distribution-Franchise.html#v%3AdefineAs
 
-Note that we also use the [ghcFlag][] macro to add the `-cpp` flag to the
+Note that we also use the [ghcFlags][] macro to add the `-cpp` flag to the
 list of flags passed to `ghc`.  We could alternatively have asked for `cpp`
 in a pragma in the `executable.hs` file.
 
