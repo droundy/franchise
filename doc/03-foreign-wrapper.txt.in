@@ -48,9 +48,11 @@ file: tests/foreign-wrapper/test.hs
 The Setup.hs file
 -----------------
 
-Here's the ``Setup.hs`` file.  The only trickiness we need is to tell ghc
+Here's the ``Setup.hs`` file.  The only trickiness we need is to use [ghcFlags][] tell ghc
 to use the FFI.  This could alternatively have been achieved using a pragma
 at the top of the `TestModule.hs` file.
+
+[ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
 
 file: tests/foreign-wrapper/Setup.hs
     import Distribution.Franchise

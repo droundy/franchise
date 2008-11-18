@@ -9,14 +9,19 @@ file: tests/cpp/executable.hs
     main = if DATA then putStrLn "It works." else putStrLn "Ooops."
 
 Franchise behaves very much like autoconf in its treatment of `cpp`
-defines.  You can instruct it to `define` a macro or you can use `defineAs`
-to set a macro to some `String` value.  In this case, we `defineAs` `DATA`
+defines.  You can instruct it to [define][] a macro or you can use [defineAs][]
+to set a macro to some `String` value.  In this case, we [defineAs][] `DATA`
 to be `"True"`, since in the above program, `DATA` is used as a `Bool`
 type.
 
-Note that we also use the `ghcFlags` macro to add the `-cpp` flag to the
+[define]: haddock/Distribution-Franchise.html#v%3Adefine
+[defineAs]: haddock/Distribution-Franchise.html#v%3AdefineAs
+
+Note that we also use the [ghcFlag][] macro to add the `-cpp` flag to the
 list of flags passed to `ghc`.  We could alternatively have asked for `cpp`
 in a pragma in the `executable.hs` file.
+
+[ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
 
 file: tests/cpp/Setup.hs
     import Distribution.Franchise
