@@ -484,7 +484,14 @@ seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
     where lookForPackages (ExitSuccess,_) = return []
           lookForPackages x@(_,e) =
-              csum [case mungePackage e of
+              csum [case mungeMissingModule e of
+                      Nothing -> fail e
+                      Just m -> do mrule <- findRuleForModule m
+                                   case mrule of
+                                     Just rulename -> do putV $ "found "++rulename
+                                                         runghcErr >>= lookForPackages
+                                     Nothing -> fail $ "we don't seem to have any source for "++m,
+                    case mungePackage e of
                       Nothing -> fail e
                       Just p -> do addPackages [p]
                                    x2 <- runghcErr
@@ -496,13 +503,8 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                       Nothing -> fail e
                       Just m -> seekPackageForModule m]
           seekPackageForModule m = do putV $ "looking for module "++m
-                                      mrule <- findRuleForModule m
-                                      case mrule of
-                                        Just rulename -> do putV $ "found "++rulename
-                                                            runghcErr >>= lookForPackages
-                                        Nothing ->
-                                            do ps <- findPackagesProvidingModule m
-                                               tryThesePackages m ps
+                                      ps <- findPackagesProvidingModule m
+                                      tryThesePackages m ps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m [p] =
                         do putV $ "looking for module "++m++" in package "++p++"..."
