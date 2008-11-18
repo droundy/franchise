@@ -5,9 +5,9 @@ The simplest possible use case for franchise is to build a single
 executable.  To illustrate this, we will build a very simple "hello world"
 executable:
 
-file: tests/simple/simple.hs
-    main = putStrLn "hello world"
-
+~~~~ tests/simple/simple.hs
+main = putStrLn "hello world"
+~~~~
 As you can see, it's just a standard hello world.
 
 Setup.hs
@@ -43,11 +43,12 @@ dependencies on C files).
 
 [executable]: haddock/Distribution-Franchise.html#v%3Aexecutable
 
-file: tests/simple/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (return ())
-           (executable "simple" "simple.hs" [])
+~~~~ tests/simple/Setup.hs
+import Distribution.Franchise
+
+main = build [] (return ())
+       (executable "simple" "simple.hs" [])
+~~~~
 
 Testing it out
 --------------
@@ -58,8 +59,9 @@ defaults.  The first time `Setup.hs` is run, the configure job will be run,
 and then it will only be re-run when `Setup.hs` itself changes, or when you
 run `Setup.hs configure` explicitly.
 
-file: tests/simple/simple.sh
-....set -ev
-....echo $HOME | grep doc/tests
-    runghc Setup.hs build
-    ./simple
+~~~~ tests/simple/simple.sh
+set -ev
+echo $HOME | grep doc/tests
+runghc Setup.hs build
+./simple
+~~~~

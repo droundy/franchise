@@ -11,10 +11,11 @@ The C source
 Our C example is a simple function that accepts a function returning
 an int and prints out its value.
 
-file: tests/foreign-wrapper/printit.c
-    #include <stdio.h>
-    
-    void printit(int (*x)()) { printf("It is %d\n", x()); }
+~~~~ tests/foreign-wrapper/printit.c
+#include <stdio.h>
+
+void printit(int (*x)()) { printf("It is %d\n", x()); }
+~~~~
 
 The Haskell source
 ------------------
@@ -24,26 +25,28 @@ export two functions, `wrap`, which converts a Haskell function in to a C
 function pointer, and `printit`, which accepts a C function pointer and
 prints its output.
 
-file: tests/foreign-wrapper/TestModule.hs
-    module TestModule ( wrap, printit ) where
-    
-    import Foreign.C.Types ( CInt )
-    import Foreign.Ptr ( FunPtr )
-    
-    foreign import ccall "wrapper" wrap :: IO CInt
-                                        -> IO (FunPtr (IO CInt))
-    foreign import ccall "printit" printit
-          :: FunPtr (IO CInt) -> IO ()
+~~~~ tests/foreign-wrapper/TestModule.hs
+module TestModule ( wrap, printit ) where
+
+import Foreign.C.Types ( CInt )
+import Foreign.Ptr ( FunPtr )
+
+foreign import ccall "wrapper" wrap :: IO CInt
+                                    -> IO (FunPtr (IO CInt))
+foreign import ccall "printit" printit
+      :: FunPtr (IO CInt) -> IO ()
+~~~~
 
 The main function, meanwhile, just uses the two functions defined in
 `TestModule` to print the number 137.
 
-file: tests/foreign-wrapper/test.hs
-    module Main where
-    import TestModule
-    
-    main = do fp <- wrap (return 137)
-              printit fp
+~~~~ tests/foreign-wrapper/test.hs
+module Main where
+import TestModule
+
+main = do fp <- wrap (return 137)
+          printit fp
+~~~~
 
 The Setup.hs file
 -----------------
@@ -54,18 +57,19 @@ at the top of the `TestModule.hs` file.
 
 [ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
 
-file: tests/foreign-wrapper/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (ghcFlags ["-fffi"]) $
-           executable "test" "test.hs" ["printit.c"]
+~~~~ tests/foreign-wrapper/Setup.hs
+import Distribution.Franchise
+
+main = build [] (ghcFlags ["-fffi"]) $
+       executable "test" "test.hs" ["printit.c"]
+~~~~
 
 A simple test script
 --------------------
 
-file: tests/foreign-wrapper/foreign-wrapper.sh
-....set -ev
-    runghc Setup.hs build
-...../test
-    ./test | grep 137
-
+~~~~ tests/foreign-wrapper/foreign-wrapper.sh
+set -ev
+runghc Setup.hs build
+./test
+./test | grep 137
+~~~~

@@ -5,21 +5,23 @@ One alternative to using the FFI or `cpp` directly is to use the `hsc2hs`
 program to generate your code.  As far as franchise is concerned, there are
 two ways you can use `hsc2hs`.  One is to define a module
 
-file: tests/hsc/Private/Demo.hsc
-    module Private.Demo where
-    
-    #include <stdio.h>
-    seekend :: Int
-    seekend = (#const SEEK_END) -- this is actually a pointer
+~~~~ tests/hsc/Private/Demo.hsc
+module Private.Demo where
+
+#include <stdio.h>
+seekend :: Int
+seekend = (#const SEEK_END) -- this is actually a pointer
+~~~~~
 
 and the other is to define a main file:
 
-file: tests/hsc/executable.hsc
-    import Private.Demo
-    #include <stdio.h>
-    main = if seekend == (#const SEEK_END)
-           then putStrLn $ "It works: " ++show (#const SEEK_END)
-           else putStrLn "Ooops."
+~~~~ tests/hsc/executable.hsc
+import Private.Demo
+#include <stdio.h>
+main = if seekend == (#const SEEK_END)
+       then putStrLn $ "It works: " ++show (#const SEEK_END)
+       else putStrLn "Ooops."
+~~~~
 
 The `Setup.hs` file
 -------------------
@@ -28,16 +30,17 @@ The `Setup.hs` file is actually quite unremarkable.  In fact, it only
 differs from the very simplest `Setup.hs` file in the name of the source
 file for the executable.  This is the point...
 
-file: tests/hsc/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (return ()) (executable "executable" "executable.hsc" [])
+~~~~ tests/hsc/Setup.hs
+import Distribution.Franchise
+
+main = build [] (return ()) (executable "executable" "executable.hsc" [])
+~~~~
 
 And, as we should expect, we can compile this program and run it.
 
-file: tests/hsc/hsc.sh
-....set -ev
-    runghc Setup.hs build
-...../executable
-    ./executable | grep works
-
+~~~~ tests/hsc/hsc.sh
+set -ev
+runghc Setup.hs build
+./executable
+./executable | grep works
+~~~~

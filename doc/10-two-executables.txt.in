@@ -3,11 +3,13 @@ Two executables
 
 Sometimes you might want to build two executables.
 
-file: tests/two-executables/hello.hs
-    main = putStrLn "hello world"
+~~~~ tests/two-executables/hello.hs
+main = putStrLn "hello world"
+~~~~
 
-file: tests/two-executables/goodbye.hs
-    main = putStrLn "goodbye world"
+~~~~ tests/two-executables/goodbye.hs
+main = putStrLn "goodbye world"
+~~~~
 
 Setup.hs
 --------
@@ -15,19 +17,21 @@ Setup.hs
 This couldn't be easier.  You just need to indicate how to build them, and
 then return a list with two elements:
 
-file: tests/two-executables/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (return ()) $
-           do executable "hello" "hello.hs" []
-              executable "goodbye" "goodbye.hs" []
-              return ["hello","goodbye"]
+~~~~ tests/two-executables/Setup.hs
+import Distribution.Franchise
+
+main = build [] (return ()) $
+       do executable "hello" "hello.hs" []
+          executable "goodbye" "goodbye.hs" []
+          return ["hello","goodbye"]
+~~~~
 
 Testing it out
 --------------
 
-file: tests/two-executables/two-executables.sh
-....set -ev
-    runghc Setup.hs build
-    ./hello
-    ./goodbye
+~~~~ tests/two-executables/two-executables.sh
+set -ev
+runghc Setup.hs build
+./hello
+./goodbye
+~~~~

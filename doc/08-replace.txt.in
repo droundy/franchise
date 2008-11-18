@@ -11,13 +11,15 @@ code rather than modules located in a package.
 [replace]: haddock/Distribution-Franchise.html#v%3Areplace
 [createFile]: haddock/Distribution-Franchise.html#v%3AcreateFile
 
-file: tests/replace/Distribution/Simple.hs.in
-    module Distribution.Simple where
-    foo = putStrLn @Foo@
+~~~~ tests/replace/Distribution/Simple.hs.in
+module Distribution.Simple where
+foo = putStrLn @Foo@
+~~~~
 
-file: tests/replace/simple.hs
-    import Distribution.Simple
-    main = foo
+~~~~ tests/replace/simple.hs
+import Distribution.Simple
+main = foo
+~~~~
 
 As you can see, it's just a standard hello world.
 
@@ -25,18 +27,20 @@ Setup.hs
 --------
 
 
-file: tests/replace/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (do replace "@Foo@" "Foo message"
-                        createFile "Distribution/Simple.hs")
-           (executable "simple" "simple.hs" [])
+~~~~ tests/replace/Setup.hs
+import Distribution.Franchise
+
+main = build [] (do replace "@Foo@" "Foo message"
+                    createFile "Distribution/Simple.hs")
+       (executable "simple" "simple.hs" [])
+~~~~
 
 Testing it out
 --------------
 
-file: tests/replace/replace.sh
-....set -ev
-    runghc Setup.hs build
-...../simple
-    ./simple | grep 'Foo message'
+~~~~ tests/replace/replace.sh
+set -ev
+runghc Setup.hs build
+./simple
+./simple | grep 'Foo message'
+~~~~

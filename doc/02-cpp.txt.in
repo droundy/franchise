@@ -5,8 +5,9 @@ Here we show how you can use the `C` preprocessor with franchise.  Here's
 an example of a simple executable that will fail if `DATA` is not a `cpp`
 macro:
 
-file: tests/cpp/executable.hs
-    main = if DATA then putStrLn "It works." else putStrLn "Ooops."
+~~~~ tests/cpp/executable.hs
+main = if DATA then putStrLn "It works." else putStrLn "Ooops."
+~~~~
 
 Franchise behaves very much like autoconf in its treatment of `cpp`
 defines.  You can instruct it to [define][] a macro or you can use [defineAs][]
@@ -23,21 +24,22 @@ in a pragma in the `executable.hs` file.
 
 [ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
 
-file: tests/cpp/Setup.hs
-    import Distribution.Franchise
-    
-    configure = do defineAs "DATA" "True"
-                   ghcFlags ["-cpp"]
-    
-    main = build [] configure
-           (executable "executable" "executable.hs" [])
+~~~~ tests/cpp/Setup.hs
+import Distribution.Franchise
+
+configure = do defineAs "DATA" "True"
+               ghcFlags ["-cpp"]
+
+main = build [] configure
+       (executable "executable" "executable.hs" [])
+~~~~
 
 And finally we'll test that this executable actually builds and runs,
 giving the proper answer.
 
-file: tests/cpp/cpp.sh
-....set -ev
-    runghc Setup.hs build
-...../executable
-    ./executable | grep works
-
+~~~~ tests/cpp/cpp.sh
+set -ev
+runghc Setup.hs build
+./executable
+./executable | grep works
+~~~~

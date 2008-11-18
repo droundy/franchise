@@ -7,53 +7,60 @@ this, we'll need an example that is somewhat larger.  Note, however,
 that hpc doesn't seem to work with packages, at least as of ghc
 6.8.2.
 
-file: tests/hpc/Foo.hs
-    module Foo where
-    foo = "hello world"
-    upperFoo = "Hello world"
+~~~~ tests/hpc/Foo.hs
+module Foo where
+foo = "hello world"
+upperFoo = "Hello world"
+~~~~
 
-file: tests/hpc/Foo/Bar.hs
-    module Foo.Bar where
-    foobar ('H':r) = 'h':r
-    foobar ('h':r) = 'H':r
-    foobar x = x
+~~~~ tests/hpc/Foo/Bar.hs
+module Foo.Bar where
+foobar ('H':r) = 'h':r
+foobar ('h':r) = 'H':r
+foobar x = x
+~~~~
 
-file: tests/hpc/main.hs
-    import Foo
-    import Foo.Bar
-    main = do x <- getLine
-              case x of
-                [] -> putStrLn $ foobar foo
-                ('h':_) -> putStrLn $ foobar upperFoo
-                _ -> putStrLn $ foobar "Goodbye world"
+~~~~ tests/hpc/main.hs
+import Foo
+import Foo.Bar
+main = do x <- getLine
+          case x of
+            [] -> putStrLn $ foobar foo
+            ('h':_) -> putStrLn $ foobar upperFoo
+            _ -> putStrLn $ foobar "Goodbye world"
+~~~~
 
 This is just a hello world that waits for some input, and uses a
 couple of modules.  To make things more exciting, we'll add a simple
 test suite for this program.
 
-file: tests/hpc/testfoo.bash
-    set -ev
-    echo | ./main | grep Hello
+~~~~ tests/hpc/testfoo.bash
+set -ev
+echo | ./main | grep Hello
+~~~~
 
-file: tests/hpc/testupperFoo.bash
-    set -ev
-    echo hello there | ./main | grep hello
+~~~~ tests/hpc/testupperFoo.bash
+set -ev
+echo hello there | ./main | grep hello
+~~~~
 
-file: tests/hpc/testBye.bash
-    set -ev
-    echo good morning | ./main | grep Goodbye
+~~~~ tests/hpc/testBye.bash
+set -ev
+echo good morning | ./main | grep Goodbye
+~~~~
 
 Setup.hs
 --------
 
-file: tests/hpc/Setup.hs
-    import Distribution.Franchise
-    
-    main = build [] (return ()) $
-           do let mytests = ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]
-              mapM_ (\x -> testOne x "bash" x) mytests
-              test mytests
-              executable "main" "main.hs" []
+~~~~ tests/hpc/Setup.hs
+import Distribution.Franchise
+
+main = build [] (return ()) $
+       do let mytests = ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]
+          mapM_ (\x -> testOne x "bash" x) mytests
+          test mytests
+          executable "main" "main.hs" []
+~~~~
 
 Testing it out
 --------------
@@ -61,17 +68,17 @@ Testing it out
 First we'll run the actual tests, and then we'll see if we indeed have
 achieved 100% coverage of all properties that hpc tests.
 
-file: tests/hpc/hpc.sh
-....set -ev
-....echo $HOME | grep doc/tests
-    if hpc help > /dev/null; then
-      # we have hpc, so we can test for full code coverage
-      runghc Setup.hs --enable-hpc test
-      hpc report main > alltests
-      hpc report main | grep 100 > passedtests
-      diff -u alltests passedtests
-    else
-      # we don't have hpc, so we'll just check the tests pass
-      runghc Setup.hs test
-    fi
+~~~~ tests/hpc/hpc.sh
+set -ev
+if hpc help > /dev/null; then
+  # we have hpc, so we can test for full code coverage
+  runghc Setup.hs --enable-hpc test
+  hpc report main > alltests
+  hpc report main | grep 100 > passedtests
+  diff -u alltests passedtests
+else
+  # we don't have hpc, so we'll just check the tests pass
+  runghc Setup.hs test
+fi
+~~~~
 

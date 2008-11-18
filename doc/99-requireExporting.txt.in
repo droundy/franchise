@@ -9,68 +9,73 @@ that your code is linked with a module that exports a particular API.
 We create two packages, `a` and `b`, each of which export the module
 `Foo`, but with a subtly different API.
 
-file: tests/requireExporting/a/Setup.hs
-    import Distribution.Franchise
-    main = build [] (version "1.0") (package "a" ["Foo"] [])
+~~~~ tests/requireExporting/a/Setup.hs
+import Distribution.Franchise
+main = build [] (version "1.0") (package "a" ["Foo"] [])
+~~~~
 
 The first package, `a`, exports `Foo.foo` and `Foo.a`.
 
-file: tests/requireExporting/a/Foo.hs
-    module Foo ( foo, a ) where
-    a :: Int
-    a = 10
-    foo :: String
-    foo = "Foo a"
+~~~~ tests/requireExporting/a/Foo.hs
+module Foo ( foo, a ) where
+a :: Int
+a = 10
+foo :: String
+foo = "Foo a"
+~~~~
 
-file: tests/requireExporting/b/Setup.hs
-    import Distribution.Franchise
-    main = build [] (version "2.0") (package "b" ["Foo"] [])
+~~~~ tests/requireExporting/b/Setup.hs
+import Distribution.Franchise
+main = build [] (version "2.0") (package "b" ["Foo"] [])
+~~~~
 
 The second package, `b`, exports `Foo.foo` and `Foo.b`.
 
-file: tests/requireExporting/b/Foo.hs
-    module Foo ( foo, b ) where
-    b :: Int
-    b = 20
-    foo :: String
-    foo = "Foo b"
+~~~~ tests/requireExporting/b/Foo.hs
+module Foo ( foo, b ) where
+b :: Int
+b = 20
+foo :: String
+foo = "Foo b"
+~~~~
 
 Finally, we introduce an executable called `c` that can be configured
 to import either from package `a` or package `b` using
 `requireModuleExporting`.
 
-file: tests/requireExporting/c/Setup.hs
-    import Distribution.Franchise
-    req a = requireModuleExporting "Foo" a (a++" :: Int")
-    options = [configureFlag "with-a" "" (req "a"),
-               configureFlag "with-b" "" (req "b")]
-    main = build options (version "1.0") (executable "c" "Main.hs" [])
+~~~~ tests/requireExporting/c/Setup.hs
+import Distribution.Franchise
+req a = requireModuleExporting "Foo" a (a++" :: Int")
+options = [configureFlag "with-a" "" (req "a"),
+           configureFlag "with-b" "" (req "b")]
+main = build options (version "1.0") (executable "c" "Main.hs" [])
+~~~~
 
-file: tests/requireExporting/c/Main.hs
-    import Foo ( foo )
-    main = putStrLn foo
+~~~~ tests/requireExporting/c/Main.hs
+import Foo ( foo )
+main = putStrLn foo
+~~~~
 
 Now we demonstrate that franchise is able to select the desired
 package.
 
-file: tests/requireExporting/requireExporting.sh
-....set -ev
-    cd a
-    runghc Setup.hs install --user
-    cd ../b
-    runghc Setup.hs install --user
-    cd ../c
-    
-    runghc Setup.hs clean
-    runghc Setup.hs configure --with-b
-    runghc Setup.hs build
-    ./c
-    ./c | grep 'Foo b'
-    
-    runghc Setup.hs clean
-    runghc Setup.hs configure --with-a
-    runghc Setup.hs build
-    ./c
-    ./c | grep 'Foo a'
+~~~~ tests/requireExporting/requireExporting.sh
+set -ev
+cd a
+runghc Setup.hs install --user
+cd ../b
+runghc Setup.hs install --user
+cd ../c
 
-Did that work?
+runghc Setup.hs clean
+runghc Setup.hs configure --with-b
+runghc Setup.hs build
+./c
+./c | grep 'Foo b'
+
+runghc Setup.hs clean
+runghc Setup.hs configure --with-a
+runghc Setup.hs build
+./c
+./c | grep 'Foo a'
+~~~~

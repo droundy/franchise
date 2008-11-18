@@ -34,14 +34,11 @@ module Distribution.Franchise.Markdown
     ( splitMarkdown, markdownToHtml, markdownStringToHtmlString )
         where
 
-import Data.List ( isPrefixOf )
-
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.SplitFile ( splitFile )
-import Distribution.Franchise.ListUtils ( stripPrefix )
 
 -- | splitMarkdown reads its first argument, which is presumed to be
 -- marked-up markdown, and generates any files indicated in the contents.
@@ -55,18 +52,34 @@ splitMarkdown :: String -- ^ input filename
               -> String -- ^ output filename
               -> C [String] -- ^ returns list of files generated
 splitMarkdown fin fout =
-    splitFile fin (\x -> (fout, unlines $ concatMap purge $ lines x):splitf (lines x))
-    where purge l | "...." `isPrefixOf` l = []
-                  | otherwise = case stripPrefix "file: " l of
-                                Just fn -> ['*':fn++":*",""] -- need blank line to get code mode
-                                Nothing -> [l]
-          splitf (x:r) =
-            case stripPrefix "file: " x of
+    splitFile fin (\x -> (fout, unlines $ cleanMarkdown $ lines x):splitf (lines x))
+    where splitf (x:r) =
+            case tildesfn x of
               Nothing -> splitf r
-              Just fn -> case break (\l -> not $ "    " `isPrefixOf` l
-                                              || "...." `isPrefixOf` l) r of
-                           (fc, rest) -> (fn, unlines $ map (drop 4) fc) : splitf rest
+              Just (fn,n) ->
+                  case break (n `atleasttildes`) r of
+                  (fc, rest) -> (fn, unlines fc) : splitf (drop 1 rest)
           splitf [] = []
+          cleanMarkdown (x:xs) =
+              case tildesfn x of
+                Just (_,n) -> indentnext xs
+                    where indentnext (z:zs) =
+                              if n `atleasttildes` z
+                              then cleanMarkdown zs
+                              else ("    "++z) : indentnext zs
+                          indentnext [] = []
+                Nothing -> x : cleanMarkdown xs
+          cleanMarkdown [] = []
+          tildelen x = length $ takeWhile (=='~') x
+          tildesfn x = do let fn = dropWhiteAndBraces $ dropWhile (=='~') x
+                              n = tildelen x
+                          if n >= 4 then Just (fn, n) else Nothing
+          n `atleasttildes` x = tildelen x >= n
+          dropWhiteAndBraces (' ':x) = dropWhiteAndBraces x
+          dropWhiteAndBraces ('\t':x) = dropWhiteAndBraces x
+          dropWhiteAndBraces ('{':x) = dropWhiteAndBraces $
+                                       drop 1 $ dropWhile (/='}') x
+          dropWhiteAndBraces x = x
 
 -- | markdownToHtml defines a rule for converting a markdown file into an
 -- html file.
