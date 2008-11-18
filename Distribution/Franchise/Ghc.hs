@@ -552,11 +552,13 @@ findRuleForModule :: String -> C (Maybe String)
 findRuleForModule m =
     do ps <- ghcPaths
        let hscname = '/':map topath m++".hsc"
-           hsname = '/':map topath m++".hsc"
-           lhsname = '/':map topath m++".hsc"
+           hsname = '/':map topath m++".hs"
+           lhsname = '/':map topath m++".lhs"
            topath '.' = '/'
            topath x = x
-       haverule <- filterM (fmap isJust . getTarget) $ concatMap (\p -> [p++hsname,p++lhsname]) ps
+           comb "." ('/':x) = x
+           comb d x = d ++ x
+       haverule <- filterM (fmap isJust . getTarget) $ concatMap (\p -> [comb p hsname,comb p lhsname]) ps
        x <- filterM (io . doesFileExist) $ map (++hscname) ps
        case haverule of
          (hs:_) -> do build' CanModifyState hs

@@ -1,0 +1,37 @@
+Using replace to generate source files
+======================================
+
+Here we illustrate how you can use [replace][] to modify files, much like
+`AC_SUBST` in autoconf.
+
+[replace]: haddock/Distribution-Franchise.html#v%3Areplace
+
+file: tests/replace/Foo.hs.in
+    module Foo where
+    foo = putStrLn @Foo@
+
+file: tests/replace/simple.hs
+    import Foo
+    main = foo
+
+As you can see, it's just a standard hello world.
+
+Setup.hs
+--------
+
+
+file: tests/replace/Setup.hs
+    import Distribution.Franchise
+    
+    main = build [] (do replace "@Foo@" "Foo message"
+                        createFile "Foo.hs")
+           (executable "simple" "simple.hs" [])
+
+Testing it out
+--------------
+
+file: tests/replace/replace.sh
+....set -ev
+    runghc Setup.hs build
+...../simple
+    ./simple | grep 'Foo message'
