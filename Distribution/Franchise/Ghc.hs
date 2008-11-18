@@ -40,9 +40,9 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package, installPackageInto ) where
 
-import Control.Monad ( when, filterM )
+import Control.Monad ( when, filterM, forM_ )
 import System.Exit ( ExitCode(..) )
-import Data.Maybe ( catMaybes, listToMaybe )
+import Data.Maybe ( catMaybes, listToMaybe, isJust )
 import Data.List ( partition, (\\), isSuffixOf, isPrefixOf, nub )
 import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
 
@@ -52,6 +52,7 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv, getEnv )
+import Distribution.Franchise.Program ( withProgram )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -204,15 +205,23 @@ package pn modules cfiles =
        preprocsources <- preprocessedTargets his
        mhaddockdir <- getExtraData "haddock-directory"
        let haddockdir = maybe "haddock" id mhaddockdir
-       addTarget $ [phony "haddock", haddockdir++"/index.html"] :< preprocsources :<-
-                 defaultRule { make = const $
+       addTarget $ [phony "haddock", haddockdir++"/index.html"] :< map (".preproc/"++) preprocsources
+           :<- defaultRule { make = const $
                                do rm_rf haddockdir
                                   mkdir haddockdir
                                   mcss <- getExtraData "css"
                                   let cssflag = maybe [] (\f -> ["--css",f]) mcss
+                                  cd ".preproc"
+                                  sourceflags <- withProgram "HsColour" ["hscolour"] $ \hscolour ->
+                                      do forM_ preprocsources $ \source ->
+                                           do mkdir $ "../"++dirname (haddockdir++"/"++source)
+                                              system hscolour ["-html","-anchor",source,
+                                                               "-o../"++haddockdir++"/"++source++".html"]
+                                         return ["--source-module", "%F.html",
+                                                 "--source-entity", "%F.html#%{NAME}"]
                                   system "haddock" ("-h":preprocsources++
                                                     concatMap (\hm -> ["--hide",hm]) hiddenmodules++
-                                                    cssflag++["-o",haddockdir]) }
+                                                    cssflag++sourceflags++["-o","../"++haddockdir]) }
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
                                addTarget $ [o] <: [f]
                                return o) cfiles
@@ -244,7 +253,7 @@ preprocessedTargets his =
                                           do mkdir $ dirname preprocs
                                              ghc system ["-cpp","-E","-optP-P","-D__HADDOCK__",
                                                          s, "-o", preprocs] }
-                          return preprocs
+                          return s
        mapM preproc sources
 
 installPackageInto :: String -> String -> C ()
