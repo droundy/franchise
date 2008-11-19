@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -34,7 +35,11 @@ module Distribution.Franchise.Env ( setEnv, getEnv, addToPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
-import qualified System.Environment as E ( getEnv, getEnvironment )
+import qualified System.Environment as E ( getEnv,
+#ifdef GETENVIRONMENTWORKS
+                                           getEnvironment
+#endif
+                                         )
 
 import Distribution.Franchise.ConfigureState
     ( C, getAllExtraData, getExtraData, addExtraData, io, catchC, amInWindows )
@@ -57,7 +62,16 @@ getPrivateEnvironment = (catMaybes . map cleanEnv) `fmap` getAllExtraData
 
 getEnvironment :: C [(String, String)]
 getEnvironment = do pe <- getPrivateEnvironment
+#ifdef GETENVIRONMENTWORKS
                     e <- io E.getEnvironment
+#else
+                    let gete x = do v <- getEnv x
+                                    return $ fmap (\y -> (x,y)) v
+                    e <- catMaybes `fmap`
+                         mapM gete ["HOME","PATH","PWD","PREFIX",
+                                    "GHC_PACKAGE_CONF",
+                                    "FRANCHISE_GHC_PACKAGE_CONF"]
+#endif
                     return (pe ++ filter ((`notElem` (map fst pe)) . fst) e)
 
 -- WARNING: on Windows, addToPath affects only the path used by programs we
