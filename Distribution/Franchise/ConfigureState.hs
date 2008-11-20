@@ -70,7 +70,7 @@ import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
 
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory, getCurrentDirectory,
-                          doesDirectoryExist, doesFileExist,
+                          doesDirectoryExist,
                           removeFile, removeDirectory, createDirectory,
                           getDirectoryContents )
 import System.Environment ( getProgName )
@@ -411,15 +411,12 @@ rm_rf d0 = do d <- processFilePath d0
               rm_rf' d
   where
    rm_rf' d =
-    do isd <- io $ doesDirectoryExist d
-       if not isd
-          then whenC (io $ doesFileExist d) $ io $ removeFile d
-          else -- The following is a very hokey attempt to avoid recursing into symlinks...
-               catchC (io $ removeFile d) $ \_ ->
-               do fs <- readDirectory d
-                  mapM_ (rm_rf' . ((d++"/")++)) fs
-                  putV $ "rm -rf "++d
-                  io $ removeDirectory d
+    do catchC (io $ removeFile d) $ \_ -> return ()
+       whenC (io $ doesDirectoryExist d) $
+             do fs <- readDirectory d
+                mapM_ (rm_rf' . ((d++"/")++)) fs
+                putV $ "rm -rf "++d
+                io $ removeDirectory d
     `catchC` \e -> putV $ "rm -rf failed: "++e
 
 data LogMessage = Stdout String | Logfile String
