@@ -37,7 +37,8 @@ module Distribution.Franchise ( C, build, buildWithArgs,
                                 define, defineAs, isDefined,
                                 io, catchC, unlessC, whenC,
                                 -- test suite helpers
-                                test, testOne, beginTestWith, prepareForTest,
+                                test, testOne, testOutput,
+                                beginTestWith, prepareForTest,
                                 addToRule,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build

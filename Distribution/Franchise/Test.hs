@@ -30,7 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testOne, prepareForTest, beginTestWith )
+module Distribution.Franchise.Test ( test, testOne, prepareForTest, beginTestWith,
+                                     testOutput )
     where
 
 import System.Exit ( ExitCode(..) )
@@ -42,6 +43,25 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.Parallel ( mapC )
 
 -- | Create a build target for test suites.
+
+testOutput :: String -> String -> C String -> C ()
+testOutput n o j =
+    do withcwd <- rememberDirectory
+       let runtest =
+               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+                  out <- withcwd $ do begin
+                                      j
+                  --let nice = show
+                  let nice = unlines . map (\l->('|':' ':l)) . lines
+                  putV $ nice out
+                  if out == o
+                    then if "fail" `isPrefixOf` n
+                         then putS $ pad ("testing "++n)++" unexpectedly passed!"
+                         else putS $ pad ("testing "++n)++" ok"
+                    else do putS $ pad ("testing "++n)++" FAILED"
+                            fail $ unlines [nice out,"differs from",nice o]
+       addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
+           |<- defaultRule { make = const $ runtest }
 
 testOne :: String -> String -> String -> C ()
 testOne n r f = do withcwd <- rememberDirectory
