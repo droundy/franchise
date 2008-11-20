@@ -44,43 +44,39 @@ import Distribution.Franchise.Parallel ( mapC )
 
 -- | Create a build target for test suites.
 
+testC :: String -> C () -> C ()
+testC n j = do withcwd <- rememberDirectory
+               addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
+                   |<- defaultRule { make = const $ withcwd runtest }
+    where runtest =
+              do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+                 (do begin
+                     j
+                     if "fail" `isPrefixOf` n
+                       then putS $ pad ("testing "++n)++" unexpectedly passed!"
+                       else putS $ pad ("testing "++n)++" ok")
+                   `catchC` \e ->
+                       do putS $ pad ("testing "++n)++" FAILED"
+                          putV $ unlines $ map (\l->('|':' ':l)) $ lines e
+                          fail e
+
 testOutput :: String -> String -> C String -> C ()
-testOutput n o j =
-    do withcwd <- rememberDirectory
-       let runtest =
-               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
-                  out <- withcwd $ do begin
-                                      j
-                  --let nice = show
-                  let nice = unlines . map (\l->('|':' ':l)) . lines
-                  putV $ nice out
-                  if out == o
-                    then if "fail" `isPrefixOf` n
-                         then putS $ pad ("testing "++n)++" unexpectedly passed!"
-                         else putS $ pad ("testing "++n)++" ok"
-                    else do putS $ pad ("testing "++n)++" FAILED"
-                            fail $ unlines [nice out,"differs from",nice o]
-       addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
-           |<- defaultRule { make = const $ runtest }
+testOutput n o j = testC n runtest
+    where runtest = do out <- j
+                       --let nice = show
+                       let nice = unlines . map (\l->('|':' ':l)) . lines
+                       if out == o
+                         then putV $ nice out
+                         else fail $ unlines [nice out,"differs from",nice o]
 
 testOne :: String -> String -> String -> C ()
-testOne n r f = do withcwd <- rememberDirectory
-                   addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
-                             -- no dependencies, so it'll get automatically run
-                             |<- defaultRule { make = const $ runtest withcwd }
-    where runtest withcwd =
-              do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
-                 (ec,out) <- withcwd $ do begin
-                                          ec <- silently $ systemOutErrToFile r [f] (n++".out")
-                                          out <- cat (n++".out")
-                                          return (ec,out)
-                 putV $ unlines $ map (\l->('|':' ':l)) $ lines out
-                 case ec of
-                   ExitSuccess -> if "fail" `isPrefixOf` f
-                                  then putS $ pad ("testing "++f)++" unexpectedly passed!"
-                                  else putS $ pad ("testing "++f)++" ok"
-                   _ -> do putS $ pad ("testing "++f)++" FAILED"
-                           fail out
+testOne n r f = testC n runtest
+    where runtest = do ec <- silently $ systemOutErrToFile r [f] (n++".out")
+                       out <- cat (n++".out")
+                       case ec of
+                         ExitSuccess ->
+                             putV $ unlines $ map (\l->('|':' ':l)) $ lines out
+                         _ -> fail out
 
 pad :: String -> String
 pad x0 = if length x < 65
