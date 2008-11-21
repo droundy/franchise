@@ -74,6 +74,7 @@ module Distribution.Franchise ( C, build, buildWithArgs,
                                 rmGhcFlags,
                                 -- utility for running external code
                                 system, systemOut, systemInOut,
+                                systemOutErrToFile,
                                 cd, mkdir, pwd, ls, cat, rm_rf, mv,
                                 mkFile,
                                 withDirectory, rememberDirectory, splitPath,
