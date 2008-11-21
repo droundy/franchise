@@ -31,7 +31,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Env ( setEnv, getEnv, addToPath,
+module Distribution.Franchise.Env ( setEnv, getEnv, addToPath, extraPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
@@ -74,11 +74,16 @@ getEnvironment = do pe <- getPrivateEnvironment
 #endif
                     return (pe ++ filter ((`notElem` (map fst pe)) . fst) e)
 
--- WARNING: on Windows, addToPath affects only the path used by programs we
--- call, not the path we use to find programs we call!
-
 addToPath :: FilePath -> C ()
 addToPath d = do amw <- amInWindows
                  oldpath <- maybe "" id `fmap` getEnv "PATH"
                  setEnv "PATH" $ if amw then d++';':oldpath
                                         else d++':':oldpath
+                 ps <- extraPath
+                 addExtraData "extra-path" $ show (d:ps)
+
+extraPath :: C [FilePath]
+extraPath = do ep <- getExtraData "extra-path"
+               case reads `fmap` ep of
+                 Just [(p,"")] -> return p
+                 _ -> return []

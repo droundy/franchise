@@ -48,7 +48,8 @@ import Control.Monad ( MonadPlus, mplus )
 import System.IO ( hGetContents, openFile, IOMode(..), hPutStr, hClose )
 
 import Distribution.Franchise.ConfigureState
-import Distribution.Franchise.Env ( getEnvironment )
+import Distribution.Franchise.Env ( getEnvironment, extraPath )
+import Distribution.Franchise.Permissions ( isExecutable )
 
 -- | A version of waitForProcess that is non-blocking even when linked with
 -- the non-threaded runtime.
@@ -69,11 +70,26 @@ waitForProcessNonBlocking = if rtsSupportsBoundThreads
                                          putD $ "Waiting for process... " ++ show n
                                          wfp (min 100000 (n+1+n`div`4)) pid
 
+findCommandInExtraPath :: String -> C String
+findCommandInExtraPath c = do ds <- extraPath
+                              csum $ map fcip ds++[return c]
+    where fcip d = do amw <- amInWindows
+                      if amw
+                         then do ise <- isExecutable (d++"/"++c)
+                                 if ise then return (d++"/"++c)
+                                        else do ise2 <- isExecutable (d++"/"++c++".exe")
+                                                if ise2 then return (d++"/"++c++".exe")
+                                                        else fail $ "not "++(d++"/"++c)
+                         else do ise <- isExecutable (d++"/"++c)
+                                 if ise then return (d++"/"++c)
+                                        else fail $ "not "++(d++"/"++c)
+
 -- | Run a command
 system :: String   -- ^ Command
        -> [String] -- ^ Arguments
        -> C ()
-system c args = do sd <- getCurrentSubdir
+system g args = do sd <- getCurrentSubdir
+                   c <- findCommandInExtraPath g
                    env <- Just `fmap` getEnvironment
                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                    out <- io $ hGetContents o
@@ -96,7 +112,8 @@ system c args = do sd <- getCurrentSubdir
 systemV :: String   -- ^ Command
         -> [String] -- ^ Arguments
         -> C ()
-systemV c args = do sd <- getCurrentSubdir
+systemV g args = do sd <- getCurrentSubdir
+                    c <- findCommandInExtraPath g
                     env <- Just `fmap` getEnvironment
                     (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                     out <- io $ hGetContents o
@@ -115,7 +132,8 @@ systemV c args = do sd <- getCurrentSubdir
 
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String -> [String] -> C (ExitCode, String)
-systemErr c args = do sd <- getCurrentSubdir
+systemErr g args = do sd <- getCurrentSubdir
+                      c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
                       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
@@ -131,8 +149,9 @@ systemErr c args = do sd <- getCurrentSubdir
 -- | Run a process with a list of arguments and send anything from
 -- /stderr/ or /stdout/ to a file
 systemOutErrToFile :: String -> [String] -> String -> C ExitCode
-systemOutErrToFile c args outf0 =
+systemOutErrToFile g args outf0 =
     do sd <- getCurrentSubdir
+       c <- findCommandInExtraPath g
        let long = unwords (c:args)
            short = if length args < 2 then long
                                       else '[':c++"]"
@@ -147,7 +166,8 @@ systemOutErrToFile c args outf0 =
 systemOut :: String   -- ^ Program name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
-systemOut c args = do sd <- getCurrentSubdir
+systemOut g args = do sd <- getCurrentSubdir
+                      c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
                       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
@@ -171,7 +191,8 @@ systemInOut :: String   -- ^ Program name
             -> [String] -- ^ Arguments
             -> String   -- ^ stdin
             -> C String -- ^ output
-systemInOut c args inp = do sd <- getCurrentSubdir
+systemInOut g args inp = do sd <- getCurrentSubdir
+                            c <- findCommandInExtraPath g
                             env <- Just `fmap` getEnvironment
                             (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
                             out <- io $ hGetContents o

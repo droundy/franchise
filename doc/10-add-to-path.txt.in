@@ -1,0 +1,34 @@
+Using addToPath
+===============
+
+You can use the [addToPath][] function to add a new directory to your
+path.  This is useful for tests.
+
+[addToPath]: haddock/Distribution-Franchise.html#v%3AaddToPath
+
+~~~~ tests/add-to-path/out/simple.hs
+main = putStrLn "hello world"
+~~~~
+
+Setup.hs
+--------
+
+~~~~ tests/add-to-path/Setup.hs
+import Distribution.Franchise
+
+main = build [] (return ()) $
+       do d <- pwd
+          addToPath (d++"/out")
+          testC "test" $ system "simple" [] -- test that "simple" can be run.
+          executable "out/simple" "out/simple.hs" []
+~~~~
+
+Testing it out
+--------------
+
+~~~~ tests/add-to-path/add-to-path.sh
+set -ev
+runghc Setup.hs build
+runghc Setup.hs test
+./out/simple
+~~~~

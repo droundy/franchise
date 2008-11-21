@@ -30,8 +30,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testOne, prepareForTest, beginTestWith,
-                                     testOutput )
+module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
+                                     prepareForTest, beginTestWith )
     where
 
 import System.Exit ( ExitCode(..) )

@@ -30,12 +30,15 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Permissions ( setExecutable ) where
+module Distribution.Franchise.Permissions ( setExecutable, isExecutable ) where
 
 import System.Directory ( getPermissions, setPermissions, executable )
 
-import Distribution.Franchise.ConfigureState ( C, io )
+import Distribution.Franchise.ConfigureState ( C, io, catchC )
 
 setExecutable :: FilePath -> C ()
 setExecutable f = io $ do p <- getPermissions f
                           setPermissions f $ p { executable = True }
+
+isExecutable :: FilePath -> C Bool
+isExecutable f = io (executable `fmap` getPermissions f) `catchC` \_ -> return False
