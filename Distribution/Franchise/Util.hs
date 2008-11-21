@@ -186,7 +186,8 @@ systemOut g args = do sd <- getCurrentSubdir
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
-                        ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+                        ExitFailure ecode -> fail $ c ++ " failed with exit code "++
+                                             show ecode++"\n"++indent "\t*" err
     where indent ind s = ind ++ indent' s
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs
