@@ -27,14 +27,15 @@ configure = do copyright "Copyright 2008 David Roundy"
                rm_rf "testenv.hs"
                ghcFlags ["-threaded","-O2","-Wall"]
 
-main = build [] configure $ do -- autoVersion doesn't go in configure
-                               -- because we want to rerun it with each
-                               -- build rather than waiting for the user to
-                               -- run Setup.hs configure again.
-                               autoVersion Numbered
-                               buildDoc
-                               darcsDist "franchise" ["franchise.cabal"]
-                               package "franchise" ["Distribution.Franchise"] []
+main = build [shellFlag] configure $
+       do -- autoVersion doesn't go in configure
+          -- because we want to rerun it with each
+          -- build rather than waiting for the user to
+          -- run Setup.hs configure again.
+         autoVersion Numbered
+         buildDoc
+         darcsDist "franchise" ["franchise.cabal"]
+         package "franchise" ["Distribution.Franchise"] []
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"
@@ -63,7 +64,8 @@ buildDoc = do rm_rf "doc/tests"
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne t "bash" t >> return t) tests
+                             sh <- shell
+                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne t sh t >> return t) tests
                              return ([txtf],ts)
           buildIndex inps =
                   do withd <- rememberDirectory

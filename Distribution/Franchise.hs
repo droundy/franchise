@@ -67,6 +67,8 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 releaseDescription, releaseName,
                                 -- utilities for processing markdown files
                                 splitMarkdown, markdownToHtml, markdownStringToHtmlString,
+                                -- utility for calling shell
+                                shell, shellFlag,
                                 -- utilities for autoheader files
                                 autoHeader,
                                 -- setting compile parameters
@@ -109,3 +111,4 @@ import Distribution.Franchise.Env
 import Distribution.Franchise.ListUtils
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
+import Distribution.Franchise.Shell ( shell, shellFlag )
