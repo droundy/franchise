@@ -46,6 +46,7 @@ module Distribution.Franchise.ConfigureState
       getPkgFlags, getLicense,
       getMaintainer,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
+      argFlag, FranchiseFlag,
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs,
       CanModifyState(..),
@@ -84,25 +85,30 @@ import Data.Maybe ( isJust, catMaybes )
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
 
-flag :: String -> String -> C () -> C (OptDescr (C ()))
+type FranchiseFlag = OptDescr (C ())
+
+argFlag :: String -> String -> String -> (String -> C ()) -> C FranchiseFlag
+argFlag n argname h j = return $ Option [] [n] (ReqArg j argname) h
+
+flag :: String -> String -> C () -> C FranchiseFlag
 flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j') h
     where j' = do putV $ "handling flag --"++n; j
 
-unlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
+unlessFlag :: String -> String -> C () -> C FranchiseFlag
 unlessFlag n h j = do addHook Postconfigure n j'
                       flag n h (removeHook Postconfigure n)
     where j' = do putV $ "handling missing flag --"++n; j
 
-configureFlag :: String -> String -> C () -> C (OptDescr (C ()))
+configureFlag :: String -> String -> C () -> C FranchiseFlag
 configureFlag n h j = return $ Option [] [n] (NoArg $ addHook Preconfigure n j') h
     where j' = do putV $ "handling configure flag --"++n; j
 
-configureUnlessFlag :: String -> String -> C () -> C (OptDescr (C ()))
+configureUnlessFlag :: String -> String -> C () -> C FranchiseFlag
 configureUnlessFlag n h j = do addHook Preconfigure n j'
                                flag n h (removeHook Preconfigure n)
     where j' = do putV $ "handling missing configure flag --"++n; j
 
-runWithArgs :: [C (OptDescr (C ()))] -> [String] -> (String -> C ()) -> C ()
+runWithArgs :: [C FranchiseFlag] -> [String] -> (String -> C ()) -> C ()
 runWithArgs optsc validCommands runCommand =
     do args <- gets commandLine
        myname <- io $ getProgName
