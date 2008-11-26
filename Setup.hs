@@ -27,7 +27,7 @@ configure = do copyright "Copyright 2008 David Roundy"
                rm_rf "testenv.hs"
                ghcFlags ["-threaded","-O2","-Wall"]
 
-main = build [shellFlag] configure $
+main = build [configurableProgram "shell" "bash" ["shsh","sh"]] configure $
        do -- autoVersion doesn't go in configure
           -- because we want to rerun it with each
           -- build rather than waiting for the user to
@@ -64,7 +64,7 @@ buildDoc = do rm_rf "doc/tests"
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             sh <- shell
+                             sh <- configuredProgram "shell"
                              ts <- mapM (\ (d, t) -> withDirectory d $ testOne t sh t >> return t) tests
                              return ([txtf],ts)
           buildIndex inps =

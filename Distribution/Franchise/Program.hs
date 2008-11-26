@@ -30,7 +30,9 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Program ( findProgram, withProgram )
+module Distribution.Franchise.Program ( findProgram, withProgram,
+                                        configurableProgram, withConfiguredProgram,
+                                        configuredProgram )
     where
 
 import System.Directory ( findExecutable )
@@ -50,3 +52,21 @@ findProgram e xs = fe (e:xs)
 withProgram :: Monoid a => String -> [String] -> (String -> C a) -> C a
 withProgram pname alts j = (findProgram pname alts >>= j)
                            `catchC` \_ -> return mempty
+
+configurableProgram :: String -> String -> [String] -> C FranchiseFlag
+configurableProgram humanName defaultProg options =
+    configureFlagWithDefault ("with-"++humanName) "COMMAND" ("use command as "++humanName)
+                             (do p <- findProgram defaultProg options
+                                 putS $ "found "++humanName++" "++p
+                                 addExtraData ("program-"++humanName) p)
+                             (addExtraData ("program-"++humanName))
+
+configuredProgram :: String -> C String
+configuredProgram humanName = withConfiguredProgram humanName return
+
+withConfiguredProgram :: String -> (String -> C a) -> C a
+withConfiguredProgram humanName j =
+    do mp <- getExtraData ("program-"++humanName)
+       case mp of
+         Just p -> j p
+         Nothing -> fail $ "No "++ humanName ++" program"

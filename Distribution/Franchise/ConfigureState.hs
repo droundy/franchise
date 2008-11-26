@@ -46,7 +46,7 @@ module Distribution.Franchise.ConfigureState
       getPkgFlags, getLicense,
       getMaintainer,
       flag, unlessFlag, configureFlag, configureUnlessFlag,
-      argFlag, FranchiseFlag,
+      configureFlagWithDefault, FranchiseFlag,
       runConfigureHooks, runPostConfigureHooks,
       getNumJobs,
       CanModifyState(..),
@@ -87,8 +87,12 @@ import Distribution.Franchise.Trie
 
 type FranchiseFlag = OptDescr (C ())
 
-argFlag :: String -> String -> String -> (String -> C ()) -> C FranchiseFlag
-argFlag n argname h j = return $ Option [] [n] (ReqArg j argname) h
+configureFlagWithDefault :: String -> String -> String
+                         -> C () -> (String -> C ()) -> C FranchiseFlag
+configureFlagWithDefault n argname h defaultaction j =
+ do addHook Preconfigure n defaultaction
+    return $ Option [] [n] (ReqArg (addHook Preconfigure n . j') argname) h
+    where j' v = do putV $ "handling configure flag --"++n; j v
 
 flag :: String -> String -> C () -> C FranchiseFlag
 flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j') h
