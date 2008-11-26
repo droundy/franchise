@@ -33,7 +33,7 @@ module Distribution.Franchise.ConfigureState
     ( runWithArgs,
       amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
-      getAllPackages, getModulesInPackage, addModulesForPackage,
+      getModulePackageMap, setModulePackageMap,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -441,7 +441,7 @@ data TotalState = TS { numJobs :: Int,
                        postConfigureHooks :: [(String,C ())],
                        targets :: Trie Target,
                        built :: StringSet,
-                       packageModuleMap :: Trie [String],
+                       packageModuleMap :: Maybe (Trie [String]),
                        configureState :: ConfigureState }
 
 tsHook :: HookTime -> TotalState -> [(String,C ())]
@@ -474,7 +474,7 @@ runPostConfigureHooks = runHooks Postconfigure
 -- ErrorState is for returning errors along with any cached data we might
 -- have.  Currently, the only data we cache is the mapping from packages to
 -- modules.
-data ErrorState = Err String (Trie [String])
+data ErrorState = Err String (Maybe (Trie [String]))
 
 newtype C a = C (TotalState -> IO (Either ErrorState (a,TotalState)))
 
@@ -580,7 +580,7 @@ runC args (C a) =
                       noRemove = False,
                       targets = defaultTargets,
                       built = emptyS,
-                      packageModuleMap = emptyT,
+                      packageModuleMap = Nothing,
                       configureState = defaultConfiguration { commandLine = args } })
        case xxx of
          Left (Err e _) -> do -- give print thread a chance to do a bit more writing...
@@ -615,15 +615,12 @@ getTargets = C $ \ts -> return $ Right (targets ts, ts)
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
 
-getAllPackages :: C [String]
-getAllPackages = C $ \ts -> return $ Right (toListS $ keysT $ packageModuleMap ts, ts)
+getModulePackageMap :: C (Maybe (Trie [String]))
+getModulePackageMap = C $ \ts -> return $ Right (packageModuleMap ts, ts)
 
-getModulesInPackage :: String -> C (Maybe [String])
-getModulesInPackage p = C $ \ts -> return $ Right (lookupT p $ packageModuleMap ts, ts)
-
-addModulesForPackage :: String -> [String] -> C ()
-addModulesForPackage p ms =
-    C $ \ts -> return $ Right ((), ts { packageModuleMap = insertT p ms $ packageModuleMap ts })
+setModulePackageMap :: Trie [String] -> C ()
+setModulePackageMap mpm =
+    C $ \ts -> return $ Right ((), ts { packageModuleMap = Just mpm })
 
 isBuilt :: String -> C Bool
 isBuilt t = C $ \ts -> return $ Right (t `elemS` built ts || ('*':t++"*") `elemS` built ts, ts)
@@ -644,8 +641,8 @@ catchC (C a) b = C $ \ts ->
                     case out of
                       Left e -> unC (b e) ts
                       Right (Left (Err e modmap)) -> unC (b e) $
-                                                     ts { packageModuleMap = unionT modmap
-                                                                             (packageModuleMap ts) }
+                                                     ts { packageModuleMap = modmap `mplus`
+                                                                             packageModuleMap ts }
                       Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()

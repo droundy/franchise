@@ -53,6 +53,8 @@ import Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
+import Distribution.Franchise.GhcPkg ( readPkgMappings )
+import Distribution.Franchise.Trie ( Trie, lookupT )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -586,29 +588,13 @@ getHscs = do mhscs <- getExtraData "hsc2hs"
              return hscs
 
 findPackagesProvidingModule :: String -> C [String]
-findPackagesProvidingModule m =
-#if __GLASGOW_HASKELL__ >= 610
-     (reverse . words) `fmap` systemOut "ghc-pkg" ["find-module","--simple-output",m]
-#else
-     do allps <- findAllPackages
-        filterM (fmap (elem m) . packageModules) allps
-#endif
+findPackagesProvidingModule m = do mpm <- reallyGetModulePackageMap
+                                   return $ maybe [] id $ lookupT m mpm
 
-findAllPackages :: C [String]
-findAllPackages =
-    do ps <- getAllPackages
-       case ps of
-         [] -> (reverse . words) `fmap` systemOut "ghc-pkg" ["list","--simple-output"]
-         _ -> return ps
-
-packageModules :: String -> C [String]
-packageModules p =
-    do mms <- getModulesInPackage p
-       case mms of
-         Just ms -> return ms
-         Nothing -> do ms <- (tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"exposed-modules"]
-                       addModulesForPackage p ms
-                       return ms
-
---packageAndDeps :: String -> C [String]
---packageAndDeps p = ((p:) . tail . words) `fmap` systemOut "ghc-pkg" ["field",p,"depends"]
+reallyGetModulePackageMap :: C (Trie [String])
+reallyGetModulePackageMap = do mpm <- getModulePackageMap
+                               case mpm of
+                                 Just x -> return x
+                                 Nothing -> do x <- readPkgMappings
+                                               setModulePackageMap x
+                                               return x
