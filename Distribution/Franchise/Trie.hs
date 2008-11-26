@@ -31,7 +31,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
                                      sloppyLookupKey, unionT,
-                                     insertT, adjustT, insertSeveralT, filterT, keysT,
+                                     insertT, adjustT, alterT,
+                                     insertSeveralT, filterT, keysT,
                                      delT, delSeveralT, lengthT ) where
 
 import Distribution.Franchise.StringSet
@@ -86,6 +87,15 @@ sloppyLookupKey "" t = map fst $ toListT t
 sloppyLookupKey (c:cs) (Trie _ ls) = case lookup c ls of
                                      Nothing -> []
                                      Just ls' -> map (c:) $ sloppyLookupKey cs ls'
+
+alterT :: String -> (Maybe a -> Maybe a) -> Trie a -> Trie a
+alterT "" f (Trie mv ls) = Trie (f mv) ls
+alterT (c:cs) f (Trie b ls) = Trie b $ adj ls
+    where adj ((c', ss):r) | c == c' = (c', alterT cs f ss) : r
+          adj (x:r) = x : adj r
+          adj [] = case f Nothing of
+                   Just v -> [(c, insertT cs v emptyT)]
+                   Nothing -> []
 
 adjustT :: String -> (a -> a) -> Trie a -> Trie a
 adjustT "" f (Trie (Just v) ls) = fv `seq` Trie (Just fv) ls
