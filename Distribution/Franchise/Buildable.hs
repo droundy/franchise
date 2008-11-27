@@ -44,7 +44,7 @@ import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
-import Control.Monad ( mplus )
+import Control.Monad ( when, mplus )
 
 import System.Console.GetOpt ( OptDescr(..) )
 
@@ -75,7 +75,7 @@ defaultRule :: BuildRule
 defaultRule = BuildRule (const $ return ()) (const Nothing) cleanIt
 
 extraData :: String -> String
-extraData x = "config.d/X-"++x
+extraData x = "config.d/"++x
 
 cleanIt :: Dependency -> [String]
 cleanIt (_:<[]) = []
@@ -113,16 +113,19 @@ build opts mkbuild =
        buildWithArgs args opts mkbuild
 
 buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
-buildWithArgs args opts mkbuild =
-       runC $
-       do if "configure" `elem` args
-            then rm_rf "config.d"
-            else (readConfigureState "config.d" >>= put)
-                     `catchC` \_ -> do putV "Couldn't read old config.d"
-                                       rm_rf "config.d"
+buildWithArgs args opts mkbuild = runC $
+       do dohooks <- if "configure" `elem` args
+                     then do rm_rf "config.d"
+                             return True
+                     else (do readConfigureState "config.d" >>= put
+                              putV "reusing old configuration"
+                              return False)
+                              `catchC` \_ -> do putV "Couldn't read old config.d"
+                                                rm_rf "config.d"
+                                                return True
           setCommandLine args
           targets <- handleArgs opts
-          runHooks
+          when dohooks runHooks
           b <- mkbuild
           addTarget ([phony "build"]:<b:<-defaultRule)
           writeConfigureState "config.d"

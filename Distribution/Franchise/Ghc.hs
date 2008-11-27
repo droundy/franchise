@@ -102,7 +102,7 @@ ghcDeps dname src announceme =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       addTarget $ [dname] :< ("config.d/commandLine":cleandeps x)
+       addTarget $ [dname] :< cleandeps x
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
                          x <- seekPackages (ghc systemErr $ ["-M"

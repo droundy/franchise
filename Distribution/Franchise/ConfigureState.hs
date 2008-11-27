@@ -42,6 +42,7 @@ module Distribution.Franchise.ConfigureState
       getLibDir, getBinDir,
       replace, replaceLiteral, replacements,
       getVersion, packages, getPackageVersion,
+      getExtra, addExtra, putExtra,
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
       getPkgFlags, getLicense,
       getMaintainer,
@@ -61,12 +62,12 @@ module Distribution.Franchise.ConfigureState
       quietly, silently,
       unlessC, whenC, getNoRemove,
       putS, putV, putD, putSV, putL,
-      put, get, gets, modify )
+      put, get )
         where
 
 import qualified System.Environment as E ( getEnv )
 import Control.Monad ( MonadPlus, mplus, mzero )
-import Data.Monoid ( Monoid, mempty )
+import Data.Monoid ( Monoid, mempty, mappend )
 import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
 
@@ -80,8 +81,8 @@ import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( delete, isPrefixOf, (\\) )
-import Data.Maybe ( isJust, catMaybes )
+import Data.List ( delete, (\\) )
+import Data.Maybe ( isJust )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
@@ -93,10 +94,10 @@ configureFlagWithDefault :: String -> String -> String
 configureFlagWithDefault n argname h defaultaction j =
  do addHook n defaultaction
     return $ Option [] [n] (ReqArg (addHook n . j') argname) h
-    where j' v = do putV $ "handling configure flag --"++n; j v
+    where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
 
 flag :: String -> String -> C () -> C FranchiseFlag
-flag n h j = return $ Option [] [n] (NoArg $ addHook n j') h
+flag n h j = return $ Option [] [n] (NoArg j') h
     where j' = do putV $ "handling flag --"++n; j
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
@@ -106,7 +107,7 @@ unlessFlag n h j = do addHook n j'
 
 handleArgs :: [C FranchiseFlag] -> C [String]
 handleArgs optsc =
-    do args <- gets commandLine
+    do args <- getExtra "commandLine"
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
        withEnv "PACKAGES" (addPackages . words)
@@ -122,11 +123,9 @@ handleArgs optsc =
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
                         Option [] ["user"]
-                          (NoArg $ do let m = pkgFlags ["--user"]
-                                      m; addHook "user" m) "install as user",
+                          (NoArg $ pkgFlags ["--user"]) "install as user",
                         Option [] ["disable-optimization"]
-                          (NoArg $ addHook "disable-optimization" $
-                                 rmGhcFlags ["-O2","-O"]) "disable optimization",
+                          (NoArg $ rmGhcFlags ["-O2","-O"]) "disable optimization",
                         Option [] ["verbose"]
                           (OptArg (\v -> C $ \ts -> return $
                                          Right ((), ts { verbosity = readVerbosity Verbose v }))
@@ -137,20 +136,16 @@ handleArgs optsc =
                                       Right ((), ts { noRemove = True })))
                           ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
-                          (ReqArg (addHook "prefix"
-                                   . addExtraData "prefix") "PATH")
+                          (ReqArg (addExtraData "prefix") "PATH")
                           "install under prefix",
                         Option [] ["bindir"]
-                          (ReqArg (\v -> do let m = addExtraData "bindir" v
-                                            m; addHook "bindir" m) "PATH")
+                          (ReqArg (addExtraData "bindir") "PATH")
                           "install in bindir",
                         Option [] ["libdir"]
-                          (ReqArg (\v -> do let m = addExtraData "libdir" v
-                                            m; addHook "libdir" m) "PATH")
+                          (ReqArg (addExtraData "libdir") "PATH")
                           "install in libdir",
                         Option [] ["libsubdir"]
-                          (ReqArg (\v -> do let m = addExtraData "libsubdir" v
-                                            m; addHook "libsubdir" m) "PATH")
+                          (ReqArg (addExtraData "libsubdir") "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
                           (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
@@ -182,22 +177,24 @@ handleArgs optsc =
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
-addPackages x = modify $ \c -> c { packagesC = (packagesC c \\ x) ++ x }
+addPackages = addExtra "packages"
 
 removePackages :: [String] -> C ()
-removePackages x = modify $ \c -> c { packagesC = packagesC c \\ x }
+removePackages x = do p <- getExtra "packages"
+                      putExtra "packages" $ p \\ x
 
 pkgFlags :: [String] -> C ()
-pkgFlags x = modify $ \c -> c { pkgFlagsC = (pkgFlagsC c \\ x) ++ x }
+pkgFlags = addExtra "pkgFlags"
 
 ghcFlags :: [String] -> C ()
-ghcFlags x = modify $ \c -> c { ghcFlagsC = (ghcFlagsC c \\ x) ++ x }
+ghcFlags = addExtra "ghcFlags"
 
 cFlags :: [String] -> C ()
-cFlags x = modify $ \c -> c { cFlagsC = (cFlagsC c \\ x) ++ x }
+cFlags = addExtra "cflags"
 
 rmGhcFlags :: [String] -> C ()
-rmGhcFlags x = modify $ \c -> c { ghcFlagsC = ghcFlagsC c \\ x }
+rmGhcFlags x = do f <- getExtra "ghcFlags"
+                  putExtra "ghcFlags" $ f \\ x
 
 update :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
 update k v [] = [(k,v)]
@@ -208,35 +205,37 @@ define :: String -> C ()
 define x = defineAs x ""
 
 undefine :: String -> C ()
-undefine x = modify $ \c -> c { definitionsC = filter ((/=x).fst) $ definitionsC c }
+undefine x = do ds <- getDefinitions
+                putExtra "definitions" $ filter ((/=x).fst) ds
 
 defineAs :: String -> String -> C ()
-defineAs x y = modify $ \c -> c { definitionsC = update x y $ definitionsC c }
+defineAs x y = do ds <- getDefinitions
+                  putExtra "definitions" $ update x y ds
 
 copyright, license, version :: String -> C ()
 copyright = addExtraData "copyright"
 license = addExtraData "license"
 version v = do addExtraData "version" v
-               writeF "config.d/X-version" v
+               writeF "config.d/version" v
                       `catchC` \_ -> return ()
 
 getGhcFlags :: C [String]
-getGhcFlags = gets ghcFlagsC
+getGhcFlags = getExtra "ghcFlags"
 
 getCFlags :: C [String]
-getCFlags = gets cFlagsC
+getCFlags = getExtra "cflags"
 
 getLdFlags :: C [String]
-getLdFlags = gets ldFlagsC
+getLdFlags = getExtra "ldflags"
 
 packages :: C [String]
-packages = gets packagesC
+packages = getExtra "packages"
 
 getPkgFlags :: C [String]
-getPkgFlags = gets pkgFlagsC
+getPkgFlags = getExtra "pkgFlags"
 
 getDefinitions :: C [(String,String)]
-getDefinitions = gets definitionsC
+getDefinitions = getExtra "definitions"
 
 isDefined :: String -> C Bool
 isDefined x = (not . null . filter ((==x).fst)) `fmap` getDefinitions
@@ -251,6 +250,19 @@ getMaintainer :: C String
 getMaintainer = do ema <- getEnv "EMAIL"
                    mai <- getExtraData "maintainer"
                    return $ maybe "???" id (mai `mplus` ema)
+
+putExtra :: Show a => String -> a -> C ()
+putExtra d v = addExtraData d $ show v
+
+addExtra :: (Monoid a, Show a, Read a) => String -> a -> C ()
+addExtra d v = do vold <- getExtra d
+                  putExtra d $ mappend v vold
+
+getExtra :: (Monoid a, Read a) => String -> C a
+getExtra d = do mv <- getExtraData d
+                return $ case reads `fmap` mv of
+                           Just [(v,_)] -> v
+                           _ -> mempty
 
 getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` getAllExtraData
@@ -312,70 +324,32 @@ getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
 
 ldFlags :: [String] -> C ()
-ldFlags x = modify $ \c -> c { ldFlagsC = ldFlagsC c ++ x }
+ldFlags = addExtra "ldflags"
 
-data ConfigureState = CS { commandLine :: [String],
-                           currentSubDirectory :: Maybe String,
-                           ghcFlagsC :: [String],
-                           pkgFlagsC :: [String],
-                           cFlagsC :: [String],
-                           ldFlagsC :: [String],
-                           packagesC :: [String],
-                           replacementsC :: [(String,String)],
-                           definitionsC :: [(String,String)],
+data ConfigureState = CS { currentSubDirectory :: Maybe String,
                            extraDataC :: [(String,String)] }
 
 readConfigureState :: String -> C ConfigureState
 readConfigureState d =
-    do cl <- readf "commandLine"
-       ghc <- readf "ghcFlags"
-       pkg <- readf "pkgFlags"
-       c <- readf "cFlags"
-       ld <- readf "ldFlags"
-       packs <- readf "packages"
-       repl <- readf "replacements"
-       defs <- readf "definitions"
-       alles <- readDirectory d'
-       let es = catMaybes $ map afterX alles
-           afterX ('X':'-':r) = Just r
-           afterX _ = Nothing
-       vs <- mapM (\e -> io $ readFile (d'++"X-"++e)) es
+    do alles <- readDirectory d'
+       let es = filter ((/= '.') . head) alles
+       vs <- mapM (\e -> io $ readFile (d'++e)) es
        let extr = zip es vs
        seq (length $ concat vs) $ return $
-           defaultConfiguration { commandLine = cl,
-                                  ghcFlagsC = ghc,
-                                  pkgFlagsC = pkg,
-                                  cFlagsC = c,
-                                  ldFlagsC = ld,
-                                  packagesC = packs,
-                                  replacementsC = repl,
-                                  definitionsC = defs,
-                                  extraDataC = extr }
+           defaultConfiguration { extraDataC = extr }
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
-            readf x = do s <- io $ readFile (d'++x)
-                         case reads s of
-                           [(dat,"")] -> return dat
-                           _ -> fail $ "couldn't read "++x
 
 writeConfigureState :: String -> C ()
 writeConfigureState d =
     do cs <- get
-       writeF (d'++"commandLine") $ show $ commandLine cs
-       writeF (d'++"ghcFlags") $ show $ ghcFlagsC cs
-       writeF (d'++"pkgFlags") $ show $ pkgFlagsC cs
-       writeF (d'++"cFlags") $ show $ cFlagsC cs
-       writeF (d'++"ldFlags") $ show $ ldFlagsC cs
-       writeF (d'++"packages") $ show $ packagesC cs
-       writeF (d'++"replacements") $ show $ replacementsC cs
-       writeF (d'++"definitions") $ show $ definitionsC cs
        mapM_ writeExtra $ extraDataC cs
-       allextras <- filter ("X-" `isPrefixOf`) `fmap` readDirectory d
-       let toberemoved = allextras \\ map (("X-"++) . fst) (extraDataC cs)
+       allextras <- filter ((/= '.') . head) `fmap` readDirectory d
+       let toberemoved = allextras \\ map fst (extraDataC cs)
        mapM_ (rm_rf . (d'++)) toberemoved
     where d' = case reverse d of ('/':_) -> d
                                  _ -> d++"/"
-          writeExtra (e,v) = writeF (d'++"X-"++e) v
+          writeExtra (e,v) = writeF (d'++e) v
 
 writeF :: String -> String -> C ()
 writeF x0 y = do x <- processFilePath x0
@@ -491,7 +465,7 @@ gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
 
 setCommandLine :: [String] -> C ()
-setCommandLine args = modify $ \c -> c { commandLine = args }
+setCommandLine = putExtra "commandLine"
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
 modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
@@ -581,15 +555,7 @@ defaultTargets =
     emptyT
 
 defaultConfiguration :: ConfigureState
-defaultConfiguration = CS { commandLine = [],
-                            currentSubDirectory = Nothing,
-                            ghcFlagsC = [],
-                            pkgFlagsC = [],
-                            cFlagsC = [],
-                            ldFlagsC = [],
-                            packagesC = [],
-                            replacementsC = [],
-                            definitionsC = [],
+defaultConfiguration = CS { currentSubDirectory = Nothing,
                             extraDataC = [] }
 
 getTargets :: C (Trie Target)
@@ -647,13 +613,13 @@ replace :: Show a => String -> a -> C ()
 replace a = replaceLiteral a . show
 
 replaceLiteral :: String -> String -> C ()
-replaceLiteral a b = do r <- gets replacementsC
+replaceLiteral a b = do r <- replacements
                         if a `elem` map fst r
                           then return ()
-                          else modify $ \c -> c { replacementsC = (a,b):r }
+                          else addExtra "replacements" [(a,b)]
 
 replacements :: C [(String,String)]
-replacements = gets replacementsC
+replacements = getExtra "replacements"
 
 putS :: String -> C ()
 putS str = whenC ((>= Normal) `fmap` getVerbosity) $
