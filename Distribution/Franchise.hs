@@ -111,3 +111,4 @@ import Distribution.Franchise.ListUtils
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
+import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )

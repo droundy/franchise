@@ -30,9 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.GhcState
-    ( handleArgs, flag, unlessFlag,
-      configureFlagWithDefault, FranchiseFlag,
-      ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
+    ( ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
       rmGhcFlags,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
@@ -43,108 +41,12 @@ module Distribution.Franchise.GhcState
       getPkgFlags, getMaintainer )
         where
 
-import qualified System.Environment as E ( getEnv )
 import Control.Monad ( mplus )
-import System.Exit ( exitWith, ExitCode(..) )
 import System.Directory ( getAppUserDataDirectory )
-import System.Environment ( getProgName )
-import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
-                               usageInfo, getOpt )
-import Data.List ( delete, (\\) )
+import Data.List ( (\\) )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnv )
-
-type FranchiseFlag = OptDescr (C ())
-
-configureFlagWithDefault :: String -> String -> String
-                         -> C () -> (String -> C ()) -> C FranchiseFlag
-configureFlagWithDefault n argname h defaultaction j =
- do addHook n defaultaction
-    return $ Option [] [n] (ReqArg (addHook n . j') argname) h
-    where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
-
-flag :: String -> String -> C () -> C FranchiseFlag
-flag n h j = return $ Option [] [n] (NoArg j') h
-    where j' = do putV $ "handling flag --"++n; j
-
-unlessFlag :: String -> String -> C () -> C FranchiseFlag
-unlessFlag n h j = do addHook n j'
-                      flag n h (removeHook n)
-    where j' = do putV $ "handling missing flag --"++n; j
-
-withEnv :: String -> (String -> C ()) -> C ()
-withEnv x j = do e <- io $ E.getEnv x
-                 j e
-              `catchC` \_ -> return ()
-
-handleArgs :: [C FranchiseFlag] -> C [String]
-handleArgs optsc =
-    do args <- getExtra "commandLine"
-       myname <- io $ getProgName
-       withEnv "GHCFLAGS" (ghcFlags . words)
-       withEnv "PACKAGES" (addPackages . words)
-       withEnv "LDFLAGS" (ldFlags . words)
-       withEnv "CFLAGS" (cFlags . words)
-       withEnv "LIBDIR" (addExtraData "libdir")
-       withEnv "BINDIR" (addExtraData "bindir")
-       withEnv "PREFIX" (addExtraData "prefix")
-       opts <- sequence optsc
-       let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
-           validCommands = ["configure","build","clean","install"] -- should be in monad
-           inbrackets x = "["++x++"]"
-           defaults = [ Option ['h'] ["help"] (NoArg showUsage)
-                                   "show usage info",
-                        Option [] ["user"]
-                          (NoArg $ pkgFlags ["--user"]) "install as user",
-                        Option [] ["disable-optimization"]
-                          (NoArg $ rmGhcFlags ["-O2","-O"]) "disable optimization",
-                        Option [] ["verbose"] (OptArg setVerbose "VERBOSITY")
-                          ("Control verbosity (default verbosity level is 1)"),
-                        Option [] ["debug"] (NoArg $ setVerbose $ Just "2")
-                          ("Enable debug output (verbosity level 2)"),
-                        Option [] ["no-remove"] (NoArg $ putExtra "noRemove" [()])
-                          ("Prevent deletion of temporary files"),
-                        Option [] ["prefix"]
-                          (ReqArg (addExtraData "prefix") "PATH")
-                          "install under prefix",
-                        Option [] ["bindir"]
-                          (ReqArg (addExtraData "bindir") "PATH")
-                          "install in bindir",
-                        Option [] ["libdir"]
-                          (ReqArg (addExtraData "libdir") "PATH")
-                          "install in libdir",
-                        Option [] ["libsubdir"]
-                          (ReqArg (addExtraData "libsubdir") "PATH")
-                          "install in libsubdir",
-                        Option ['j'] ["jobs"]
-                          (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
-                          "run N jobs in parallel; infinite jobs with no arg.",
-                        Option [] ["package"]
-                                 (ReqArg (\p -> addPackages [p]) "PACKAGE-NAME")
-                          "use a particular ghc package",
-                        Option [] ["enable-hpc"] (NoArg $ ghcFlags ["-fhpc"])
-                          "enable program coverage",
-                        Option ['V'] ["version"] (NoArg showVersion)
-                                   "show version number"
-                      ]
-           readM s = case reads s of [(x,"")] -> Just x
-                                     _ -> Nothing
-           putAndExit x = do io $ putStrLn x
-                             io $ exitWith ExitSuccess
-           showVersion = putAndExit "version 0.0"
-           showUsage = putAndExit (usageInfo header options)
-           options = opts++defaults
-       eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
-                                 flag "global" "not --user" $ return (),
-                                 flag "disable-optimize" "disable optimization" $
-                                      rmGhcFlags ["-O2","-O"],
-                                 return $ Option [] ["constraint"]
-                                 (ReqArg (const (return ())) "ugh") "ignored" ]
-       case getOpt Permute (options++eviloptions) args of
-         (flags, commands, []) -> do sequence_ flags
-                                     return $ delete "configure" commands
-         (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
 addPackages = addExtra "packages"
@@ -154,13 +56,13 @@ removePackages x = do p <- getExtra "packages"
                       putExtra "packages" $ p \\ x
 
 pkgFlags :: [String] -> C ()
-pkgFlags = addExtra "pkgFlags"
+pkgFlags = addExtraUnique "pkgFlags"
 
 ghcFlags :: [String] -> C ()
-ghcFlags = addExtra "ghcFlags"
+ghcFlags = addExtraUnique "ghcFlags"
 
 cFlags :: [String] -> C ()
-cFlags = addExtra "cflags"
+cFlags = addExtraUnique "cflags"
 
 rmGhcFlags :: [String] -> C ()
 rmGhcFlags x = do f <- getExtra "ghcFlags"
@@ -251,4 +153,4 @@ getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
 
 ldFlags :: [String] -> C ()
-ldFlags = addExtra "ldflags"
+ldFlags = addExtraUnique "ldflags"

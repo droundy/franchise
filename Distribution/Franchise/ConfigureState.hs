@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.ConfigureState
     ( amInWindows,
       getModulePackageMap, setModulePackageMap,
-      getExtra, addExtra, putExtra,
+      getExtra, addExtra, addExtraUnique, putExtra,
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
       addHook, removeHook, runHooks,
       getNumJobs, setNumJobs,
@@ -71,6 +71,10 @@ import Distribution.Franchise.Trie
 
 putExtra :: Show a => String -> a -> C ()
 putExtra d v = addExtraData d $ show v
+
+addExtraUnique :: (Eq a, Show a, Read a) => String -> [a] -> C ()
+addExtraUnique d v = do vold <- getExtra d
+                        putExtra d $ v ++ (vold \\ v)
 
 addExtra :: (Monoid a, Show a, Read a) => String -> a -> C ()
 addExtra d v = do vold <- getExtra d
@@ -400,6 +404,7 @@ putSV str vstr = do v <- getVerbosity
                     putM Logfile vstr
 
 putM :: (String -> LogMessage) -> String -> C ()
+putM _ "" = return ()
 putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
                            readChan (syncChan ts)
                            return $ Right ((),ts)

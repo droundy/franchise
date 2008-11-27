@@ -52,7 +52,8 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
-import Distribution.Franchise.GhcState ( getBinDir, handleArgs )
+import Distribution.Franchise.GhcState ( getBinDir )
+import Distribution.Franchise.Flags ( handleArgs )
 
 data Dependency = [String] :< [String]
 
@@ -130,7 +131,7 @@ buildWithArgs args opts mkbuild = runC $
           b <- mkbuild
           addTarget ([phony "build"]:<b:<-defaultRule)
           writeConfigureState "config.d"
-          putS "configure successful."
+          when dohooks $ putS "configure successful."
           mapM_ buildtarget targets
     where buildtarget t = do mt <- sloppyTarget t
                              case mt of
