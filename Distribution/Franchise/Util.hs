@@ -83,6 +83,9 @@ findCommandInExtraPath c = do ds <- extraPath
                                  if ise then return (d++"/"++c)
                                         else fail $ "not "++(d++"/"++c)
 
+oneJob :: C Bool
+oneJob = (==1) `fmap` getNumJobs
+
 -- | Run a command
 system :: String   -- ^ Command
        -> [String] -- ^ Arguments
@@ -90,6 +93,9 @@ system :: String   -- ^ Command
 system g args = do sd <- getCurrentSubdir
                    c <- findCommandInExtraPath g
                    env <- Just `fmap` getEnvironment
+                   let cl = unwords (('[':c++"]"):drop (length args-1) args)
+                       clv = unwords (c:args)
+                   whenC oneJob $ putSV cl clv
                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                    out <- io $ hGetContents o
                    err <- io $ hGetContents e
@@ -98,9 +104,8 @@ system g args = do sd <- getCurrentSubdir
                    -- output (or error) to be consumed.
                    io $ forkIO $ seq (length out) $ return ()
                    io $ forkIO $ seq (length err) $ return ()
-                   let cl = unwords (('[':c++"]"):drop (length args-1) args)
-                       clv = unwords (c:args)
-                   putSV (cl++'\n':out++err) (clv++'\n':out++err)
+                   whenC oneJob $ putS $ out++err
+                   unlessC oneJob $ putSV (cl++'\n':out++err) (clv++'\n':out++err)
                    ec <- waitForProcessNonBlocking pid
                    case ec of
                      ExitSuccess -> return ()
@@ -114,6 +119,7 @@ systemV :: String   -- ^ Command
 systemV g args = do sd <- getCurrentSubdir
                     c <- findCommandInExtraPath g
                     env <- Just `fmap` getEnvironment
+                    whenC oneJob $ putV $ unwords (c:args)
                     (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                     out <- io $ hGetContents o
                     err <- io $ hGetContents e
@@ -122,7 +128,8 @@ systemV g args = do sd <- getCurrentSubdir
                     -- output (or error) to be consumed.
                     io $ forkIO $ seq (length out) $ return ()
                     io $ forkIO $ seq (length err) $ return ()
-                    putV $ unwords (c:args)++'\n':out++err
+                    whenC oneJob $ putV $ out++err
+                    unlessC oneJob $ putV $ unwords (c:args)++'\n':out++err
                     ec <- waitForProcessNonBlocking pid
                     case ec of
                       ExitSuccess -> return ()
@@ -134,12 +141,14 @@ systemErr :: String -> [String] -> C (ExitCode, String)
 systemErr g args = do sd <- getCurrentSubdir
                       c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
+                      whenC oneJob $ putV $ unwords (c:args)
                       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
-                      putV $ unwords (c:args)++'\n':out++err
+                      whenC oneJob $ putV $ out++err
+                      unlessC oneJob $ putV $ unwords (c:args)++'\n':out++err
                       ec <- waitForProcessNonBlocking pid
                       case ec of
                         ExitFailure 127 -> fail $ c ++ ": command not found"
@@ -168,12 +177,14 @@ systemOut :: String   -- ^ Program name
 systemOut g args = do sd <- getCurrentSubdir
                       c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
+                      whenC oneJob $ putV $ unwords (c:args)
                       (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
-                      putV $ unwords (c:args)++'\n': indent "\t" (out++err)
+                      whenC oneJob $ putV $ indent "\t" (out++err)
+                      unlessC oneJob $ putV $ unwords (c:args)++'\n': indent "\t" (out++err)
                       ec <- waitForProcessNonBlocking pid
                       case ec of
                         ExitSuccess -> return out
@@ -193,6 +204,7 @@ systemInOut :: String   -- ^ Program name
 systemInOut g args inp = do sd <- getCurrentSubdir
                             c <- findCommandInExtraPath g
                             env <- Just `fmap` getEnvironment
+                            whenC oneJob $ putV $ unwords (c:args)
                             (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
                             out <- io $ hGetContents o
                             err <- io $ hGetContents e
@@ -200,7 +212,8 @@ systemInOut g args inp = do sd <- getCurrentSubdir
                                              hClose i
                             io $ forkIO $ seq (length out) $ return ()
                             io $ forkIO $ seq (length err) $ return ()
-                            putV $ unwords (c:args)++'\n': indent "\t" (out++err)
+                            whenC oneJob $ putV $ indent "\t" (out++err)
+                            unlessC oneJob $ putV $ unwords (c:args)++'\n': indent "\t" (out++err)
                             ec <- waitForProcessNonBlocking pid
                             case ec of
                               ExitSuccess -> return out
