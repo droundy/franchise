@@ -117,8 +117,7 @@ build opts mkbuild =
 buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do dohooks <- if "configure" `elem` args
-                     then do rm_rf "config.d"
-                             return True
+                     then return True
                      else (do readConfigureState "config.d" >>= put
                               putV "reusing old configuration"
                               return False)
