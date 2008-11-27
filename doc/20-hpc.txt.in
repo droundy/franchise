@@ -55,7 +55,7 @@ Setup.hs
 ~~~~ tests/hpc/Setup.hs
 import Distribution.Franchise
 
-main = build [] (return ()) $
+main = build [] $
        do let mytests = ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]
           mapM_ (\x -> testOne x "bash" x) mytests
           test mytests

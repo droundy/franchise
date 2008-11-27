@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ConfigureState
-    ( runWithArgs,
+    ( handleArgs,
       amInWindows,
       ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
       getModulePackageMap, setModulePackageMap,
@@ -45,14 +45,15 @@ module Distribution.Franchise.ConfigureState
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
       getPkgFlags, getLicense,
       getMaintainer,
-      flag, unlessFlag, configureFlag, configureUnlessFlag,
+      flag, unlessFlag,
       configureFlagWithDefault, FranchiseFlag,
-      runConfigureHooks, runPostConfigureHooks,
+      runHooks,
       getNumJobs,
       CanModifyState(..),
       Target(..),
       getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
       C, ConfigureState(..), runC, io, catchC, forkC,
+      setCommandLine,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
       dirname, basename,
@@ -79,7 +80,7 @@ import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
 import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
                                usageInfo, getOpt )
-import Data.List ( isPrefixOf, (\\) )
+import Data.List ( delete, isPrefixOf, (\\) )
 import Data.Maybe ( isJust, catMaybes )
 
 import Distribution.Franchise.StringSet
@@ -90,30 +91,21 @@ type FranchiseFlag = OptDescr (C ())
 configureFlagWithDefault :: String -> String -> String
                          -> C () -> (String -> C ()) -> C FranchiseFlag
 configureFlagWithDefault n argname h defaultaction j =
- do addHook Preconfigure n defaultaction
-    return $ Option [] [n] (ReqArg (addHook Preconfigure n . j') argname) h
+ do addHook n defaultaction
+    return $ Option [] [n] (ReqArg (addHook n . j') argname) h
     where j' v = do putV $ "handling configure flag --"++n; j v
 
 flag :: String -> String -> C () -> C FranchiseFlag
-flag n h j = return $ Option [] [n] (NoArg $ addHook Postconfigure n j') h
+flag n h j = return $ Option [] [n] (NoArg $ addHook n j') h
     where j' = do putV $ "handling flag --"++n; j
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
-unlessFlag n h j = do addHook Postconfigure n j'
-                      flag n h (removeHook Postconfigure n)
+unlessFlag n h j = do addHook n j'
+                      flag n h (removeHook n)
     where j' = do putV $ "handling missing flag --"++n; j
 
-configureFlag :: String -> String -> C () -> C FranchiseFlag
-configureFlag n h j = return $ Option [] [n] (NoArg $ addHook Preconfigure n j') h
-    where j' = do putV $ "handling configure flag --"++n; j
-
-configureUnlessFlag :: String -> String -> C () -> C FranchiseFlag
-configureUnlessFlag n h j = do addHook Preconfigure n j'
-                               flag n h (removeHook Preconfigure n)
-    where j' = do putV $ "handling missing configure flag --"++n; j
-
-runWithArgs :: [C FranchiseFlag] -> [String] -> (String -> C ()) -> C ()
-runWithArgs optsc validCommands runCommand =
+handleArgs :: [C FranchiseFlag] -> C [String]
+handleArgs optsc =
     do args <- gets commandLine
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
@@ -125,14 +117,15 @@ runWithArgs optsc validCommands runCommand =
        withEnv "PREFIX" (addExtraData "prefix")
        opts <- sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
+           validCommands = ["configure","build","clean","install"] -- should be in monad
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
                         Option [] ["user"]
                           (NoArg $ do let m = pkgFlags ["--user"]
-                                      m; addHook Postconfigure "user" m) "install as user",
+                                      m; addHook "user" m) "install as user",
                         Option [] ["disable-optimization"]
-                          (NoArg $ addHook Postconfigure "disable-optimization" $
+                          (NoArg $ addHook "disable-optimization" $
                                  rmGhcFlags ["-O2","-O"]) "disable optimization",
                         Option [] ["verbose"]
                           (OptArg (\v -> C $ \ts -> return $
@@ -144,20 +137,20 @@ runWithArgs optsc validCommands runCommand =
                                       Right ((), ts { noRemove = True })))
                           ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
-                          (ReqArg (addHook Postconfigure "prefix"
+                          (ReqArg (addHook "prefix"
                                    . addExtraData "prefix") "PATH")
                           "install under prefix",
                         Option [] ["bindir"]
                           (ReqArg (\v -> do let m = addExtraData "bindir" v
-                                            m; addHook Postconfigure "bindir" m) "PATH")
+                                            m; addHook "bindir" m) "PATH")
                           "install in bindir",
                         Option [] ["libdir"]
                           (ReqArg (\v -> do let m = addExtraData "libdir" v
-                                            m; addHook Postconfigure "libdir" m) "PATH")
+                                            m; addHook "libdir" m) "PATH")
                           "install in libdir",
                         Option [] ["libsubdir"]
                           (ReqArg (\v -> do let m = addExtraData "libsubdir" v
-                                            m; addHook Postconfigure "libsubdir" m) "PATH")
+                                            m; addHook "libsubdir" m) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
                           (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
@@ -185,7 +178,7 @@ runWithArgs optsc validCommands runCommand =
                                  (ReqArg (const (return ())) "ugh") "ignored" ]
        case getOpt Permute (options++eviloptions) args of
          (flags, commands, []) -> do sequence_ flags
-                                     mapM_ runCommand commands
+                                     return $ delete "configure" commands
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
 
 addPackages :: [String] -> C ()
@@ -430,7 +423,6 @@ rm_rf d0 = do d <- processFilePath d0
     `catchC` \e -> putV $ "rm -rf failed: "++e
 
 data LogMessage = Stdout String | Logfile String
-data HookTime = Preconfigure | Postconfigure
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 data Target = Target { fellowTargets :: !StringSet,
                        dependencies :: !StringSet,
@@ -441,39 +433,25 @@ data TotalState = TS { numJobs :: Int,
                        noRemove :: Bool,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
-                       configureHooks :: [(String,C ())],
-                       postConfigureHooks :: [(String,C ())],
+                       hooks :: [(String,C ())],
                        targets :: Trie Target,
                        built :: StringSet,
                        packageModuleMap :: Maybe (Trie [String]),
                        configureState :: ConfigureState }
 
-tsHook :: HookTime -> TotalState -> [(String,C ())]
-tsHook Preconfigure = configureHooks
-tsHook Postconfigure = postConfigureHooks
+modifyHooks :: ([(String,C ())] -> [(String,C ())]) -> C ()
+modifyHooks f = C $ \ts -> return $ Right ((), ts { hooks = f $ hooks ts })
 
-modifyHooks :: HookTime -> ([(String,C ())] -> [(String,C ())]) -> C ()
-modifyHooks Preconfigure f =
-    C $ \ts -> return $ Right ((), ts { configureHooks = f $ configureHooks ts })
-modifyHooks Postconfigure f =
-    C $ \ts -> return $ Right ((), ts { postConfigureHooks = f $ postConfigureHooks ts })
+addHook :: String -> C () -> C ()
+addHook n h = do removeHook n
+                 modifyHooks ((n,h):)
 
-addHook :: HookTime -> String -> C () -> C ()
-addHook ht n h = do removeHook ht n
-                    modifyHooks ht ((n,h):)
+removeHook :: String -> C ()
+removeHook n = modifyHooks $ filter ((/=n) . fst)
 
-removeHook :: HookTime -> String -> C ()
-removeHook ht n = modifyHooks ht $ filter ((/=n) . fst)
-
-runHooks :: HookTime -> C ()
-runHooks ht = do hks <- C $ \ts -> return $ Right (tsHook ht ts, ts)
-                 mapM_ snd $ reverse hks
-
-runConfigureHooks :: C ()
-runConfigureHooks = runHooks Preconfigure
-
-runPostConfigureHooks :: C ()
-runPostConfigureHooks = runHooks Postconfigure
+runHooks :: C ()
+runHooks = do hks <- C $ \ts -> return $ Right (hooks ts, ts)
+              mapM_ snd $ reverse hks
 
 -- ErrorState is for returning errors along with any cached data we might
 -- have.  Currently, the only data we cache is the mapping from packages to
@@ -511,6 +489,9 @@ put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
+
+setCommandLine :: [String] -> C ()
+setCommandLine args = modify $ \c -> c { commandLine = args }
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
 modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
@@ -560,12 +541,11 @@ processFilePath ('*':f) = return ('*':f) -- This is a phony target
 processFilePath f = do sd <- gets currentSubDirectory
                        return $ maybe f (++('/':f)) sd
 
-runC :: [String] -> C a -> IO a
-runC args (C a) =
+runC :: C a -> IO a
+runC (C a) =
     do ch <- newChan
        ch2 <- newChan
-       h <- if "configure" `elem` args then openFile "config.log" WriteMode
-                                       else openFile "build.log" WriteMode
+       h <- openFile "franchise.log" WriteMode
        hSetBuffering h LineBuffering
        hSetBuffering stdout LineBuffering
        let writethread = do mess <- readChan ch
@@ -578,14 +558,13 @@ runC args (C a) =
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
-                      configureHooks = [],
-                      postConfigureHooks = [],
+                      hooks = [],
                       verbosity = readVerbosity Normal v,
                       noRemove = False,
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
-                      configureState = defaultConfiguration { commandLine = args } })
+                      configureState = defaultConfiguration })
        case xxx of
          Left (Err e _) -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000

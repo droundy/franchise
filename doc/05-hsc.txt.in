@@ -33,7 +33,7 @@ file for the executable.  This is the point...
 ~~~~ tests/hsc/Setup.hs
 import Distribution.Franchise
 
-main = build [] (return ()) (executable "executable" "executable.hsc" [])
+main = build [] $ executable "executable" "executable.hsc" []
 ~~~~
 
 And, as we should expect, we can compile this program and run it.

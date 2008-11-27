@@ -20,7 +20,7 @@ then return a list with two elements:
 ~~~~ tests/two-executables/Setup.hs
 import Distribution.Franchise
 
-main = build [] (return ()) $
+main = build [] $
        do executable "hello" "hello.hs" []
           executable "goodbye" "goodbye.hs" []
           return ["hello","goodbye"]

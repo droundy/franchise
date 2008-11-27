@@ -11,7 +11,8 @@ We create two packages, `a` and `b`, each of which export the module
 
 ~~~~ tests/requireExporting/a/Setup.hs
 import Distribution.Franchise
-main = build [] (version "1.0") (package "a" ["Foo"] [])
+main = build [] $ do version "1.0"
+                     package "a" ["Foo"] []
 ~~~~
 
 The first package, `a`, exports `Foo.foo` and `Foo.a`.
@@ -26,7 +27,8 @@ foo = "Foo a"
 
 ~~~~ tests/requireExporting/b/Setup.hs
 import Distribution.Franchise
-main = build [] (version "2.0") (package "b" ["Foo"] [])
+main = build [] $ do version "2.0"
+                     package "b" ["Foo"] []
 ~~~~
 
 The second package, `b`, exports `Foo.foo` and `Foo.b`.
@@ -46,9 +48,10 @@ to import either from package `a` or package `b` using
 ~~~~ tests/requireExporting/c/Setup.hs
 import Distribution.Franchise
 req a = requireModuleExporting "Foo" a (a++" :: Int")
-options = [configureFlag "with-a" "" (req "a"),
-           configureFlag "with-b" "" (req "b")]
-main = build options (version "1.0") (executable "c" "Main.hs" [])
+options = [flag "with-a" "" (req "a"),
+           flag "with-b" "" (req "b")]
+main = build options $ do version "1.0"
+                          executable "c" "Main.hs" []
 ~~~~
 
 ~~~~ tests/requireExporting/c/Main.hs

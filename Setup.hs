@@ -27,15 +27,16 @@ configure = do copyright "Copyright 2008 David Roundy"
                rm_rf "testenv.hs"
                ghcFlags ["-threaded","-O2","-Wall"]
 
-main = build [configurableProgram "shell" "bash" ["shsh","sh"]] configure $
-       do -- autoVersion doesn't go in configure
+main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
+       do configure
+          -- autoVersion doesn't go in configure
           -- because we want to rerun it with each
           -- build rather than waiting for the user to
           -- run Setup.hs configure again.
-         autoVersion Numbered
-         buildDoc
-         darcsDist "franchise" ["franchise.cabal"]
-         package "franchise" ["Distribution.Franchise"] []
+          autoVersion Numbered
+          buildDoc
+          darcsDist "franchise" ["franchise.cabal"]
+          package "franchise" ["Distribution.Franchise"] []
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"

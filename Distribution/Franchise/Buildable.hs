@@ -40,7 +40,7 @@ module Distribution.Franchise.Buildable
     where
 
 import Data.List ( isPrefixOf, isSuffixOf, (\\) )
-import System.Environment ( getProgName, getArgs )
+import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
@@ -107,60 +107,35 @@ depName (n :< _) = n
 buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 
-build :: [C (OptDescr (C ()))] -> C () -> C [String] -> IO ()
-build opts doconf mkbuild =
+build :: [C (OptDescr (C ()))] -> C [String] -> IO ()
+build opts mkbuild =
     do args <- getArgs
-       buildWithArgs args opts doconf mkbuild
+       buildWithArgs args opts mkbuild
 
-buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C () -> C [String] -> IO ()
-buildWithArgs args opts doconf mkbuild =
-       runC args $ runWithArgs opts myargs runcommand
-    where myargs = ["configure","build","clean","install"]
-          runcommand "configure" = configure
-          runcommand t = do reconfigure
-                            mt <- sloppyTarget t
-                            case mt of
-                              [] -> fail $ "No such target: "++t
-                              [tt] -> do putS $ "["++unphony tt++"]"
-                                         build' CannotModifyState tt
-                              ts -> fail $ unlines ["No such target: "++t,
-                                                    "Perhaps you meant one of "++
-                                                    unwords (map unphony ts)++"?"]
-          configure = unlessC (isBuilt $ phony "configure") $
-                      do fs <- gets commandLine
-                         putS $ "configuring: "++unwords fs
-                         runConfigureHooks
-                         doconf
-                         b <- mkbuild
-                         modifyTargets $ adjustT (phony "build") $
-                                           \(Target a ds j) -> Target a (addsS b ds) j
-                         runPostConfigureHooks
-                         rm "config.d/commandLine"
-                         writeConfigureState "config.d"
-                         setBuilt $ phony "configure"
-                         putS "configure successful."
-          reconfigure = unlessC (isBuilt $ phony "configure") $
-                        do (readConfigureState "config.d" >>= put)
-                              `catchC` \_ -> do putV "Couldn't read old config.d"
-                                                rm_rf "config.d"
-                           setupname <- io $ getProgName
-                           putV "checking whether we need to reconfigure"
-                           let needreconf = do clmt <- io $ getModificationTime "config.d/commandLine"
-                                               setupmt <- io $ getModificationTime setupname
-                                               if setupmt >= clmt
-                                                  then do putV "reconfiguring due to timestamps"
-                                                          return True
-                                                  else return False
-                                            `catchC` \e ->
-                                                do putV $ "reconfiguring due to missing file:\n  "++e
-                                                   return True
-                           needrc <- needreconf
-                           if needrc then do fs <- gets commandLine
-                                             putV $ "reconfiguring with flags " ++ unwords fs
-                                             runWithArgs opts fs (const configure)
-                                     else do b <- mkbuild
-                                             addTarget ([phony "build"]:<b:<-defaultRule)
-                           setBuilt $ phony "configure"
+buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
+buildWithArgs args opts mkbuild =
+       runC $
+       do if "configure" `elem` args
+            then rm_rf "config.d"
+            else (readConfigureState "config.d" >>= put)
+                     `catchC` \_ -> do putV "Couldn't read old config.d"
+                                       rm_rf "config.d"
+          setCommandLine args
+          targets <- handleArgs opts
+          runHooks
+          b <- mkbuild
+          addTarget ([phony "build"]:<b:<-defaultRule)
+          writeConfigureState "config.d"
+          putS "configure successful."
+          mapM_ buildtarget targets
+    where buildtarget t = do mt <- sloppyTarget t
+                             case mt of
+                               [] -> fail $ "No such target: "++t
+                               [tt] -> do putS $ "["++unphony tt++"]"
+                                          build' CannotModifyState tt
+                               ts -> fail $ unlines ["No such target: "++t,
+                                                     "Perhaps you meant one of "++
+                                                     unwords (map unphony ts)++"?"]
 
 needsWork :: String -> C Bool
 needsWork t =
@@ -304,6 +279,7 @@ getTarget t = do allts <- getTargets
                  return $ lookupT t allts `mplus` lookupT (phony t) allts
 
 sloppyTarget :: String -> C [String]
+sloppyTarget "configure" = return []
 sloppyTarget t =
     do allts <- getTargets
        return $

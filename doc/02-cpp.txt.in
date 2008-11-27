@@ -27,11 +27,10 @@ in a pragma in the `executable.hs` file.
 ~~~~ tests/cpp/Setup.hs
 import Distribution.Franchise
 
-configure = do defineAs "DATA" "True"
-               ghcFlags ["-cpp"]
-
-main = build [] configure
-       (executable "executable" "executable.hs" [])
+main = build [] $
+       do defineAs "DATA" "True"
+          ghcFlags ["-cpp"]
+          executable "executable" "executable.hs" []
 ~~~~
 
 And finally we'll test that this executable actually builds and runs,

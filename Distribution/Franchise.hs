@@ -89,7 +89,6 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 splitFile, mapDirectory,
                                 -- simplification of getopt data types
                                 flag, unlessFlag,
-                                configureFlag, configureUnlessFlag,
                                 extraData )
     where
 

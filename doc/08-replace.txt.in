@@ -30,9 +30,10 @@ Setup.hs
 ~~~~ tests/replace/Setup.hs
 import Distribution.Franchise
 
-main = build [] (do replace "@Foo@" "Foo message"
-                    createFile "Distribution/Simple.hs")
-       (executable "simple" "simple.hs" [])
+main = build [] $
+       do replace "@Foo@" "Foo message"
+          createFile "Distribution/Simple.hs"
+          executable "simple" "simple.hs" []
 ~~~~
 
 Testing it out

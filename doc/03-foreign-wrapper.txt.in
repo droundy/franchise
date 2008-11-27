@@ -60,8 +60,9 @@ at the top of the `TestModule.hs` file.
 ~~~~ tests/foreign-wrapper/Setup.hs
 import Distribution.Franchise
 
-main = build [] (ghcFlags ["-fffi"]) $
-       executable "test" "test.hs" ["printit.c"]
+main = build [] $
+       do ghcFlags ["-fffi"]
+          executable "test" "test.hs" ["printit.c"]
 ~~~~
 
 A simple test script

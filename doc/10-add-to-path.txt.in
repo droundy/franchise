@@ -16,7 +16,7 @@ Setup.hs
 ~~~~ tests/add-to-path/Setup.hs
 import Distribution.Franchise
 
-main = build [] (return ()) $
+main = build [] $
        do d <- pwd
           addToPath (d++"/out")
           testC "test" $ system "simple" [] -- test that "simple" can be run.
