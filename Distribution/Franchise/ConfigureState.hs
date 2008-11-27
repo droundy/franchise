@@ -46,7 +46,7 @@ module Distribution.Franchise.ConfigureState
       withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
       quietly, silently,
       unlessC, whenC, getNoRemove,
-      putS, putV, putD, putSV, putL, setVerbose,
+      putSnoln, putS, putV, putD, putSV, putL, setVerbose,
       put, get )
         where
 
@@ -62,7 +62,7 @@ import System.Directory ( getCurrentDirectory,
                           removeFile, removeDirectory, createDirectory,
                           getDirectoryContents )
 import System.IO ( BufferMode(..), IOMode(..), openFile,
-                   hSetBuffering, hPutStrLn, stdout )
+                   hSetBuffering, hFlush, hPutStr, stdout )
 import Data.List ( (\\) )
 import Data.Maybe ( isJust )
 
@@ -302,8 +302,9 @@ runC (C a) =
        hSetBuffering h LineBuffering
        hSetBuffering stdout LineBuffering
        let writethread = do mess <- readChan ch
-                            case mess of Stdout s -> putStrLn s
-                                         Logfile s -> hPutStrLn h s
+                            case mess of Stdout s -> do putStr s
+                                                        hFlush stdout
+                                         Logfile s -> hPutStr h s
                             writeChan ch2 ()
                             writethread
        thid <- forkIO writethread
@@ -379,6 +380,11 @@ forkC _ j = j
 
 data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
 
+putSnoln :: String -> C ()
+putSnoln str = whenC ((>= Normal) `fmap` getVerbosity) $
+               do putMnoln Stdout str
+                  putMnoln Logfile str
+
 putS :: String -> C ()
 putS str = whenC ((>= Normal) `fmap` getVerbosity) $
            do putM Stdout str
@@ -405,11 +411,15 @@ putSV str vstr = do v <- getVerbosity
 
 putM :: (String -> LogMessage) -> String -> C ()
 putM _ "" = return ()
-putM m str = C $ \ts -> do writeChan (outputChan ts) (m $ chomp str)
-                           readChan (syncChan ts)
-                           return $ Right ((),ts)
+putM m str = putMnoln m $ chomp str ++ "\n"
     where chomp x = case reverse x of '\n':rx -> reverse rx
                                       _ -> x
+
+putMnoln :: (String -> LogMessage) -> String -> C ()
+putMnoln _ "" = return ()
+putMnoln m str = C $ \ts -> do writeChan (outputChan ts) (m str)
+                               readChan (syncChan ts)
+                               return $ Right ((),ts)
 
 putL :: String -> C ()
 putL = putM Logfile

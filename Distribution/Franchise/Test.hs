@@ -125,20 +125,23 @@ test ts0 =
                  putNonZero oddpass "test" "unexpectedly passed!"
                  fail "tests failed!"
           runSingleTest t =
-              do silently $ build' CannotModifyState t
+              do whenC oneJob $ putSnoln $ pad t
+                 silently $ build' CannotModifyState t
                  if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
-                   then do putS $ pad t++" unexpectedly succeeded!"
+                   then do announceResult " unexpectedly succeeded!"
                            return Surprise
-                   else do putS $ pad t++" ok"
+                   else do announceResult " ok"
                            return Passed
              `catchC` \e ->
                  do if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
-                      then do putS $ pad t++" failed as expected."
+                      then do announceResult " failed as expected."
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Expected
-                      else do putS $ pad t++" FAILED!"
+                      else do announceResult " FAILED!"
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Failed
+            where announceResult r = do whenC oneJob $ putS r
+                                        unlessC oneJob $ putS $ pad t++r
 
 putAll :: Int -> String -> String -> C ()
 putAll 0 noun verb = putS $ "There were no "++noun++"s... but they all "++verb

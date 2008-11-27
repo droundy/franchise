@@ -34,7 +34,7 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
                                      mkFile, cat, pwd, ls, mv,
-                                     isFile,
+                                     isFile, oneJob,
                                      bracketC, csum, finallyC, bracketC_ )
     where
 
