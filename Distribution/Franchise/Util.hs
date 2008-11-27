@@ -44,7 +44,6 @@ import System.Directory ( getCurrentDirectory, getDirectoryContents,
 import System.Process ( ProcessHandle, runInteractiveProcess, runProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads, forkIO )
-import Control.Monad ( MonadPlus, mplus )
 import System.IO ( hGetContents, openFile, IOMode(..), hPutStr, hClose )
 
 import Distribution.Franchise.ConfigureState
@@ -276,7 +275,7 @@ bracketC_ :: C a -> C b -> C c -> C c
 bracketC_ before after thing = bracketC before (const after) (const thing)
 
 -- | csum is a variant of msum that preserves the last error output.
-csum :: MonadPlus m => [m a] -> m a
+csum :: [C a] -> C a
 csum [] = fail "csum given an empty list"
 csum [f] = f
-csum (f1:fs) = f1 `mplus` csum fs
+csum (f1:fs) = f1 `catchC` \_ -> csum fs

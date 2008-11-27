@@ -40,7 +40,7 @@ module Distribution.Franchise.Ghc
       -- defining package properties
       package, installPackageInto ) where
 
-import Control.Monad ( when, filterM, forM_ )
+import Control.Monad ( msum, when, filterM, forM_ )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe, isJust )
 import Data.List ( partition, (\\), isSuffixOf, isPrefixOf, nub )
@@ -49,6 +49,13 @@ import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.GhcState ( getGhcFlags, getCFlags, getLdFlags, getPkgFlags,
+                                         ghcFlags, ldFlags,
+                                         getPackageVersion, getMaintainer, getVersion,
+                                         packageName, getLibDir,
+                                         packages, addPackages, removePackages,
+                                         getDefinitions,
+                                       )
 import Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv, getEnv )
@@ -176,32 +183,28 @@ package pn modules cfiles =
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
            hiddenmodules = map objToModName mods \\ modules
-           makeconfig _ =do lic <- getLicense
-                            mai <- getMaintainer
+           makeconfig _ =do mai <- getMaintainer
                             deps <- packages
                             mkFile (pn++".config") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
-                                           "license: "++lic,
                                            "maintainer: "++mai,
                                            "exposed-modules: "++unwords modules,
                                            "hidden-modules: "++unwords hiddenmodules,
                                            "hs-libraries: "++pn,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
-           makecabal  _ =do lic <- getLicense
-                            mai <- getMaintainer
+           makecabal  _ =do mai <- getMaintainer
                             deps <- packages
                             mkFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
-                                           "license: "++lic,
                                            "maintainer: "++mai,
                                            "exposed-modules: "++unwords modules,
                                            "build-type: Custom",
                                            "build-depends: "++commaWords (map guessVersion deps)]
                             mapM_ (appendExtra (pn++".cabal"))
-                                  ["author", "copyright", "homepage", "bug-reports",
+                                  ["author", "license", "copyright", "homepage", "bug-reports",
                                    "stability", "package-url", "tested-with", "license-file",
                                    "category", "synopsis", "description"]
        preprocsources <- preprocessedTargets his
@@ -535,12 +538,12 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
 
 mungeMissingModule :: String -> Maybe String
 mungeMissingModule [] = Nothing
-mungeMissingModule x@(_:r) = csum [takeWhile (/='\'') `fmap` stripPrefix " `" x,
+mungeMissingModule x@(_:r) = msum [takeWhile (/='\'') `fmap` stripPrefix " `" x,
                                    mungeMissingModule r]
 
 mungePackage :: String -> Maybe String
 mungePackage [] = Nothing
-mungePackage x@(_:r) = csum [mopt, mungePackage r]
+mungePackage x@(_:r) = msum [mopt, mungePackage r]
    where mopt = do xxx <- stripPrefix "member of package " x
                    listToMaybe $
 #if __GLASGOW_HASKELL__ >= 610

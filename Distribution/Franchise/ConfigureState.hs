@@ -30,226 +30,44 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ConfigureState
-    ( handleArgs,
-      amInWindows,
-      ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
+    ( amInWindows,
       getModulePackageMap, setModulePackageMap,
-      rmGhcFlags,
-      pkgFlags, copyright, license, version,
-      getGhcFlags, getCFlags, getLdFlags,
-      define, undefine, defineAs,
-      isDefined, getDefinitions,
-      getLibDir, getBinDir,
-      replace, replaceLiteral, replacements,
-      getVersion, packages, getPackageVersion,
       getExtra, addExtra, putExtra,
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
-      getPkgFlags, getLicense,
-      getMaintainer,
-      flag, unlessFlag,
-      configureFlagWithDefault, FranchiseFlag,
-      runHooks,
-      getNumJobs,
+      addHook, removeHook, runHooks,
+      getNumJobs, setNumJobs,
       CanModifyState(..),
       Target(..),
       getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
       C, ConfigureState(..), runC, io, catchC, forkC,
-      setCommandLine,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
       dirname, basename,
       withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
       quietly, silently,
       unlessC, whenC, getNoRemove,
-      putS, putV, putD, putSV, putL,
+      putS, putV, putD, putSV, putL, setVerbose,
       put, get )
         where
 
 import qualified System.Environment as E ( getEnv )
-import Control.Monad ( MonadPlus, mplus, mzero )
+import Control.Monad ( mplus )
 import Data.Monoid ( Monoid, mempty, mappend )
 import Control.Concurrent ( forkIO, Chan, killThread, threadDelay,
                             readChan, writeChan, newChan )
 
 import System.Exit ( exitWith, ExitCode(..) )
-import System.Directory ( getAppUserDataDirectory, getCurrentDirectory,
+import System.Directory ( getCurrentDirectory,
                           doesDirectoryExist,
                           removeFile, removeDirectory, createDirectory,
                           getDirectoryContents )
-import System.Environment ( getProgName )
 import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hPutStrLn, stdout )
-import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
-                               usageInfo, getOpt )
-import Data.List ( delete, (\\) )
+import Data.List ( (\\) )
 import Data.Maybe ( isJust )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
-
-type FranchiseFlag = OptDescr (C ())
-
-configureFlagWithDefault :: String -> String -> String
-                         -> C () -> (String -> C ()) -> C FranchiseFlag
-configureFlagWithDefault n argname h defaultaction j =
- do addHook n defaultaction
-    return $ Option [] [n] (ReqArg (addHook n . j') argname) h
-    where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
-
-flag :: String -> String -> C () -> C FranchiseFlag
-flag n h j = return $ Option [] [n] (NoArg j') h
-    where j' = do putV $ "handling flag --"++n; j
-
-unlessFlag :: String -> String -> C () -> C FranchiseFlag
-unlessFlag n h j = do addHook n j'
-                      flag n h (removeHook n)
-    where j' = do putV $ "handling missing flag --"++n; j
-
-handleArgs :: [C FranchiseFlag] -> C [String]
-handleArgs optsc =
-    do args <- getExtra "commandLine"
-       myname <- io $ getProgName
-       withEnv "GHCFLAGS" (ghcFlags . words)
-       withEnv "PACKAGES" (addPackages . words)
-       withEnv "LDFLAGS" (ldFlags . words)
-       withEnv "CFLAGS" (cFlags . words)
-       withEnv "LIBDIR" (addExtraData "libdir")
-       withEnv "BINDIR" (addExtraData "bindir")
-       withEnv "PREFIX" (addExtraData "prefix")
-       opts <- sequence optsc
-       let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
-           validCommands = ["configure","build","clean","install"] -- should be in monad
-           inbrackets x = "["++x++"]"
-           defaults = [ Option ['h'] ["help"] (NoArg showUsage)
-                                   "show usage info",
-                        Option [] ["user"]
-                          (NoArg $ pkgFlags ["--user"]) "install as user",
-                        Option [] ["disable-optimization"]
-                          (NoArg $ rmGhcFlags ["-O2","-O"]) "disable optimization",
-                        Option [] ["verbose"]
-                          (OptArg (\v -> C $ \ts -> return $
-                                         Right ((), ts { verbosity = readVerbosity Verbose v }))
-                           "VERBOSITY")
-                          ("Control verbosity (default verbosity level is 1)"),
-                        Option [] ["no-remove"]
-                          (NoArg (C $ \ts -> return $
-                                      Right ((), ts { noRemove = True })))
-                          ("Prevent deletion of temporary files"),
-                        Option [] ["prefix"]
-                          (ReqArg (addExtraData "prefix") "PATH")
-                          "install under prefix",
-                        Option [] ["bindir"]
-                          (ReqArg (addExtraData "bindir") "PATH")
-                          "install in bindir",
-                        Option [] ["libdir"]
-                          (ReqArg (addExtraData "libdir") "PATH")
-                          "install in libdir",
-                        Option [] ["libsubdir"]
-                          (ReqArg (addExtraData "libsubdir") "PATH")
-                          "install in libsubdir",
-                        Option ['j'] ["jobs"]
-                          (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
-                          "run N jobs in parallel; infinite jobs with no arg.",
-                        Option [] ["package"]
-                                 (ReqArg (\p -> addPackages [p]) "PACKAGE-NAME")
-                          "use a particular ghc package",
-                        Option [] ["enable-hpc"] (NoArg $ ghcFlags ["-fhpc"])
-                          "enable program coverage",
-                        Option ['V'] ["version"] (NoArg showVersion)
-                                   "show version number"
-                      ]
-           readM s = case reads s of [(x,"")] -> Just x
-                                     _ -> Nothing
-           putAndExit x = do io $ putStrLn x
-                             io $ exitWith ExitSuccess
-           showVersion = putAndExit "version 0.0"
-           showUsage = putAndExit (usageInfo header options)
-           options = opts++defaults
-       eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
-                                 flag "global" "not --user" $ return (),
-                                 flag "disable-optimize" "disable optimization" $
-                                      rmGhcFlags ["-O2","-O"],
-                                 return $ Option [] ["constraint"]
-                                 (ReqArg (const (return ())) "ugh") "ignored" ]
-       case getOpt Permute (options++eviloptions) args of
-         (flags, commands, []) -> do sequence_ flags
-                                     return $ delete "configure" commands
-         (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options
-
-addPackages :: [String] -> C ()
-addPackages = addExtra "packages"
-
-removePackages :: [String] -> C ()
-removePackages x = do p <- getExtra "packages"
-                      putExtra "packages" $ p \\ x
-
-pkgFlags :: [String] -> C ()
-pkgFlags = addExtra "pkgFlags"
-
-ghcFlags :: [String] -> C ()
-ghcFlags = addExtra "ghcFlags"
-
-cFlags :: [String] -> C ()
-cFlags = addExtra "cflags"
-
-rmGhcFlags :: [String] -> C ()
-rmGhcFlags x = do f <- getExtra "ghcFlags"
-                  putExtra "ghcFlags" $ f \\ x
-
-update :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
-update k v [] = [(k,v)]
-update k v ((k',v'):xs) | k'==k     = (k,v):xs
-                        | otherwise = (k',v'):update k v xs
-
-define :: String -> C ()
-define x = defineAs x ""
-
-undefine :: String -> C ()
-undefine x = do ds <- getDefinitions
-                putExtra "definitions" $ filter ((/=x).fst) ds
-
-defineAs :: String -> String -> C ()
-defineAs x y = do ds <- getDefinitions
-                  putExtra "definitions" $ update x y ds
-
-copyright, license, version :: String -> C ()
-copyright = addExtraData "copyright"
-license = addExtraData "license"
-version v = do addExtraData "version" v
-               writeF "config.d/version" v
-                      `catchC` \_ -> return ()
-
-getGhcFlags :: C [String]
-getGhcFlags = getExtra "ghcFlags"
-
-getCFlags :: C [String]
-getCFlags = getExtra "cflags"
-
-getLdFlags :: C [String]
-getLdFlags = getExtra "ldflags"
-
-packages :: C [String]
-packages = getExtra "packages"
-
-getPkgFlags :: C [String]
-getPkgFlags = getExtra "pkgFlags"
-
-getDefinitions :: C [(String,String)]
-getDefinitions = getExtra "definitions"
-
-isDefined :: String -> C Bool
-isDefined x = (not . null . filter ((==x).fst)) `fmap` getDefinitions
-
-getVersion :: C String
-getVersion = maybe "0.0" id `fmap` getExtraData "version"
-
-getLicense :: C String
-getLicense = maybe "OtherLicense" id `fmap` getExtraData "license"
-
-getMaintainer :: C String
-getMaintainer = do ema <- getEnv "EMAIL"
-                   mai <- getExtraData "maintainer"
-                   return $ maybe "???" id (mai `mplus` ema)
 
 putExtra :: Show a => String -> a -> C ()
 putExtra d v = addExtraData d $ show v
@@ -285,46 +103,11 @@ addExtraData :: String -> String -> C ()
 addExtraData d v =
     modify $ \c -> c { extraDataC = (d,v): filter ((/=d).fst) (extraDataC c) }
 
-packageName :: String -> C ()
-packageName = addExtraData "packageName"
-
-getPackageName :: C (Maybe String)
-getPackageName = getExtraData "packageName"
-
-getPackageVersion :: C (Maybe String)
-getPackageVersion = do ver <- getVersion
-                       pn <- getPackageName
-                       return $ fmap (++("-"++ver)) pn
-
 -- | amInWindows is a hokey function to identify windows systems.  It's
 -- probably more portable than checking System.Info.os, which isn't saying
 -- much.
 amInWindows :: C Bool
 amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
-
-getPrefix :: C String
-getPrefix =
-    do prf <- getExtraData "prefix"
-       amwindows <- amInWindows
-       case prf of
-         Just x -> return x
-         Nothing -> do pkgflgs <- getPkgFlags
-                       if "--user" `elem` pkgflgs
-                         then io $ getAppUserDataDirectory "cabal"
-                         else if amwindows
-                              then maybe "C:\\Program Files\\Haskell" (++ "\\Haskell") `fmap` getEnv "ProgramFiles"
-                              else return "/usr/local"
-
-getLibDir :: C String
-getLibDir = do prefix <- getPrefix
-               maybe (prefix++"/lib") id `fmap` getExtraData "libdir"
-
-getBinDir :: C String
-getBinDir = do prefix <- getPrefix
-               maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
-
-ldFlags :: [String] -> C ()
-ldFlags = addExtra "ldflags"
 
 data ConfigureState = CS { currentSubDirectory :: Maybe String,
                            extraDataC :: [(String,String)] }
@@ -404,7 +187,6 @@ data Target = Target { fellowTargets :: !StringSet,
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
-                       noRemove :: Bool,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        hooks :: [(String,C ())],
@@ -451,10 +233,6 @@ instance Monad C where
     fail e = do putV $ "failure: "++ e
                 C (\ts -> return $ Left $ Err e (packageModuleMap ts))
 
-instance MonadPlus C where
-    mplus f g = catchC f $ \_ -> g
-    mzero = fail "mzero"
-
 get :: C ConfigureState
 get = C $ \ts -> return $ Right (configureState ts,ts)
 
@@ -463,9 +241,6 @@ put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
 gets :: (ConfigureState -> a) -> C a
 gets f = f `fmap` get
-
-setCommandLine :: [String] -> C ()
-setCommandLine = putExtra "commandLine"
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
 modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
@@ -534,7 +309,6 @@ runC (C a) =
                       numJobs = 1,
                       hooks = [],
                       verbosity = readVerbosity Normal v,
-                      noRemove = False,
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
@@ -599,27 +373,7 @@ forkC CannotModifyState (C j) = C (\ts -> do forkIO (j ts >> return())
                                              return $ Right ((),ts))
 forkC _ j = j
 
-getEnv :: String -> C (Maybe String)
-getEnv x = fmap Just (io (E.getEnv x)) `catchC` \_ -> return Nothing
-
-withEnv :: String -> (String -> C ()) -> C ()
-withEnv x j = do e <- io $ E.getEnv x
-                 j e
-              `catchC` \_ -> return ()
-
 data CanModifyState = CanModifyState | CannotModifyState deriving (Eq)
-
-replace :: Show a => String -> a -> C ()
-replace a = replaceLiteral a . show
-
-replaceLiteral :: String -> String -> C ()
-replaceLiteral a b = do r <- replacements
-                        if a `elem` map fst r
-                          then return ()
-                          else addExtra "replacements" [(a,b)]
-
-replacements :: C [(String,String)]
-replacements = getExtra "replacements"
 
 putS :: String -> C ()
 putS str = whenC ((>= Normal) `fmap` getVerbosity) $
@@ -634,8 +388,8 @@ putV str = do amv <- (> Normal) `fmap` getVerbosity
 putD :: String -> C ()
 putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
 
-getNoRemove :: C Bool
-getNoRemove = C $ \ts -> return $ Right (noRemove ts, ts)
+getNoRemove :: C [()]
+getNoRemove = getExtra "noRemove"
 
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
@@ -685,6 +439,9 @@ silently (C j) =
          Right (a, ts') -> return $ Right (a, ts' { outputChan = outputChan ts,
                                                     syncChan = syncChan ts })
          Left x -> return $ Left x
+
+setVerbose :: Maybe String -> C ()
+setVerbose v = C $ \ts -> return $ Right ((), ts { verbosity = readVerbosity Verbose v })
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of

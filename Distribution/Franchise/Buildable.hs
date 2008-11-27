@@ -32,14 +32,14 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, buildTarget,
-      installBin, replace, createFile,
+      installBin,
       defaultRule, buildName, build', cleanIt, rm,
       addToRule, addTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
 
-import Data.List ( isPrefixOf, isSuffixOf, (\\) )
+import Data.List ( isSuffixOf, (\\) )
 import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
@@ -52,6 +52,7 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
+import Distribution.Franchise.GhcState ( getBinDir, handleArgs )
 
 data Dependency = [String] :< [String]
 
@@ -96,7 +97,8 @@ rm :: String -> C ()
 rm f | "/" `isSuffixOf` f = return ()
 rm f = do noRm <- getNoRemove
           f' <- processFilePath f
-          if noRm then putV $ "#rm "++f
+          if not $ null noRm
+                  then putV $ "#rm "++f
                   else do io $ removeFile f'
                           putV $ "rm "++f
                          `catchC` \_ -> return ()
@@ -123,7 +125,7 @@ buildWithArgs args opts mkbuild = runC $
                               `catchC` \_ -> do putV "Couldn't read old config.d"
                                                 rm_rf "config.d"
                                                 return True
-          setCommandLine args
+          putExtra "commandLine" args
           targets <- handleArgs opts
           when dohooks runHooks
           b <- mkbuild
@@ -327,17 +329,6 @@ installBin (xs:<_) = Just $ do pref <- getBinDir
                                let xs' = filter (not . isPhony) xs
                                putD $ unwords ("copyFile":xs'++[pref++"/"])
                                mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
-
-createFile :: String -> C ()
-createFile fn = addTarget $ [fn] :< [fn++".in"] :<-
-                defaultRule { make = \_ ->  do x <- cat (fn++".in")
-                                               r <- replacements
-                                               writeF fn $ repl r x }
-    where repl [] x = x
-          repl ((a,b):rs) x = repl rs $ r1 a b x
-          r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
-                           | otherwise = x1 : r1 a b xs
-          r1 _ _ "" = ""
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =

@@ -39,6 +39,7 @@ import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.GhcState ( getVersion )
 import Distribution.Franchise.ReleaseType ( ReleaseType(..), releaseRegexp )
 import Distribution.Franchise.Permissions ( setExecutable )
 

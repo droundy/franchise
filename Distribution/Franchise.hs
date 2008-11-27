@@ -95,6 +95,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
+import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian
 import Distribution.Franchise.ReleaseType ( ReleaseType(..) )
@@ -109,3 +110,4 @@ import Distribution.Franchise.Env
 import Distribution.Franchise.ListUtils
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
+import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )

@@ -43,6 +43,7 @@ import Distribution.Franchise.ReleaseType ( ReleaseType(..),
                                             releaseFile, releaseUnknown )
 import Distribution.Franchise.Darcs ( inDarcs, darcsRelease, darcsPatchLevel )
 import Distribution.Franchise.Git ( inGit, gitRelease, gitPatchLevel )
+import Distribution.Franchise.GhcState ( version, getVersion )
 
 data VC a = VC { darcs :: C a,
                  git :: C a,

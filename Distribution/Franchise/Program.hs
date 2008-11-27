@@ -39,6 +39,7 @@ import System.Directory ( findExecutable )
 import Data.Monoid ( Monoid, mempty )
 
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.GhcState ( FranchiseFlag, configureFlagWithDefault )
 
 -- throw exception on failure to find something
 findProgram :: String -> [String] -> C String

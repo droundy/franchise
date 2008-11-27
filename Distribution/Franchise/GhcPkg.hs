@@ -30,7 +30,12 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.GhcPkg ( readPkgMappings )
+module Distribution.Franchise.GhcPkg ( readPkgMappings,
+                                       -- we don't really want to export
+                                       -- the following, but it stops ghc
+                                       -- from displaying warnings.
+                                       InstalledPackageInfo(..), PackageIdentifier(..),
+                                       Version(..), License(..) )
     where
 
 import Distribution.Franchise.ConfigureState
@@ -49,8 +54,8 @@ readPkgMappings = do x <- getPackageConfs
                          mods ipi = zip (exposedModules ipi) (repeat $ showPackage $ package ipi)
                          addmods [] trie = trie
                          addmods ((m,p):r) trie = addmods r $ alterT m (mycons p) trie
-                             where mycons p Nothing = Just [p]
-                                   mycons p (Just ps) = Just (p:ps)
+                             where mycons pp Nothing = Just [pp]
+                                   mycons pp (Just ps) = Just (pp:ps)
                      --putS $ unlines $ map show $ toListT $ addmods (concatMap mods $ concat pinfos) emptyT
                      return $ addmods (concatMap mods $ concat pinfos) emptyT
 

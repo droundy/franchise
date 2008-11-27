@@ -5,6 +5,7 @@ module Distribution.Franchise.AutoHeader ( autoHeader ) where
 
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.GhcState ( getDefinitions )
 
 -- |This is the split function for @splitFile@.  We need to provide the output filename
 -- explicitly since it's not in the file, and we also need to provide the list of all
