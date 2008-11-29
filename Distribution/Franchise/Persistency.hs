@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Persistency
     ( cacheifC, setOnce, checkOnce, require,
-      requireOutput, requireWithPrereqOutput,
+      requireWithFeedback, requireWithPrereqWithFeedback,
       requireWithPrereq )
         where
 
@@ -61,28 +61,28 @@ cacheifC name check ifok iffail =
                                   persistExtra checkname)
 
 setOnce :: String -> C () -> C ()
-setOnce name j = requireWithPrereqActionOutput "setting" name name
+setOnce name j = requireWithPrereqActionWithFeedback "setting" name name
                  (return ["SET"]) (j >> return "done")
 
 checkOnce :: String -> C () -> C ()
 checkOnce name check = require name check `catchC` \_ -> return ()
 
-requireOutput :: String -> C String -> C ()
-requireOutput name check = requireWithPrereqOutput name name (return ["TEST"]) check
+requireWithFeedback :: String -> C String -> C ()
+requireWithFeedback name check = requireWithPrereqWithFeedback name name (return ["TEST"]) check
 
 require :: String -> C () -> C ()
 require name check = requireWithPrereq name name (return ["TEST"]) check
 
 requireWithPrereq :: String -> String -> C [String] -> C () -> C ()
 requireWithPrereq name longname prereq check =
-    requireWithPrereqOutput name longname prereq (check >> return "yes")
+    requireWithPrereqWithFeedback name longname prereq (check >> return "yes")
 
-requireWithPrereqOutput :: String -> String -> C [String] -> C String -> C ()
-requireWithPrereqOutput name longname prereq check =
-    requireWithPrereqActionOutput "checking" name longname prereq check
+requireWithPrereqWithFeedback :: String -> String -> C [String] -> C String -> C ()
+requireWithPrereqWithFeedback name longname prereq check =
+    requireWithPrereqActionWithFeedback "checking" name longname prereq check
 
-requireWithPrereqActionOutput :: String -> String -> String -> C [String] -> C String -> C ()
-requireWithPrereqActionOutput action name longname prereq check =
+requireWithPrereqActionWithFeedback :: String -> String -> String -> C [String] -> C String -> C ()
+requireWithPrereqActionWithFeedback action name longname prereq check =
     do let checkname = cleanName $ action++"-"++longname
        v <- prereq
        checkval <- getExtra checkname

@@ -46,7 +46,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 defaultRule,
                                 -- some handy utilities for writing checks
-                                cacheifC, require, requireWithPrereq, setOnce, checkOnce,
+                                cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce, checkOnce,
                                 -- Handy module-searching
                                 requireModule, lookForModule, withModule,
                                 requireModuleExporting, lookForModuleExporting, withModuleExporting,
@@ -114,5 +114,5 @@ import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
-import Distribution.Franchise.Persistency ( cacheifC, require, requireWithPrereq,
+import Distribution.Franchise.Persistency ( cacheifC, require, requireWithFeedback, requireWithPrereq,
                                             setOnce, checkOnce )

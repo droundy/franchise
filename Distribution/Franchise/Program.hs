@@ -41,7 +41,7 @@ import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Flags ( FranchiseFlag, configureFlagWithDefault )
-import Distribution.Franchise.Persistency ( requireWithPrereqOutput )
+import Distribution.Franchise.Persistency ( requireWithPrereqWithFeedback )
 
 -- throw exception on failure to find something
 findProgram :: String -> [String] -> C String
@@ -59,7 +59,7 @@ withProgram pname alts j = (findProgram pname alts >>= j)
 configurableProgram :: String -> String -> [String] -> C FranchiseFlag
 configurableProgram humanName defaultProg options =
     configureFlagWithDefault ("with-"++humanName) "COMMAND" ("use command as "++humanName)
-                             (requireWithPrereqOutput ("for "++ humanName) humanName
+                             (requireWithPrereqWithFeedback ("for "++ humanName) humanName
                                                       (return $ defaultProg:options) $
                               do rn <- getExtra requestedname
                                  case rn of
@@ -71,7 +71,7 @@ configurableProgram humanName defaultProg options =
                              (\p -> do addExtraData extraname p
                                        cl <- getExtra "commandLine"
                                        when ("configure" `elem` cl) $ do
-                                         requireWithPrereqOutput ("for "++humanName) humanName
+                                         requireWithPrereqWithFeedback ("for "++humanName) humanName
                                                                  (return $ defaultProg:options)
                                                                  (return p)
                                          persistExtra extraname
