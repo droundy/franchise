@@ -552,7 +552,8 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
 
 mungeMissingModule :: String -> Maybe String
 mungeMissingModule [] = Nothing
-mungeMissingModule x@(_:r) = msum [takeWhile (/='\'') `fmap` stripPrefix " `" x,
+mungeMissingModule x@(_:r) = msum [takeWhile (/='\'') `fmap` stripPrefix "load interface for `" x,
+                                   takeWhile (/='\'') `fmap` stripPrefix "not find module `" x,
                                    mungeMissingModule r]
 
 mungePackage :: String -> Maybe String
