@@ -76,14 +76,15 @@ patchLevel t = withRootdir $
            readL = do [(i,"")] <- reads `fmap` cat dotfile
                       return i
 
-autoVersion :: ReleaseType -> C ()
+autoVersion :: ReleaseType -> C String
 autoVersion t = do vers <- releaseName t
                    oldversion <- getVersion
                    when (oldversion /= vers) $
                         do version vers
                            putS $ "version is now "++vers
+                   return vers
 
-autoPatchVersion :: ReleaseType -> C ()
+autoPatchVersion :: ReleaseType -> C String
 autoPatchVersion t = do r <- releaseName t
                         p <- patchLevel t
                         let vers = if p == 0 || p == -1
@@ -93,6 +94,7 @@ autoPatchVersion t = do r <- releaseName t
                         when (oldversion /= vers) $
                              do version vers
                                 putS $ "version is now "++vers
+                        return vers
 
 releaseDescription :: ReleaseType -> C String
 releaseDescription t = do r <- releaseName t
