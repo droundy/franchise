@@ -34,7 +34,7 @@ module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
       requireModule, lookForModule, withModule,
-      checkLib, withLib, checkHeader, withHeader, withLibOutput,
+      requireLib, lookForLib, withLib, checkHeader, withHeader, withLibOutput,
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
@@ -62,6 +62,7 @@ import Distribution.Franchise.Env ( setEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.GhcPkg ( readPkgMappings )
 import Distribution.Franchise.Trie ( Trie, lookupT )
+import Distribution.Franchise.Persistency ( require, requireWithPrereq )
 
 infix 2 <:
 (<:) :: [String] -> [String] -> Buildable
@@ -100,6 +101,9 @@ findPackagesFor src = do rm "temp.depend"
                          build' CanModifyState "temp.depend"
                          rm "temp.depend"
 
+ghcRelatedConfig :: [String]
+ghcRelatedConfig = [extraData "packages", extraData "definitions"]
+
 ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
     do x <- io (readFile dname) `catchC` \_ -> return ""
@@ -109,7 +113,7 @@ ghcDeps dname src announceme =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       addTarget $ [dname] :< cleandeps x
+       addTarget $ [dname] :< (ghcRelatedConfig++cleandeps x)
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
                          x <- seekPackages (ghc systemErr $ ["-M"
@@ -354,7 +358,8 @@ tryModule m imports code =
        return e
 
 checkHeader :: String -> C ()
-checkHeader h = do checkMinimumPackages
+checkHeader h = require ("for header file "++h) $
+                do checkMinimumPackages
                    bracketC_ create remove test
     where create = do
             mkFile "try-header-ffi.h" $ unlines ["void foo();"]
@@ -375,7 +380,7 @@ checkHeader h = do checkMinimumPackages
 
 withHeader :: String -> C () -> C ()
 withHeader h job = (checkHeader h >> job)
-                   `catchC` \_ -> putS $ "failed to find header "++h
+                   `catchC` \_ -> return ()
 
 getLibOutput :: String -> String -> String -> C String
 getLibOutput lib h code = do checkMinimumPackages
@@ -428,11 +433,17 @@ tryLib l h func = do checkMinimumPackages
                              "try-lib","try-lib.o",hf]
 
 withLib :: String -> String -> String -> C () -> C ()
-withLib l h func job = (checkLib l h func >> job)
-                       `catchC` \_ -> putS $ "failed to find library "++l
+withLib l h func job = whenC (lookForLib l h func) $ job
 
-checkLib :: String -> String -> String -> C ()
-checkLib l h func =
+lookForLib :: String -> String -> String -> C Bool
+lookForLib l h func = (requireLib l h func >> return True)
+                      `catchC` \_ -> return False
+
+requireLib :: String -> String -> String -> C ()
+requireLib l h func =
+    requireWithPrereq ("for library "++l)
+                      ("for library "++l++" exporting "++func++" using header "++h)
+                      getLdFlags $
     do checkMinimumPackages
        if null l
          then csum [do tryLib "std" h func
@@ -446,44 +457,47 @@ checkLib l h func =
                    ,fail $ "couldn't find library "++l]
 
 requireModule :: String -> C ()
-requireModule m = do haveit <- lookForModule m
+requireModule m = requireWithPrereq ("for module "++m) ("for module "++m) packages $
+                  do haveit <- lookForModule m
                      when (not haveit) $ fail $ "can't use module "++m
 
 withModule :: String -> C () -> C ()
 withModule m job = (requireModule m >> job)
-                   `catchC` \_ -> putS $ "failed to find module "++m
+                   `catchC` \_ -> return ()
 
 lookForModule :: String -> C Bool
 lookForModule m = lookForModuleExporting m "" ""
 
 lookForModuleExporting :: String -> String -> String -> C Bool
 lookForModuleExporting m i c =
-    do x <- seekPackages $ tryModule m i c
+    do putSnoln $ "checking module "++m++" ... "
+       x <- seekPackages $ tryModule m i c
        case x of
-         [] -> putS $ "found module "++m
-         [_] -> putS $ "found module "++m++" in package "++unwords x
-         _ -> putS $ "found module "++m++" in packages "++unwords x
+         [] -> putS $ "found"
+         [_] -> putS $ "found in package "++unwords x
+         _ -> putS $ "found in packages "++unwords x
        return True
     `catchC` \e -> do putV e
                       return False
 
 requireModuleExporting :: String -> String -> String -> C ()
-requireModuleExporting m i c = unlessC (lookForModuleExporting m i c) $
-                               fail $ "can't use module "++m
+requireModuleExporting m i c = requireWithPrereq ("module "++m++" exporting "++i)
+                                                 ("module "++m++" exporting "++i++" with code "++c)
+                                                 packages $
+                               unlessC (lookForModuleExporting m i c) $
+                                   fail $ "can't use module "++m :: C ()
 
 withModuleExporting :: String -> String -> String -> C () -> C ()
 withModuleExporting m i c j =
     (requireModuleExporting m i c >> j)
-    `catchC` \_ -> putS $ "failed to find an adequate module "++m
+    `catchC` \_ -> return ()
 
 checkMinimumPackages :: C ()
-checkMinimumPackages =
-    unlessC (haveExtraData "MINCONFIG") $
+checkMinimumPackages = require "the compiler works" $
     do mkFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
        seekPackages (ghc systemErr ["-o","try-min","try-min.hs"])
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
        whenC amInWindows $ mapM_ rm ["try-min.exe", "try-min.exe.manifest"]
-       addExtraData "MINCONFIG" ""
 
 seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages

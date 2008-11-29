@@ -62,7 +62,7 @@ flag n h j = return $ Option [] [n] (NoArg j') h
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
 unlessFlag n h j = do addHook n j'
                       flag n h (addExtra flagn "here")
-    where j' = unlessC (haveExtraData flagn) (putV ("handling missing flag --"++n) >> j)
+    where j' = unlessC (haveExtraData flagn) (putD ("handling missing flag --"++n) >> j)
           flagn = "flag-"++n
 
 withEnv :: String -> (String -> C ()) -> C ()

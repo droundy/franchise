@@ -34,7 +34,7 @@ module Distribution.Franchise.Buildable
       build, buildWithArgs, buildTarget,
       installBin,
       defaultRule, buildName, build', cleanIt, rm,
-      addToRule, addTarget, getBuildable, (|<-),
+      addToRule, addTarget, simpleTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
@@ -117,21 +117,19 @@ build opts mkbuild =
 
 buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
 buildWithArgs args opts mkbuild = runC $
-       do dohooks <- if "configure" `elem` args
-                     then return True
-                     else (do readConfigureState "config.d" >>= put
-                              putV "reusing old configuration"
-                              return False)
-                              `catchC` \_ -> do putV "Couldn't read old config.d"
-                                                rm_rf "config.d"
-                                                return True
+       do if "configure" `elem` args
+              then return ()
+              else (do readConfigureState "config.d" >>= put
+                       putV "reusing old configuration")
+                   `catchC` \_ -> do putV "Couldn't read old config.d"
+                                     rm_rf "config.d"
           putExtra "commandLine" args
           targets <- handleArgs opts
-          when dohooks runHooks
+          runHooks
           b <- mkbuild
           addTarget ([phony "build"]:<b:<-defaultRule)
           writeConfigureState "config.d"
-          when dohooks $ putS "configure successful."
+          when ("configure" `elem` args) $ putS "configure successful!"
           mapM_ buildtarget targets
     where buildtarget t = do mt <- sloppyTarget t
                              case mt of
@@ -329,6 +327,10 @@ installBin (xs:<_) = Just $ do pref <- getBinDir
                                let xs' = filter (not . isPhony) xs
                                putD $ unwords ("copyFile":xs'++[pref++"/"])
                                mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
+
+simpleTarget :: String -> C a -> C ()
+simpleTarget outname myrule =
+    addTarget $ [outname] :< [] :<- defaultRule { make = const (myrule >> return ()) }
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =

@@ -1,0 +1,28 @@
+requireModule only checks once for the module
+=============================================
+
+
+~~~~ tests/check-just-once/executable.hs
+main = putStrLn "hello world"
+~~~~
+
+~~~~ tests/check-just-once/Setup.hs
+import Distribution.Franchise
+main = build [] $ do requireModule "Distribution.Franchise"
+                     putS "foobar foobar"
+                     executable "executable" "executable.hs" []
+~~~~
+
+
+~~~~ tests/check-just-once/check-just-once.sh
+set -ev
+runghc Setup.hs configure > configure.out
+cat configure.out
+grep Franchise configure.out
+
+runghc Setup.hs build > build.out
+cat build.out
+grep Franchise build.out && exit 1
+
+./executable
+~~~~

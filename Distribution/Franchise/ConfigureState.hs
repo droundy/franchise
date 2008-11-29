@@ -32,10 +32,10 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.ConfigureState
     ( amInWindows,
       getModulePackageMap, setModulePackageMap,
-      getExtra, addExtra, addExtraUnique, putExtra,
+      getExtra, addExtra, addExtraUnique, putExtra, persistExtra,
       getExtraData, getAllExtraData, addExtraData, haveExtraData,
       addHook, removeHook, runHooks,
-      getNumJobs, setNumJobs,
+      getNumJobs, setNumJobs, oneJob,
       CanModifyState(..),
       Target(..),
       getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
@@ -63,8 +63,8 @@ import System.Directory ( getCurrentDirectory,
                           getDirectoryContents )
 import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hFlush, hPutStr, stdout )
-import Data.List ( (\\) )
-import Data.Maybe ( isJust )
+import Data.List ( delete, (\\) )
+import Data.Maybe ( isJust, catMaybes )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
@@ -138,6 +138,10 @@ writeConfigureState d =
                                  _ -> d++"/"
           writeExtra (e,v) = writeF (d'++e) v
 
+persistExtra :: String -> C ()
+persistExtra v =
+    C $ \ts -> return $ Right ((), ts { persistentThings = v : delete v (persistentThings ts) })
+
 writeF :: String -> String -> C ()
 writeF x0 y = do x <- processFilePath x0
                  mkdir $ dirname x0
@@ -196,6 +200,7 @@ data TotalState = TS { numJobs :: Int,
                        hooks :: [(String,C ())],
                        targets :: Trie Target,
                        built :: StringSet,
+                       persistentThings :: [String],
                        packageModuleMap :: Maybe (Trie [String]),
                        configureState :: ConfigureState }
 
@@ -216,7 +221,9 @@ runHooks = do hks <- C $ \ts -> return $ Right (hooks ts, ts)
 -- ErrorState is for returning errors along with any cached data we might
 -- have.  Currently, the only data we cache is the mapping from packages to
 -- modules.
-data ErrorState = Err String (Maybe (Trie [String]))
+data ErrorState = Err { failMsg :: String,
+                        persistentExtras :: [(String,String)],
+                        moduleMap :: Maybe (Trie [String]) }
 
 newtype C a = C (TotalState -> IO (Either ErrorState (a,TotalState)))
 
@@ -227,15 +234,22 @@ instance Functor C where
     f `fmap` x = x >>= (return . f)
 
 instance Monad C where
-    (C f) >>= g = C $ \cs ->
-        do macs' <- f cs
-           case macs' of
+    (C f) >>= g = C $ \ts ->
+        do mats' <- f ts
+           case mats' of
              Left e -> return (Left e)
-             Right (a,cs') -> unC (g a) cs'
-                              `catch` \err -> return (Left $ Err (show err) $ packageModuleMap cs')
-    return x = C (\cs -> return $ Right (x, cs))
+             Right (a,ts') -> unC (g a) ts'
+                              `catch` \err -> return (Left $ Err (show err)
+                                                                 (getPersistentStuff ts')
+                                                                 (packageModuleMap ts'))
+    return x = C (\ts -> return $ Right (x, ts))
     fail e = do putV $ "failure: "++ e
-                C (\ts -> return $ Left $ Err e (packageModuleMap ts))
+                C (\ts -> return $ Left $ Err e (getPersistentStuff ts) (packageModuleMap ts))
+
+getPersistentStuff :: TotalState -> [(String,String)]
+getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
+    where lookupone d = do v <- lookup d $ extraDataC (configureState ts)
+                           Just (d,v)
 
 get :: C ConfigureState
 get = C $ \ts -> return $ Right (configureState ts,ts)
@@ -254,6 +268,9 @@ setNumJobs n = C $ \ts -> return $ Right ((), ts { numJobs = n })
 
 getNumJobs :: C Int
 getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
+
+oneJob :: C Bool
+oneJob = (==1) `fmap` getNumJobs
 
 -- | Change current subdirectory
 cd :: String -> C ()
@@ -313,16 +330,17 @@ runC (C a) =
                       syncChan = ch2,
                       numJobs = 1,
                       hooks = [],
+                      persistentThings = [],
                       verbosity = readVerbosity Normal v,
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
                       configureState = defaultConfiguration })
        case xxx of
-         Left (Err e _) -> do -- give print thread a chance to do a bit more writing...
+         Left e -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000
                       killThread thid
-                      putStrLn $ "Error:  "++e
+                      putStrLn $ "Error:  "++ failMsg e
                       exitWith $ ExitFailure 1
          Right (out,_) -> return out
 
@@ -368,9 +386,14 @@ catchC (C a) b = C $ \ts ->
                  do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
                     case out of
                       Left e -> unC (b e) ts
-                      Right (Left (Err e modmap)) -> unC (b e) $
-                                                     ts { packageModuleMap = modmap `mplus`
-                                                                             packageModuleMap ts }
+                      Right (Left err) ->
+                          unC (b $ failMsg err) $
+                          ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
+                               configureState = (configureState ts) {
+                                     extraDataC = addextras (persistentExtras err) $
+                                                  extraDataC (configureState ts) }}
+                              where addextras [] x = x
+                                    addextras ((d,v):r) ed = addextras r $ (d,v):filter ((/=d).fst) ed
                       Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()

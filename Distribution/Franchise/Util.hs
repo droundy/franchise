@@ -34,7 +34,7 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
                                      mkFile, cat, pwd, ls, mv,
-                                     isFile, oneJob,
+                                     isFile,
                                      bracketC, csum, finallyC, bracketC_ )
     where
 
@@ -82,9 +82,6 @@ findCommandInExtraPath c = do ds <- extraPath
                          else do ise <- isExecutable (d++"/"++c)
                                  if ise then return (d++"/"++c)
                                         else fail $ "not "++(d++"/"++c)
-
-oneJob :: C Bool
-oneJob = (==1) `fmap` getNumJobs
 
 -- | Run a command
 system :: String   -- ^ Command

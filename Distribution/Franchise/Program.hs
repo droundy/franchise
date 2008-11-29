@@ -37,9 +37,11 @@ module Distribution.Franchise.Program ( findProgram, withProgram,
 
 import System.Directory ( findExecutable )
 import Data.Monoid ( Monoid, mempty )
+import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Flags ( FranchiseFlag, configureFlagWithDefault )
+import Distribution.Franchise.Persistency ( requireWithPrereqOutput )
 
 -- throw exception on failure to find something
 findProgram :: String -> [String] -> C String
@@ -57,10 +59,26 @@ withProgram pname alts j = (findProgram pname alts >>= j)
 configurableProgram :: String -> String -> [String] -> C FranchiseFlag
 configurableProgram humanName defaultProg options =
     configureFlagWithDefault ("with-"++humanName) "COMMAND" ("use command as "++humanName)
-                             (do p <- findProgram defaultProg options
-                                 putS $ "found "++humanName++" "++p
-                                 addExtraData ("program-"++humanName) p)
-                             (addExtraData ("program-"++humanName))
+                             (requireWithPrereqOutput ("for "++ humanName) humanName
+                                                      (return $ defaultProg:options) $
+                              do rn <- getExtra requestedname
+                                 case rn of
+                                   "Manually" -> getExtra extraname
+                                   _ -> do p <- findProgram defaultProg options
+                                           addExtraData extraname p
+                                           persistExtra extraname
+                                           return p)
+                             (\p -> do addExtraData extraname p
+                                       cl <- getExtra "commandLine"
+                                       when ("configure" `elem` cl) $ do
+                                         requireWithPrereqOutput ("for "++humanName) humanName
+                                                                 (return $ defaultProg:options)
+                                                                 (return p)
+                                         persistExtra extraname
+                                         addExtra requestedname "Manually"
+                                         persistExtra requestedname)
+    where requestedname = "program-"++humanName++"-requested"
+          extraname = "program-"++humanName
 
 configuredProgram :: String -> C String
 configuredProgram humanName = withConfiguredProgram humanName return

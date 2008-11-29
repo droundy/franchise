@@ -45,13 +45,15 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 defaultRule,
+                                -- some handy utilities for writing checks
+                                cacheifC, require, requireWithPrereq, setOnce, checkOnce,
                                 -- Handy module-searching
                                 requireModule, lookForModule, withModule,
                                 requireModuleExporting, lookForModuleExporting, withModuleExporting,
                                 -- Searching for an executable
                                 findProgram, withProgram,
                                 configurableProgram, configuredProgram, withConfiguredProgram,
-                                checkLib, withLib, checkHeader, withHeader,
+                                requireLib, lookForLib, withLib, checkHeader, withHeader,
                                 findPackagesFor,
                                 withLibOutput,
                                 -- defining package properties
@@ -112,3 +114,5 @@ import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
+import Distribution.Franchise.Persistency ( cacheifC, require, requireWithPrereq,
+                                            setOnce, checkOnce )

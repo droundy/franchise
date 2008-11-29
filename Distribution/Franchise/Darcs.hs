@@ -62,15 +62,12 @@ darcsRelease t =
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
-       whenC inDarcs $
-             do -- let's ensure that .releaseVersion, .latestRelease and .lastTag
-                -- exist to make it easier to track where this tarball came from...
-                darcsPatchLevel Numbered
-                darcsPatchLevel NumberedPreRc
-                darcsPatchLevel AnyTag
-                darcsRelease NumberedPreRc
-                darcsRelease Numbered
-                darcsRelease AnyTag
+       simpleTarget ".releaseVersion" $ whenC inDarcs $ darcsRelease Numbered
+       simpleTarget ".latestRelease" $ whenC inDarcs $ darcsRelease NumberedPreRc
+       simpleTarget ".lastTag" $ whenC inDarcs $ darcsRelease AnyTag
+       simpleTarget ".releaseVersionPatchLevel" $ whenC inDarcs (darcsPatchLevel Numbered >> return ())
+       simpleTarget ".latestReleasePatchLevel" $ whenC inDarcs (darcsPatchLevel NumberedPreRc >> return ())
+       simpleTarget ".lastTagPatchLevel" $ whenC inDarcs (darcsPatchLevel AnyTag >> return ())
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
            mkdist = do putS $ "making tarball as "++tarname
