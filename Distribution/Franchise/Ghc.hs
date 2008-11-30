@@ -172,13 +172,13 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 package :: String -> [String] -> [String] -> C [String]
 package pn modules cfiles =
     do maketixdir
+       checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
        whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
        getHscs -- to build any hsc files we need to.
        let depend = pn++".depend"
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
-       checkMinimumPackages -- ensure that we've got at least the prelude...
        (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
        ver <- getVersion
        let guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
