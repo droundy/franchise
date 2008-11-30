@@ -427,9 +427,9 @@ getNoRemove = getExtra "noRemove"
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
                     case v of
+                      Quiet -> return ()
                       Normal -> putM Stdout str
-                      Verbose -> putM Stdout vstr
-                      _ -> return ()
+                      _ -> putM Stdout vstr
                     putM Logfile vstr
 
 putM :: (String -> LogMessage) -> String -> C ()
