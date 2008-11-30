@@ -74,7 +74,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 autoHeader,
                                 -- setting compile parameters
                                 ghcFlags, ldFlags, cFlags, pkgFlags,
-                                rmGhcFlags,
+                                rmGhcFlags, setOutputDirectory,
                                 -- utility for running external code
                                 system, systemOut, systemInOut,
                                 systemOutErrToFile,

@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.GhcState
     ( ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
       rmGhcFlags,
+      setOutputDirectory,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
       define, undefine, defineAs,
@@ -44,9 +45,11 @@ module Distribution.Franchise.GhcState
 import Control.Monad ( mplus )
 import System.Directory ( getAppUserDataDirectory )
 import Data.List ( (\\) )
+import Data.Maybe ( catMaybes )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnv )
+import Distribution.Franchise.ListUtils ( stripPrefix )
 
 addPackages :: [String] -> C ()
 addPackages = addExtra "packages"
@@ -60,6 +63,18 @@ pkgFlags = addExtraUnique "pkgFlags"
 
 ghcFlags :: [String] -> C ()
 ghcFlags = addExtraUnique "ghcFlags"
+
+setOutputDirectory :: String -> C ()
+setOutputDirectory odir =
+    do fs <- getGhcFlags
+       let fs' = rmoldodirs oldodirs fs
+           oldodirs = filter (/=".") $ filter (not.null) $
+                      catMaybes $ map (stripPrefix "-odir") fs
+           rmoldodirs [] x = x
+           rmoldodirs (o:os) x = rmoldodirs os (x \\ ["-odir"++o, "-hidir"++o,"-stubdir"++o, "-i"++o])
+       if odir == "."
+         then putExtra "ghcFlags" fs'
+         else putExtra "ghcFlags" $ ["-odir"++odir,"-hidir"++odir,"-stubdir"++odir,"-i"++odir]++fs'
 
 cFlags :: [String] -> C ()
 cFlags = addExtraUnique "cflags"
