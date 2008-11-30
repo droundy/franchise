@@ -70,7 +70,11 @@ getEnvironment = do pe <- getPrivateEnvironment
                     e <- catMaybes `fmap`
                          mapM gete ["HOME","PATH","PWD","PREFIX",
                                     "GHC_PACKAGE_CONF",
-                                    "FRANCHISE_GHC_PACKAGE_CONF"]
+                                    "FRANCHISE_GHC_PACKAGE_CONF",
+                                    "ALLUSERSPROFILE", "APPDATA", "ComSpec",
+                                    "DISPLAY", "EDITOR", "NUMBER_OF_PROCESSORS",
+                                    "OS", "USER", "USERNAME", "USERPROFILE",
+                                    "windir", "winsysdir", "TEMP"]
 #endif
                     return (pe ++ filter ((`notElem` (map fst pe)) . fst) e)
 
