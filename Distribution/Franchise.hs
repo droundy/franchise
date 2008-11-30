@@ -84,7 +84,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 -- string-processing...
                                 stripPrefix,
                                 -- environment-handling functions
-                                setEnv, getEnv, addToPath,
+                                setEnv, getEnv, addToPath, addToGhcPath,
                                 -- useful for user-oriented messages.
                                 putS, putV, putSV,
                                 -- for handy preprocessing...
@@ -97,6 +97,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc
+import Distribution.Franchise.GhcPkg ( addToGhcPath )
 import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian

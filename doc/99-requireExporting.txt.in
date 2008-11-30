@@ -65,9 +65,9 @@ package.
 ~~~~ tests/requireExporting/requireExporting.sh
 set -ev
 cd a
-runghc Setup.hs install --user
+runghc Setup.hs install
 cd ../b
-runghc Setup.hs install --user
+runghc Setup.hs install
 cd ../c
 
 runghc Setup.hs clean

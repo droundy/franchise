@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.GhcPkg ( readPkgMappings,
+module Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath,
                                        -- we don't really want to export
                                        -- the following, but it stops ghc
                                        -- from displaying warnings.
@@ -41,32 +41,69 @@ module Distribution.Franchise.GhcPkg ( readPkgMappings,
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Trie
+import Distribution.Franchise.Env ( setEnv )
 
 readPkgMappings :: C (Trie [String])
 readPkgMappings = do x <- getPackageConfs
                      confs <- mapM cat x
-                     let pinfos :: [[InstalledPackageInfo]]
-                         pinfos = map readlist confs
+                     let pinfos = map readlist confs ++ map (map fixIPI . readlist) confs
                          readlist str = case reads str of
                                         [(y,_)] -> y
                                         _ -> []
-                         mods :: InstalledPackageInfo -> [(String,String)]
+                         mods :: InstalledPackageInfo String -> [(String,String)]
                          mods ipi = zip (exposedModules ipi) (repeat $ showPackage $ package ipi)
                          addmods [] trie = trie
                          addmods ((m,p):r) trie = addmods r $ alterT m (mycons p) trie
                              where mycons pp Nothing = Just [pp]
                                    mycons pp (Just ps) = Just (pp:ps)
-                     --putS $ unlines $ map show $ toListT $ addmods (concatMap mods $ concat pinfos) emptyT
+                     -- putS $ unlines $ ("HERE ARE THE MAPS" :) $ map show $ toListT $ addmods (concatMap mods $ concat pinfos) emptyT
                      return $ addmods (concatMap mods $ concat pinfos) emptyT
 
 getPackageConfs :: C [String]
 getPackageConfs = do list <- systemOut "ghc-pkg" ["list"]
-                     return $ map init $ filter ((/= ' ') . head) $
+                     return $ map (init . filter (/='\r')) $ filter ((/= ' ') . head) $
                             filter (not . null) $ lines list
 
-data InstalledPackageInfo
+addToGhcPath :: FilePath -> C ()
+addToGhcPath d = do amw <- amInWindows
+                    oldpath <- reverse `fmap` getPackageConfs
+                    setEnv "GHC_PACKAGE_PATH" $ if amw then drop 1 $ concatMap (';':) (d:oldpath)
+                                                       else drop 1 $ concatMap (':':) (d:oldpath)
+
+fixIPI :: InstalledPackageInfo PackageName -> InstalledPackageInfo String
+fixIPI ipi = InstalledPackageInfo { package = fixPI $ package ipi,
+                                    exposedModules = exposedModules ipi,
+                                    depends = map fixPI $ depends ipi,
+                                    license = license ipi,
+                                    copyright = copyright ipi,
+                                    maintainer = maintainer ipi,
+                                    author = author ipi,
+                                    stability = stability ipi,
+                                    homepage = homepage ipi,
+                                    pkgUrl = pkgUrl ipi,
+                                    description = description ipi,
+                                    category = category ipi,
+                                    exposed = exposed ipi,
+                                    hiddenModules = hiddenModules ipi,
+                                    importDirs = importDirs ipi,
+                                    libraryDirs = libraryDirs ipi,
+                                    hsLibraries = hsLibraries ipi,
+                                    extraLibraries = extraLibraries ipi,
+                                    extraGHCiLibraries = extraGHCiLibraries ipi,
+                                    includeDirs = includeDirs ipi,
+                                    includes = includes ipi,
+                                    hugsOptions = hugsOptions ipi,
+                                    ccOptions = ccOptions ipi,
+                                    ldOptions = ldOptions ipi,
+                                    frameworkDirs = frameworkDirs ipi,
+                                    frameworks = frameworks ipi,
+                                    haddockInterfaces = haddockInterfaces ipi,
+                                    haddockHTMLs = haddockHTMLs ipi
+                                  }
+
+data InstalledPackageInfo pn
    = InstalledPackageInfo {
-	package           :: PackageIdentifier,
+	package           :: PackageIdentifier pn,
         license           :: License,
         copyright         :: String,
         maintainer        :: String,
@@ -87,7 +124,7 @@ data InstalledPackageInfo
 	extraGHCiLibraries:: [String],
         includeDirs       :: [FilePath],
         includes          :: [String],
-        depends           :: [PackageIdentifier],
+        depends           :: [PackageIdentifier pn],
         hugsOptions	  :: [String],
         ccOptions	  :: [String],
         ldOptions	  :: [String],
@@ -97,7 +134,15 @@ data InstalledPackageInfo
 	haddockHTMLs      :: [FilePath]
     } deriving (Read, Show)
 
-data PackageIdentifier = PackageIdentifier { pkgName :: String, pkgVersion :: Version }
+data PackageName = PackageName String deriving ( Read, Show, Eq, Ord )
+
+pnToString :: PackageName -> String
+pnToString (PackageName n) = n
+
+fixPI :: PackageIdentifier PackageName -> PackageIdentifier String
+fixPI (PackageIdentifier pn v) = PackageIdentifier (pnToString pn) v
+
+data PackageIdentifier pn = PackageIdentifier { pkgName :: pn, pkgVersion :: Version }
      deriving (Read, Show, Eq, Ord)
 
 data License = GPL | LGPL | BSD3 | BSD4 | PublicDomain | AllRightsReserved | OtherLicense
@@ -108,7 +153,7 @@ data Version =
   Version { versionBranch :: [Int], versionTags :: [String] }
   deriving (Read,Show,Eq,Ord)
 
-showPackage :: PackageIdentifier -> String
+showPackage :: PackageIdentifier String -> String
 showPackage (PackageIdentifier n v) = n ++ '-': showVersion v
 
 showVersion :: Version -> String
