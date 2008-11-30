@@ -116,6 +116,7 @@ ghcDeps dname src announceme =
        addTarget $ [dname] :< (ghcRelatedConfig++cleandeps x)
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
+                         rm dname
                          x <- seekPackages (ghc systemErr $ ["-M"
 #if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"
