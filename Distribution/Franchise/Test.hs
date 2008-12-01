@@ -76,7 +76,7 @@ testOne n r f = testC n runtest
                        case ec of
                          ExitSuccess ->
                              putV $ unlines $ map (\l->('|':' ':l)) $ lines out
-                         _ -> fail out
+                         _ -> fail $ show ec++"\n"++out
 
 pad :: String -> String
 pad x0 = if length x < 65
