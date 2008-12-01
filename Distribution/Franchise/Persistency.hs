@@ -112,5 +112,5 @@ cleanName "" = ""
 cleanName ('(':r) = cleanName $ drop 1 $ dropWhile (/= ')') r
 cleanName ('\'':r) = cleanName r
 cleanName ('"':r) = cleanName r
-cleanName (c:r) | c `elem` "/\\\n\t \r" = '-' : cleanName r
+cleanName (c:r) | c `elem` "/\\\n\t \r><," = '-' : dropWhile (=='-') (cleanName r)
                 | otherwise = c : cleanName r
