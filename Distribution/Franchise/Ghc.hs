@@ -333,7 +333,7 @@ hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
                      cf <- map ("--cflag="++) `fmap` getCFlags
                      ld <- map ("--lflag="++) `fmap` getLdFlags
                      let opts = fl ++ defs ++ ld ++ cf
-                     sys "hsc2hs" $ opts++args
+                     sys "hsc2hs" $ "--cc=ghc":opts++args
 
 ghc :: (String -> [String] -> C a) -> [String] -> C a
 ghc sys args = do pn <- getPackageVersion
