@@ -55,9 +55,10 @@ Setup.hs
 ~~~~ tests/hpc/Setup.hs
 import Distribution.Franchise
 
-main = build [] $
+main = build [configurableProgram "shell" "shsh" ["bash","sh"]] $
        do let mytests = ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]
-          mapM_ (\x -> testOne x "bash" x) mytests
+          sh <- configuredProgram "shell"
+          mapM_ (\x -> testOne x sh x) mytests
           test mytests
           executable "main" "main.hs" []
 ~~~~
@@ -70,15 +71,17 @@ achieved 100% coverage of all properties that hpc tests.
 
 ~~~~ tests/hpc/hpc.sh
 set -ev
-if hpc help > /dev/null; then
-  # we have hpc, so we can test for full code coverage
-  runghc Setup.hs --enable-hpc test
-  hpc report main > alltests
-  hpc report main | grep 100 > passedtests
-  diff -u alltests passedtests
-else
-  # we don't have hpc, so we'll just check the tests pass
-  runghc Setup.hs test
-fi
+# we have hpc, so we can test for full code coverage
+runghc Setup.hs --enable-hpc test
+
+# quit early if we either don't support globbing or aren't using a
+# ghc 6.8.3 or later (which understands where to put the tix files)
+echo tix/*.tix | grep main || exit 0
+
+hpc report tix/*.tix > alltests
+hpc report tix/*.tix | grep 100 > passedtests
+cat alltests
+cat passedtests
+cmp alltests passedtests
 ~~~~
 
