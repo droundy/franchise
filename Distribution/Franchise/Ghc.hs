@@ -336,17 +336,22 @@ hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
                      sys "hsc2hs" $ "--cc=ghc":opts++args
 
 ghc :: (String -> [String] -> C a) -> [String] -> C a
-ghc sys args = do pn <- getPackageVersion
-                  packs <- concatMap (\p -> ["-package",p]) `fmap` packages
-                  fl <- getGhcFlags
-                  defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
-                  cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
-                  ld <- map ("-optl"++) `fmap` getLdFlags
-                  let opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
-                                        ++ (if any (isSuffixOf ".c") args then cf else packs)
-                  case pn of
-                    Just p -> sys "ghc" $ opts++["-hide-all-packages","-package-name",p]++packs++args
-                    Nothing -> sys "ghc" $ opts++"-hide-all-packages":packs++args
+ghc = ghcWithoutFlags []
+
+ghcWithoutFlags :: [String] -> (String -> [String] -> C a) -> [String] -> C a
+ghcWithoutFlags nonflags sys args = do
+  pn <- getPackageVersion
+  packs <- concatMap (\p -> ["-package",p]) `fmap` packages
+  fl <- getGhcFlags
+  defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
+  cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
+  ld <- map ("-optl"++) `fmap` getLdFlags
+  let opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
+                        ++ (if any (isSuffixOf ".c") args then cf else packs)
+  case pn of
+    Just p -> sys "ghc" $ filter (`notElem` nonflags) $
+              opts++["-hide-all-packages","-package-name",p]++packs++args
+    Nothing -> sys "ghc" $ filter (`notElem` nonflags) $ opts++"-hide-all-packages":packs++args
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
@@ -354,7 +359,7 @@ tryModule m imports code =
        mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
                               "main:: IO ()",
                               "main = undefined ("++code++")"]
-       e <- ghc systemErr ["-c",fn]
+       e <- ghcWithoutFlags ["-Werror"] systemErr ["-c",fn]
        mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
        return e
 
@@ -373,9 +378,9 @@ checkHeader h = require ("for header file "++h) $
                                               "main = foo"]
           foreignf = "foreign import ccall unsafe "++
                      "\"try-header-ffi.h foo\" foo :: IO ()"
-          test = do ghc systemV ["-c","-cpp","try-header-ffi.c"]
-                    ghc systemV ["-fffi","-o","try-header",
-                                 "try-header.hs","try-header-ffi.o"]
+          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp","try-header-ffi.c"]
+                    ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","try-header",
+                                                         "try-header.hs","try-header-ffi.o"]
           remove = mapM_ rm ["try-header-ffi.h","try-header-ffi.o",
                              "try-header-ffi.c","try-header","try-header.hs"]
 
@@ -397,12 +402,12 @@ getLibOutput lib h code = do checkMinimumPackages
                                              "main = foo"]
           foreignf = "foreign import ccall unsafe "++
                      "\"get-const-ffi.h foo\" foo :: IO ()"
-          test = do ghc systemV ["-c","-cpp","get-const-ffi.c"]
-                    csum [ghc systemV ["-fffi","-o","get-const",
-                                       "get-const.hs","get-const-ffi.o"]
+          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp","get-const-ffi.c"]
+                    csum [ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","get-const",
+                                                               "get-const.hs","get-const-ffi.o"]
                          ,do ldFlags ["-l"++lib]
-                             ghc systemV ["-fffi","-o","get-const",
-                                          "get-const.hs","get-const-ffi.o"]]
+                             ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","get-const",
+                                                                  "get-const.hs","get-const-ffi.o"]]
                     systemOut "./get-const" []
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
@@ -428,8 +433,8 @@ tryLib l h func = do checkMinimumPackages
                                                      else "#include \""++h++"\"",
                                            "void foo();",
                                            "void foo() { "++func++"; }"]
-          test = do ghc systemV ["-c","-cpp",fn]
-                    ghc systemV ["-fffi","-o","try-lib",fo,hf]
+          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp",fn]
+                    ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","try-lib",fo,hf]
           remove = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi",
                              "try-lib","try-lib.o",hf]
 
@@ -496,7 +501,7 @@ withModuleExporting m i c j =
 checkMinimumPackages :: C ()
 checkMinimumPackages = require "the compiler works" $
     do mkFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
-       seekPackages (ghc systemErr ["-o","try-min","try-min.hs"])
+       seekPackages (ghcWithoutFlags ["-Werror"] systemErr ["-o","try-min","try-min.hs"])
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
        whenC amInWindows $ mapM_ rm ["try-min.exe", "try-min.exe.manifest"]
 
