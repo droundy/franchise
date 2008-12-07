@@ -89,7 +89,7 @@ getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` getAllExtraData
 
 getAllExtraData :: C [(String, String)]
-getAllExtraData = gets configureState
+getAllExtraData = toListT `fmap` gets configureState
 
 unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate
@@ -103,8 +103,8 @@ haveExtraData :: String -> C Bool
 haveExtraData d = isJust `fmap` getExtraData d
 
 addExtraData :: String -> String -> C ()
-addExtraData d v =
-    modify $ \cs -> (d,v) : filter ((/=d).fst) cs
+addExtraData d v = do x <- gets configureState
+                      C $ \ts -> return $ Right ((), ts { configureState = insertT d v x })
 
 -- | amInWindows is a hokey function to identify windows systems.  It's
 -- probably more portable than checking System.Info.os, which isn't saying
@@ -117,7 +117,7 @@ readConfigureState d =
     do alles <- readDirectory d'
        let es = filter ((/= '.') . head) alles
        vs <- mapM (\e -> io $ readFile' (d'++e)) es
-       C $ \ts -> return $ Right ((),ts { configureState=zip es vs })
+       C $ \ts -> return $ Right ((),ts { configureState=fromListT (zip es vs) })
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
             readFile' f = do x <- readFile f
@@ -125,7 +125,7 @@ readConfigureState d =
 
 writeConfigureState :: String -> C ()
 writeConfigureState d =
-    do cs <- gets configureState
+    do cs <- getAllExtraData
        mapM_ writeExtra cs
        allextras <- filter ((/= '.') . head) `fmap` readDirectory d
        let toberemoved = allextras \\ map fst cs
@@ -199,7 +199,7 @@ data TotalState = TS { numJobs :: Int,
                        currentSubDirectory :: Maybe String,
                        persistentThings :: [String],
                        packageModuleMap :: Maybe (Trie [String]),
-                       configureState :: [(String,String)] }
+                       configureState :: Trie String }
 
 modifyHooks :: ([(String,C ())] -> [(String,C ())]) -> C ()
 modifyHooks f = C $ \ts -> return $ Right ((), ts { hooks = f $ hooks ts })
@@ -245,14 +245,11 @@ instance Monad C where
 
 getPersistentStuff :: TotalState -> [(String,String)]
 getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
-    where lookupone d = do v <- lookup d $ configureState ts
+    where lookupone d = do v <- lookupT d $ configureState ts
                            Just (d,v)
 
 gets :: (TotalState -> a) -> C a
 gets f = C $ \ts -> return $ Right (f ts, ts)
-
-modify :: ([(String, String)] -> [(String, String)]) -> C ()
-modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
 
 setNumJobs :: Int -> C ()
 setNumJobs n = C $ \ts -> return $ Right ((), ts { numJobs = n })
@@ -327,7 +324,7 @@ runC (C a) =
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
-                      configureState = [] })
+                      configureState = emptyT })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000
@@ -377,9 +374,7 @@ catchC (C a) b = C $ \ts ->
                       Right (Left err) ->
                           unC (b $ failMsg err) $
                           ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
-                               configureState = addextras (persistentExtras err) $ configureState ts }
-                              where addextras [] x = x
-                                    addextras ((d,v):r) ed = addextras r $ (d,v):filter ((/=d).fst) ed
+                               configureState = insertSeveralT (persistentExtras err) $ configureState ts }
                       Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()
