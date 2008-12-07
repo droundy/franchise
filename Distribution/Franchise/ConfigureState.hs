@@ -90,7 +90,7 @@ getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` getAllExtraData
 
 getAllExtraData :: C [(String, String)]
-getAllExtraData = gets extraDataC
+getAllExtraData = gets (extraDataC . configureState)
 
 unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate
@@ -113,8 +113,7 @@ addExtraData d v =
 amInWindows :: C Bool
 amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
 
-data ConfigureState = CS { currentSubDirectory :: Maybe String,
-                           extraDataC :: [(String,String)] }
+data ConfigureState = CS { extraDataC :: [(String,String)] }
 
 readConfigureState :: String -> C ConfigureState
 readConfigureState d =
@@ -200,6 +199,7 @@ data TotalState = TS { numJobs :: Int,
                        hooks :: [(String,C ())],
                        targets :: Trie Target,
                        built :: StringSet,
+                       currentSubDirectory :: Maybe String,
                        persistentThings :: [String],
                        packageModuleMap :: Maybe (Trie [String]),
                        configureState :: ConfigureState }
@@ -257,8 +257,8 @@ get = C $ \ts -> return $ Right (configureState ts,ts)
 put :: ConfigureState -> C ()
 put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
-gets :: (ConfigureState -> a) -> C a
-gets f = f `fmap` get
+gets :: (TotalState -> a) -> C a
+gets f = C $ \ts -> return $ Right (f ts, ts)
 
 modify :: (ConfigureState -> ConfigureState) -> C ()
 modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
@@ -274,7 +274,7 @@ oneJob = (==1) `fmap` getNumJobs
 
 -- | Change current subdirectory
 cd :: String -> C ()
-cd d = modify (\cs -> cs { currentSubDirectory = cdd $ currentSubDirectory cs })
+cd d = C (\ts -> return $ Right ((), ts { currentSubDirectory = cdd $ currentSubDirectory ts }))
     where cdd Nothing = Just d
           cdd (Just oldd) = Just (oldd++"/"++d)
 
@@ -282,14 +282,14 @@ withDirectory :: String -> C a -> C a
 withDirectory d f = do oldd <- gets currentSubDirectory
                        cd d
                        x <- f
-                       modify $ \cs -> cs { currentSubDirectory = oldd }
+                       C $ \ts -> return $ Right ((), ts { currentSubDirectory = oldd })
                        return x
 
 withRootdir :: C a -> C a
 withRootdir f = do oldd <- gets currentSubDirectory
-                   modify $ \cs -> cs { currentSubDirectory = Nothing }
+                   C $ \ts -> return $ Right ((), ts { currentSubDirectory = Nothing })
                    x <- f
-                   modify $ \cs -> cs { currentSubDirectory = oldd }
+                   C $ \ts -> return $ Right ((), ts { currentSubDirectory = oldd })
                    return x
 
 rememberDirectory :: C (C a -> C a)
@@ -329,6 +329,7 @@ runC (C a) =
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
+                      currentSubDirectory = Nothing,
                       hooks = [],
                       persistentThings = [],
                       verbosity = readVerbosity Normal v,
@@ -352,24 +353,23 @@ defaultTargets =
     emptyT
 
 defaultConfiguration :: ConfigureState
-defaultConfiguration = CS { currentSubDirectory = Nothing,
-                            extraDataC = [] }
+defaultConfiguration = CS { extraDataC = [] }
 
 getTargets :: C (Trie Target)
-getTargets = C $ \ts -> return $ Right (targets ts, ts)
+getTargets = gets targets
 
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
 modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
 
 getModulePackageMap :: C (Maybe (Trie [String]))
-getModulePackageMap = C $ \ts -> return $ Right (packageModuleMap ts, ts)
+getModulePackageMap = gets packageModuleMap
 
 setModulePackageMap :: Trie [String] -> C ()
 setModulePackageMap mpm =
     C $ \ts -> return $ Right ((), ts { packageModuleMap = Just mpm })
 
 isBuilt :: String -> C Bool
-isBuilt t = C $ \ts -> return $ Right (t `elemS` built ts || ('*':t++"*") `elemS` built ts, ts)
+isBuilt t = gets (\ts -> t `elemS` built ts || ('*':t++"*") `elemS` built ts)
 
 setBuilt :: String -> C ()
 setBuilt t = C $ \ts -> return $ Right ((), ts { built = addS t $ built ts })
