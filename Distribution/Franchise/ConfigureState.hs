@@ -89,7 +89,7 @@ getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` getAllExtraData
 
 getAllExtraData :: C [(String, String)]
-getAllExtraData = gets (extraDataC . configureState)
+getAllExtraData = gets configureState
 
 unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate
@@ -104,7 +104,7 @@ haveExtraData d = isJust `fmap` getExtraData d
 
 addExtraData :: String -> String -> C ()
 addExtraData d v =
-    modify $ \c -> c { extraDataC = (d,v): filter ((/=d).fst) (extraDataC c) }
+    modify $ \cs -> (d,v) : filter ((/=d).fst) cs
 
 -- | amInWindows is a hokey function to identify windows systems.  It's
 -- probably more portable than checking System.Info.os, which isn't saying
@@ -112,24 +112,23 @@ addExtraData d v =
 amInWindows :: C Bool
 amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
 
-data ConfigureState = CS { extraDataC :: [(String,String)] }
-
 readConfigureState :: String -> C ()
 readConfigureState d =
     do alles <- readDirectory d'
        let es = filter ((/= '.') . head) alles
-       vs <- mapM (\e -> io $ readFile (d'++e)) es
-       let extr = zip es vs
-       C $ \ts -> return $ Right ((),ts { configureState=defaultConfiguration { extraDataC = extr } })
+       vs <- mapM (\e -> io $ readFile' (d'++e)) es
+       C $ \ts -> return $ Right ((),ts { configureState=zip es vs })
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
+            readFile' f = do x <- readFile f
+                             seq (length x) $ return x
 
 writeConfigureState :: String -> C ()
 writeConfigureState d =
     do cs <- gets configureState
-       mapM_ writeExtra $ extraDataC cs
+       mapM_ writeExtra cs
        allextras <- filter ((/= '.') . head) `fmap` readDirectory d
-       let toberemoved = allextras \\ map fst (extraDataC cs)
+       let toberemoved = allextras \\ map fst cs
        mapM_ (rm_rf . (d'++)) toberemoved
     where d' = case reverse d of ('/':_) -> d
                                  _ -> d++"/"
@@ -200,7 +199,7 @@ data TotalState = TS { numJobs :: Int,
                        currentSubDirectory :: Maybe String,
                        persistentThings :: [String],
                        packageModuleMap :: Maybe (Trie [String]),
-                       configureState :: ConfigureState }
+                       configureState :: [(String,String)] }
 
 modifyHooks :: ([(String,C ())] -> [(String,C ())]) -> C ()
 modifyHooks f = C $ \ts -> return $ Right ((), ts { hooks = f $ hooks ts })
@@ -246,13 +245,13 @@ instance Monad C where
 
 getPersistentStuff :: TotalState -> [(String,String)]
 getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
-    where lookupone d = do v <- lookup d $ extraDataC (configureState ts)
+    where lookupone d = do v <- lookup d $ configureState ts
                            Just (d,v)
 
 gets :: (TotalState -> a) -> C a
 gets f = C $ \ts -> return $ Right (f ts, ts)
 
-modify :: (ConfigureState -> ConfigureState) -> C ()
+modify :: ([(String, String)] -> [(String, String)]) -> C ()
 modify f = C $ \ts -> return $ Right ((),ts { configureState = f $ configureState ts })
 
 setNumJobs :: Int -> C ()
@@ -328,7 +327,7 @@ runC (C a) =
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
-                      configureState = defaultConfiguration })
+                      configureState = [] })
        case xxx of
          Left e -> do -- give print thread a chance to do a bit more writing...
                       threadDelay 1000000
@@ -343,9 +342,6 @@ defaultTargets =
     insertT "*install*" (Target emptyS (fromListS ["*build*"]) $ putS "installing...") $
     insertT "*build*" (Target emptyS emptyS $ putS "finished building.") $
     emptyT
-
-defaultConfiguration :: ConfigureState
-defaultConfiguration = CS { extraDataC = [] }
 
 getTargets :: C (Trie Target)
 getTargets = gets targets
@@ -381,9 +377,7 @@ catchC (C a) b = C $ \ts ->
                       Right (Left err) ->
                           unC (b $ failMsg err) $
                           ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
-                               configureState = (configureState ts) {
-                                     extraDataC = addextras (persistentExtras err) $
-                                                  extraDataC (configureState ts) }}
+                               configureState = addextras (persistentExtras err) $ configureState ts }
                               where addextras [] x = x
                                     addextras ((d,v):r) ed = addextras r $ (d,v):filter ((/=d).fst) ed
                       Right x -> return x
