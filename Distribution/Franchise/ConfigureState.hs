@@ -47,7 +47,7 @@ module Distribution.Franchise.ConfigureState
       quietly, silently,
       unlessC, whenC, getNoRemove,
       putSnoln, putS, putV, putD, putSV, putL, setVerbose,
-      put, get )
+      put )
         where
 
 import qualified System.Environment as E ( getEnv )
@@ -128,7 +128,7 @@ readConfigureState d =
 
 writeConfigureState :: String -> C ()
 writeConfigureState d =
-    do cs <- get
+    do cs <- gets configureState
        mapM_ writeExtra $ extraDataC cs
        allextras <- filter ((/= '.') . head) `fmap` readDirectory d
        let toberemoved = allextras \\ map fst (extraDataC cs)
@@ -250,9 +250,6 @@ getPersistentStuff :: TotalState -> [(String,String)]
 getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
     where lookupone d = do v <- lookup d $ extraDataC (configureState ts)
                            Just (d,v)
-
-get :: C ConfigureState
-get = C $ \ts -> return $ Right (configureState ts,ts)
 
 put :: ConfigureState -> C ()
 put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
