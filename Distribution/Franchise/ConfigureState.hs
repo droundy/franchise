@@ -39,15 +39,14 @@ module Distribution.Franchise.ConfigureState
       CanModifyState(..),
       Target(..),
       getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
-      C, ConfigureState(..), runC, io, catchC, forkC,
+      C, runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF, splitPath,
       dirname, basename,
       withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
       quietly, silently,
       unlessC, whenC, getNoRemove,
-      putSnoln, putS, putV, putD, putSV, putL, setVerbose,
-      put )
+      putSnoln, putS, putV, putD, putSV, putL, setVerbose )
         where
 
 import qualified System.Environment as E ( getEnv )
@@ -115,14 +114,13 @@ amInWindows = (not . elem '/') `fmap` io getCurrentDirectory
 
 data ConfigureState = CS { extraDataC :: [(String,String)] }
 
-readConfigureState :: String -> C ConfigureState
+readConfigureState :: String -> C ()
 readConfigureState d =
     do alles <- readDirectory d'
        let es = filter ((/= '.') . head) alles
        vs <- mapM (\e -> io $ readFile (d'++e)) es
        let extr = zip es vs
-       seq (length $ concat vs) $ return $
-           defaultConfiguration { extraDataC = extr }
+       C $ \ts -> return $ Right ((),ts { configureState=defaultConfiguration { extraDataC = extr } })
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
 
@@ -250,9 +248,6 @@ getPersistentStuff :: TotalState -> [(String,String)]
 getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
     where lookupone d = do v <- lookup d $ extraDataC (configureState ts)
                            Just (d,v)
-
-put :: ConfigureState -> C ()
-put cs = C $ \ts -> return $ Right ((),ts { configureState=cs })
 
 gets :: (TotalState -> a) -> C a
 gets f = C $ \ts -> return $ Right (f ts, ts)

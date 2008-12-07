@@ -119,7 +119,7 @@ buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do if "configure" `elem` args
               then return ()
-              else (do readConfigureState "config.d" >>= put
+              else (do readConfigureState "config.d"
                        putV "reusing old configuration")
                    `catchC` \_ -> do putV "Couldn't read old config.d"
                                      rm_rf "config.d"
