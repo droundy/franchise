@@ -281,11 +281,11 @@ installPackageInto pn libdir =
              do putD $ "createDirectoryIfMissing "++ destination
                 io $ createDirectoryIfMissing True destination
                 let inst x = do putD $ "installing for package "++x
-                                case dirname x of
+                                case dirname $ dropLowercaseDirs x of
                                   "" -> return ()
                                   xdn -> io $ createDirectoryIfMissing True $ destination++"/"++xdn
-                                putD $ unwords ["copyFile", x, (destination++"/"++x)]
-                                io $ copyFile x (destination++"/"++x)
+                                putD $ unwords ["copyFile", x, (destination++"/"++dropLowercaseDirs x)]
+                                io $ copyFile x (destination++"/"++dropLowercaseDirs x)
                     his = filter (".hi" `isSuffixOf`) $ toListS ds
                 mapM_ inst (("lib"++pn++".a") : his)
                 pkgflags <- getPkgFlags
@@ -296,9 +296,29 @@ installPackageInto pn libdir =
                                                              "--package-conf="++pf]
 
 objToModName :: String -> String
-objToModName = map todots . takeAllBut 2
-    where todots '/' = '.'
-          todots x = x
+objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap . breakDirs . takeAllBut 2
+    where isntCap (c:_) = c `notElem` ['A'..'Z']
+          isntCap [] = True
+          breakDirs xs = case break (`elem` "/\\") xs of
+                           ("",'/':r) -> breakDirs r
+                           ("",'\\':r) -> breakDirs r
+                           ("","") -> []
+                           ("",_) -> [xs]
+                           (a,b) -> a : breakDirs (drop 1 b)
+
+
+dropLowercaseDirs :: String -> String
+dropLowercaseDirs p = case breakDirs p of
+                      [_] -> p
+                      p' -> drop 1 $ concatMap ('/':) $ dropWhile isntCap p'
+    where isntCap (c:_) = c `notElem` ['A'..'Z']
+          isntCap [] = True
+          breakDirs xs = case break (`elem` "/\\") xs of
+                           ("",'/':r) -> breakDirs r
+                           ("",'\\':r) -> breakDirs r
+                           ("","") -> []
+                           ("",_) -> [xs]
+                           (a,b) -> a : breakDirs (drop 1 b)
 
 takeAllBut :: Int -> [a] -> [a]
 takeAllBut n xs = take (length xs - n) xs
