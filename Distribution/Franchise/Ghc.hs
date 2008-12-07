@@ -292,8 +292,8 @@ installPackageInto pn libdir =
                 mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
                 case mpf of
                   Nothing -> system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
-                  Just pf -> system "ghc-pkg" $ filter (/="--user") pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg",
-                                                             "--package-conf="++pf]
+                  Just pf -> system "ghc-pkg" $ filter (/="--user") pkgflags ++
+                             ["update","--auto-ghci-libs",pn++".cfg", "--package-conf="++pf]
 
 objToModName :: String -> String
 objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap . breakDirs . takeAllBut 2
