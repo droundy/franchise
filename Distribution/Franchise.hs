@@ -35,7 +35,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 installBin, addTarget,
                                 replace, replaceLiteral, createFile,
                                 define, defineAs, isDefined,
-                                io, catchC, unlessC, whenC,
+                                io, catchC, unlessC, whenC, csum,
                                 -- test suite helpers
                                 test, testC, testOne, testOutput,
                                 beginTestWith, prepareForTest,
