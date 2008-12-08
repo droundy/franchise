@@ -39,7 +39,7 @@ module Distribution.Franchise.Buildable
       phony, extraData )
     where
 
-import Data.List ( isSuffixOf, (\\) )
+import Data.List ( sort, isSuffixOf, (\\) )
 import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
@@ -187,72 +187,98 @@ buildTarget = build' CannotModifyState
 
 build' :: CanModifyState -> String -> C ()
 build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
-        do --put $S unwords ("I'm thinking of recompiling...": buildName b)
-           w <- toListS `fmap` findWork b
-           case w of
-             [] -> putD "I see nothing here to recompile"
-             _ -> putD $ "I want to recompile all of "++ unwords w
-           case length w of
-             0 -> putD $ "Nothing to recompile for "++b++"."
-             l -> putD $ unwords $ ["Need to recompile ",show l,"for"]++b:["."]
-           chan <- io $ newChan
-           buildthem chan emptyS w
-    where buildthem _ _ [] = return ()
-          buildthem chan inprogress w =
-              do putD $ unwords ("I am now wanting to compile":w)
-                 loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
-                 let loadavg = case reads loadavgstr of
-                               ((n,_):_) -> max 0.0 (n :: Double)
-                               _ -> 0.0
-                     fixNumJobs nj =
-                         if nj > 1 && loadavg >= 0.5+fromIntegral nj
-                         then do putV $ "Throttling jobs with load "++show loadavg
-                                 return 1
-                         else return nj
-                 njobs <- getNumJobs >>= fixNumJobs
-                 (canb'',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
-                 canb' <- filterDupTargets canb''
-                 let jobs = max 0 (njobs - lengthS inprogress)
-                     canb = take jobs canb'
-                     depb = drop jobs canb' ++ (canb'' \\ canb') ++ depb'
-                     buildone ttt =
-                         forkC cms $
-                         do Just (Target ts xs0 makettt) <- getTarget ttt
-                            stillneedswork <- if any (`elemS` ts) $ toListS inprogress
-                                              then do putD "Already in progress..."
-                                                      return False
-                                              else needsWork ttt
-                            if stillneedswork
-                              then do putD $ unlines
-                                        ["I am making "++ ttt,
-                                         "  This depends on "++ unwords (toListS xs0)]
-                                      makettt `catchC`
-                                               \e -> do putV $ errorBuilding e ttt
-                                                        io $ writeChan chan $ Left e
-                                      io $ writeChan chan $ Right (ttt, ts)
-                              else do putD $ "I get to skip one! " ++ ttt
-                                      io $ writeChan chan $ Right (ttt, ts)
-                 case filter (".o" `isSuffixOf`) canb of
-                   [] -> return ()
-                   [_] -> return ()
-                   tb -> putD $ "I can now build "++ unwords tb
-                 mapM_ buildone canb
-                 md <- io $ readChan chan
-                 case md of
-                   Left e -> do putV $ errorBuilding e b
-                                fail $ errorBuilding e b
-                   Right (d,ts) -> do putD $ "Done building "++ show d
-                                      mapM_ setBuilt $ d : toListS ts
-                                      buildthem chan (delS d (addsS canb $ inprogress))
-                                                     (depb \\ toListS ts)
-          errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
-          errorBuilding e f | ".depend" `isSuffixOf` f = e
-          errorBuilding e bn = "Error building "++unphony bn++'\n':e
-          filterDupTargets [] = return []
-          filterDupTargets (t:ts) =
-              do Just (Target xs _ _) <- getTarget t
-                 ts' <- filterDupTargets $ filter (not . (`elemS` xs)) ts
-                 return (t:ts')
+  do --put $S unwords ("I'm thinking of recompiling...": buildName b)
+     origw <- toListS `fmap` findWork b
+     case origw of
+       [] -> putD "I see nothing here to recompile"
+       _ -> putD $ "I want to recompile all of "++ unwords origw
+     case length origw of
+       0 -> putD $ "Nothing to recompile for "++b++"."
+       l -> putD $ unwords $ ["Need to recompile ",show l,"for"]++b:["."]
+     chan <- io $ newChan
+     tis <- targetImportances
+     let buildthem _ [] = return ()
+         buildthem inprogress w =
+             do putD $ unwords ("I am now wanting to compile":w)
+                loadavgstr <- cat "/proc/loadavg" `catchC` \_ -> return ""
+                let loadavg = case reads loadavgstr of
+                                ((n,_):_) -> max 0.0 (n :: Double)
+                                _ -> 0.0
+                    fixNumJobs nj =
+                        if nj > 1 && loadavg >= 0.5+fromIntegral nj
+                        then do putV $ "Throttling jobs with load "++show loadavg
+                                return 1
+                        else return nj
+                njobs <- getNumJobs >>= fixNumJobs
+                (canb'',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
+                canb' <- if njobs > 1
+                         then filterDupTargets $ map snd $ sort $
+                              map (\t -> (maybe 0 negate$lookupT t tis,t)) canb''
+                         else filterDupTargets canb''
+                putD $ unwords $ "I can now build: ": canb'
+                let jobs = max 0 (njobs - lengthS inprogress)
+                    canb = take jobs canb'
+                    depb = drop jobs canb' ++ (canb'' \\ canb') ++ depb'
+                    buildone ttt =
+                        forkC cms $
+                          do Just (Target ts xs0 makettt) <- getTarget ttt
+                             stillneedswork <- if any (`elemS` ts) $ toListS inprogress
+                                               then do putD "Already in progress..."
+                                                       return False
+                                               else needsWork ttt
+                             if stillneedswork
+                               then do putD $ unlines
+                                                ["I am making "++ ttt,
+                                                 "  This depends on "++ unwords (toListS xs0)]
+                                       makettt `catchC`
+                                         \e -> do putV $ errorBuilding e ttt
+                                                  io $ writeChan chan $ Left e
+                                       io $ writeChan chan $ Right (ttt, ts)
+                               else do putD $ "I get to skip one! " ++ ttt
+                                       io $ writeChan chan $ Right (ttt, ts)
+                case filter (".o" `isSuffixOf`) canb of
+                  [] -> return ()
+                  [_] -> return ()
+                  tb -> putD $ "I can now build "++ unwords tb
+                mapM_ buildone canb
+                md <- io $ readChan chan
+                case md of
+                  Left e -> do putV $ errorBuilding e b
+                               fail $ errorBuilding e b
+                  Right (d,ts) -> do putD $ "Done building "++ show d
+                                     mapM_ setBuilt $ d : toListS ts
+                                     buildthem (delS d (addsS canb $ inprogress))
+                                                   (depb \\ toListS ts)
+         errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
+         errorBuilding e f | ".depend" `isSuffixOf` f = e
+         errorBuilding e bn = "Error building "++unphony bn++'\n':e
+         filterDupTargets [] = return []
+         filterDupTargets (t:ts) =
+             do Just (Target xs _ _) <- getTarget t
+                ts' <- filterDupTargets $ filter (not . (`elemS` xs)) ts
+                return (t:ts')
+     buildthem emptyS origw
+
+targetImportances :: C (Trie Int)
+targetImportances = do ts <- getTargets
+                       let invertedDeps = foldl invertDep emptyT $ toListT ts
+                           invertDep ideps (t,Target _ dd _) = inv (toListS dd) ideps
+                               where inv [] x = x
+                                     inv (d:ds) x = inv ds $ alterT d addit x
+                                     addit (Just ss) = Just $ addS t ss
+                                     addit Nothing = Just $ addS t emptyS
+                           gti x [] = x
+                           gti ti (t:rest) =
+                               case lookupT t ti of
+                               Just _ -> gti ti rest
+                               _ -> case toListS `fmap` lookupT t invertedDeps of
+                                    Nothing -> gti (insertT t 0 ti) rest
+                                    Just ds ->
+                                        case mapM (`lookupT` ti) ds of
+                                        Just dsv -> gti (insertT t
+                                                         (1+maximum (0:dsv)) ti) rest
+                                        Nothing -> gti ti (ds++t:rest)
+                       return $ gti emptyT $ toListS $ keysT ts
 
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a],[a])
 partitionM _ [] = return ([],[])
