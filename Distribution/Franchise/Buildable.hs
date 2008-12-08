@@ -156,10 +156,12 @@ needsWork t =
          Just (Target _ ds _)
              | nullS ds -> return True -- no dependencies means it always needs work!
          Just (Target ts ds _) ->
-           do mmt <- ((Just . maximum) `fmap` io (mapM getModificationTime (t:toListS ts)))
+           do mmt <- (Just `fmap` io (mapM getModificationTime $ filter (not . isPhony) $ t:toListS ts))
                      `catchC` \_ -> return Nothing
               case mmt of
                 Nothing -> do putD $ "need work because " ++ t ++ " doesn't exist (or a friend)"
+                              return True
+                Just [] -> do putD $ "need work because "++ t ++ " is a phony target."
                               return True
                 Just mt -> do anylater <- anyM latertime $ toListS ds
                               if anylater then return ()
@@ -171,11 +173,11 @@ needsWork t =
                                                then do putD $ "Need work cuz "++y++" don't exist"
                                                        return True
                                                else do mty <- io $ getModificationTime y
-                                                       if mty > mt
+                                                       if mty > maximum mt
                                                          then putD $ "I need work since "++ y ++
                                                                   " is newer than " ++ t
                                                          else return ()
-                                                       return (mty > mt)
+                                                       return (mty > maximum mt)
                             anyM _ [] = return False
                             anyM f (z:zs) = do b <- f z
                                                if b then return True else anyM f zs
