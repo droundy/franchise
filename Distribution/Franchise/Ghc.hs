@@ -182,6 +182,8 @@ package pn modules cfiles =
        build' CanModifyState depend
        (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
        ver <- getVersion
+       libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
+       libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
        let guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
            appendExtra f d = do mval <- getExtraData d
                                 case mval of
@@ -197,6 +199,8 @@ package pn modules cfiles =
                                            "exposed-modules: "++unwords modules,
                                            "hidden-modules: "++unwords hiddenmodules,
                                            "hs-libraries: "++pn,
+                                           "extra-libraries: "++unwords libs,
+                                           "extra-lib-dirs: "++unwords libdirs,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
            makecabal  _ =do mai <- getMaintainer
