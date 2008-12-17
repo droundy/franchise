@@ -184,7 +184,8 @@ package pn modules cfiles =
        ver <- getVersion
        libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
        libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
-       let guessVersion = takeWhile (/='-') -- crude heuristic for dependencies
+       let guessVersion = -- crude heuristic for dependencies
+                          reverse . drop 1 . dropWhile (/='-') . reverse
            appendExtra f d = do mval <- getExtraData d
                                 case mval of
                                   Nothing -> return ()
