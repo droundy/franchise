@@ -64,6 +64,8 @@ import System.IO ( BufferMode(..), IOMode(..), openFile,
                    hSetBuffering, hFlush, hPutStr, stdout )
 import Data.List ( delete, (\\) )
 import Data.Maybe ( isJust, catMaybes )
+import System.Directory ( getPermissions, setPermissions,
+                          readable, writable, searchable )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
@@ -175,13 +177,18 @@ rm_rf d0 = do d <- processFilePath d0
               rm_rf' d
   where
    rm_rf' d =
-    do catchC (io $ removeFile d) $ \_ -> return ()
+    do io (makeRemovable d) `catchC` \_ -> return ()
+       catchC (io $ removeFile d) $ \_ -> return ()
        whenC (io $ doesDirectoryExist d) $
              do fs <- readDirectory d
                 mapM_ (rm_rf' . ((d++"/")++)) fs
                 putV $ "rm -rf "++d
                 io $ removeDirectory d
     `catchC` \e -> putV $ "rm -rf failed: "++e
+   makeRemovable d = do p <- getPermissions d
+                        setPermissions d (p {readable = True,
+                                             writable = True,
+                                             searchable = True})
 
 data LogMessage = Stdout String | Logfile String
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
