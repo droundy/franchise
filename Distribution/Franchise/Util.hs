@@ -93,7 +93,8 @@ system g args = do sd <- getCurrentSubdir
                    let cl = unwords (('[':c++"]"):drop (length args-1) args)
                        clv = unwords (c:args)
                    whenC oneJob $ putSV cl clv
-                   (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                   (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                   io $ hClose i
                    out <- io $ hGetContents o
                    err <- io $ hGetContents e
                    -- now we ensure that out and err are consumed, so that
@@ -117,7 +118,8 @@ systemV g args = do sd <- getCurrentSubdir
                     c <- findCommandInExtraPath g
                     env <- Just `fmap` getEnvironment
                     whenC oneJob $ putV $ unwords (c:args)
-                    (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                    (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                    io $ hClose i
                     out <- io $ hGetContents o
                     err <- io $ hGetContents e
                     -- now we ensure that out and err are consumed, so that
@@ -139,7 +141,8 @@ systemErr g args = do sd <- getCurrentSubdir
                       c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
                       whenC oneJob $ putV $ unwords (c:args)
-                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                      (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                      io $ hClose i
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
@@ -175,7 +178,8 @@ systemOut g args = do sd <- getCurrentSubdir
                       c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
                       whenC oneJob $ putV $ unwords (c:args)
-                      (_,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                      (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                      io $ hClose i
                       out <- io $ hGetContents o
                       err <- io $ hGetContents e
                       io $ forkIO $ seq (length out) $ return ()
