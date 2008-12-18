@@ -242,7 +242,7 @@ package pn modules cfiles =
        addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makecabal }
        libdir <- getLibDir
-       addTarget $ ["lib"++pn++".a", phony pn]
+       addTarget $ ["lib"++pn++".a", phony (pn++"-package")]
                   :< ((pn++".config"):mods++his++cobjs)
                   :<- defaultRule {
                       make = \_ ->
