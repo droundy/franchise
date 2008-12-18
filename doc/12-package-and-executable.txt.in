@@ -1,0 +1,40 @@
+Building both a package and an executable
+=========================================
+
+Sometimes you might want to build both a package and one or more
+executables.
+
+~~~~ tests/package-and-executable/Hello.hs
+module Hello where
+hello = putStrLn "hello world"
+~~~~
+
+~~~~ tests/package-and-executable/hello.hs
+import Hello
+main = hello
+~~~~
+
+Setup.hs
+--------
+
+This couldn't be much easier.  You just need to indicate how to build
+them---being careful to mention the package first---and then return a list
+with two elements:
+
+~~~~ tests/package-and-executable/Setup.hs
+import Distribution.Franchise
+
+main = build [] $
+       do p <- package "hello" ["Hello"] []
+          e <- executable "hello" "hello.hs" []
+          return (p++e)
+~~~~
+
+Testing it out
+--------------
+
+~~~~ tests/package-and-executable/package-and-executable.sh
+set -ev
+runghc Setup.hs build --debug
+./hello
+~~~~
