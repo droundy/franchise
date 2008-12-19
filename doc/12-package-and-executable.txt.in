@@ -24,15 +24,14 @@ Setup.hs
 --------
 
 This couldn't be much easier.  You just need to indicate how to build
-them---being careful to mention the package first---and then return a list
-with two elements:
+them and then return a list with two elements:
 
 ~~~~ tests/package-and-executable/Setup.hs
 import Distribution.Franchise
 
 main = build [] $
-       do p <- package "hello" ["Hello"] []
-          e <- executable "hello" "hello-world.hs" []
+       do e <- executable "hello" "hello-world.hs" []
+          p <- package "hello" ["Hello"] []
           return (p++e)
 ~~~~
 
@@ -41,7 +40,7 @@ Testing it out
 
 ~~~~ tests/package-and-executable/package-and-executable.sh
 set -ev
-runghc Setup.hs build --debug
+runghc Setup.hs build
 ./hello
 ./hello | grep 'hello world'
 ~~~~
