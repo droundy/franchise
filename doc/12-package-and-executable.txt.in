@@ -6,12 +6,18 @@ executables.
 
 ~~~~ tests/package-and-executable/Hello.hs
 module Hello where
-hello = putStrLn "hello world"
+hello = "hello world"
 ~~~~
 
-~~~~ tests/package-and-executable/hello.hs
+~~~~ tests/package-and-executable/Greet.hs
+module Greet where
+greet = putStrLn
+~~~~
+
+~~~~ tests/package-and-executable/hello-world.hs
 import Hello
-main = hello
+import Greet
+main = greet hello
 ~~~~
 
 Setup.hs
@@ -26,7 +32,7 @@ import Distribution.Franchise
 
 main = build [] $
        do p <- package "hello" ["Hello"] []
-          e <- executable "hello" "hello.hs" []
+          e <- executable "hello" "hello-world.hs" []
           return (p++e)
 ~~~~
 
@@ -37,4 +43,5 @@ Testing it out
 set -ev
 runghc Setup.hs build --debug
 ./hello
+./hello | grep 'hello world'
 ~~~~
