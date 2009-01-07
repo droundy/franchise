@@ -35,7 +35,7 @@ module Distribution.Franchise.GhcState
       setOutputDirectory,
       pkgFlags, copyright, license, version,
       getGhcFlags, getCFlags, getLdFlags,
-      define, undefine, defineAs,
+      define, undefine, defineAs, needDefinitions,
       isDefined, getDefinitions,
       getLibDir, getBinDir,
       getVersion, packages, getPackageVersion,
@@ -94,6 +94,9 @@ define x = defineAs x ""
 undefine :: String -> C ()
 undefine x = do ds <- getDefinitions
                 putExtra "definitions" $ filter ((/=x).fst) ds
+
+needDefinitions :: C ()
+needDefinitions = getDefinitions >>= putExtra "definitions"
 
 defineAs :: String -> String -> C ()
 defineAs x y = do ds <- getDefinitions

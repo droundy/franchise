@@ -54,7 +54,7 @@ import Distribution.Franchise.GhcState ( getGhcFlags, getCFlags, getLdFlags, get
                                          getPackageVersion, getMaintainer, getVersion,
                                          packageName, getLibDir,
                                          packages, addPackages, removePackages,
-                                         getDefinitions,
+                                         getDefinitions, needDefinitions
                                        )
 import Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf )
 import Distribution.Franchise.StringSet ( toListS )
@@ -106,7 +106,8 @@ ghcRelatedConfig = [extraData "packages", extraData "definitions"]
 
 ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
-    do x <- io (readFile dname) `catchC` \_ -> return ""
+    do needDefinitions
+       x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
                        filter (not . isSuffixOf ".o") .
                        filter (/=":") . words . unlines .
