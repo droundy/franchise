@@ -383,8 +383,9 @@ ghcWithoutFlags nonflags sys args = do
                         ++ (if any (isSuffixOf ".c") args then cf else packs)
   case pn of
     Just p -> sys "ghc" $ filter (`notElem` nonflags) $
-              opts++["-hide-all-packages","-package-name",p]++packs++args
-    Nothing -> sys "ghc" $ filter (`notElem` nonflags) $ opts++"-hide-all-packages":packs++args
+              opts++["-hide-all-packages","-package-name",p,"-fforce-recomp"]++packs++args
+    Nothing -> sys "ghc" $ filter (`notElem` nonflags) $
+               opts++"-hide-all-packages":"-fforce-recomp":packs++args
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
