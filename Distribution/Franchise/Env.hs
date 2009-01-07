@@ -69,7 +69,7 @@ getEnvironment = do pe <- getPrivateEnvironment
                                     return $ fmap (\y -> (x,y)) v
                     e <- catMaybes `fmap`
                          mapM gete ["HOME","PATH","PWD","PREFIX",
-                                    "GHC_PACKAGE_CONF",
+                                    "GHC_PACKAGE_PATH",
                                     "FRANCHISE_GHC_PACKAGE_CONF",
                                     "ALLUSERSPROFILE", "APPDATA", "ComSpec",
                                     "DISPLAY", "EDITOR", "NUMBER_OF_PROCESSORS",
