@@ -122,6 +122,8 @@ ghcDeps dname src announceme =
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
                          rm dname
+                         unlessC (io $ doesFileExist ".package.conf") $
+                                 io $ writeFile ".package.conf" "[]"
                          x <- seekPackages (run $ ghc Nothing systemErr $
                                                     ["-M"
 #if __GLASGOW_HASKELL__ >= 610
