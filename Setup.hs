@@ -30,9 +30,12 @@ configure = do copyright "Copyright 2008 David Roundy"
 main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
        do configure
           autoVersion Numbered
+          releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
           buildDoc
           darcsDist "franchise" ["franchise.cabal"]
-          package "franchise" ["Distribution.Franchise"] []
+          p <- package "franchise" ["Distribution.Franchise"] []
+          e <- executable "enfranchise" "enfranchise.hs" []
+          return (p++e)
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"

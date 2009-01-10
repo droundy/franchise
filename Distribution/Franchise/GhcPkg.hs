@@ -38,6 +38,7 @@ module Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath,
                                        Version(..), License(..) )
     where
 
+import System.Directory ( doesFileExist, createDirectoryIfMissing )
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Trie
@@ -67,8 +68,14 @@ getPackageConfs = do list <- systemOut "ghc-pkg" ["list"]
 addToGhcPath :: FilePath -> C ()
 addToGhcPath d = do amw <- amInWindows
                     oldpath <- reverse `fmap` getPackageConfs
-                    setEnv "GHC_PACKAGE_PATH" $ if amw then drop 1 $ concatMap (';':) (d:oldpath)
-                                                       else drop 1 $ concatMap (':':) (d:oldpath)
+                    if d `elem` oldpath
+                       then return ()
+                       else setEnv "GHC_PACKAGE_PATH" $
+                            if amw then drop 1 $ concatMap (';':) (d:oldpath)
+                                   else drop 1 $ concatMap (':':) (d:oldpath)
+                    unlessC (io $ doesFileExist d) $
+                            io $ do createDirectoryIfMissing True (dirname d)
+                                    writeFile d "[]"
 
 fixIPI :: InstalledPackageInfo PackageName -> InstalledPackageInfo String
 fixIPI ipi = InstalledPackageInfo { package = fixPI $ package ipi,

@@ -42,41 +42,45 @@ module Distribution.Franchise.Ghc
 
 import Control.Monad ( msum, when, filterM )
 import System.Exit ( ExitCode(..) )
-import Data.Maybe ( catMaybes, listToMaybe, isJust )
-import Data.List ( partition, (\\), isSuffixOf, isPrefixOf, nub )
-import System.Directory ( createDirectoryIfMissing, copyFile, doesFileExist )
+import Data.Maybe ( catMaybes, listToMaybe, isJust, isNothing )
+import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf, nub )
+import System.Directory ( copyFile, doesFileExist )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState ( getGhcFlags, getCFlags, getLdFlags, getPkgFlags,
-                                         ghcFlags, ldFlags,
+                                         ghcFlags, ldFlags, setOutputDirectory,
                                          getPackageVersion, getMaintainer, getVersion,
                                          packageName, getLibDir,
                                          packages, addPackages, removePackages,
                                          getDefinitions, needDefinitions
                                        )
-import Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf )
+import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
-import Distribution.Franchise.GhcPkg ( readPkgMappings )
-import Distribution.Franchise.Trie ( Trie, lookupT )
+import Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath )
+import Distribution.Franchise.Trie ( Trie, lookupT, alterT )
 import Distribution.Franchise.Persistency ( require, requireWithPrereq )
 
-infix 2 <:
-(<:) :: [String] -> [String] -> Buildable
-[x,h] <: y | isSuffixOf ".o" x && any (endsWithOneOf [".hs",".lhs"]) y
-             = [x,h] :< (y++["config.d/ghcFlags","config.d/definitions"])
-               :<- defaultRule { make = const $ case filter (endsWithOneOf [".hs",".lhs"]) y of
-                                                  [d] -> ghc system ["-c",d]
-                                                  [] -> fail "error 1"
-                                                  _ -> fail "error 2" }
-[x] <: [y] | ".o" `isSuffixOf` x && ".c" `isSuffixOf` y
-               = [x] :< [y,"config.d/ghcFlags","config.d/definitions"]
-                 :<- defaultRule { make = const $ ghc system ["-c","-cpp",y] }
-[stubo] <: [y] | isSuffixOf "_stub.o" stubo = [stubo] :< [y] :<- defaultRule -- hokey!
-xs <: ys = error $ "can't figure out how to build "++ show xs++" from "++ show ys
+compile_C :: String -> String -> C Buildable
+compile_C x y =
+    do compileit <- ghc Nothing system ["-c","-cpp",y]
+       return $ [x] :< [y,"config.d/ghcFlags","config.d/definitions"]
+                :<- defaultRule { make = const compileit }
+
+compile_hs :: Maybe String -> (String,String)
+           -> String -> [String] -> C (Maybe Buildable)
+compile_hs pn (x,h) y otherdeps =
+    do compileit <- ghc pn system ["-c",y]
+       ps <- packages
+       ppp <- filterM (`objectIsInPackage` x) ps
+       case ppp of
+         [] -> return $ Just $ [x,h]
+                  :< ([y,"config.d/ghcFlags","config.d/definitions"]++otherdeps)
+                  :<- defaultRule { make = const compileit }
+         _ -> return Nothing
 
 maketixdir :: C ()
 maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
@@ -118,7 +122,8 @@ ghcDeps dname src announceme =
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
                          rm dname
-                         x <- seekPackages (ghc systemErr $ ["-M"
+                         x <- seekPackages (run $ ghc Nothing systemErr $
+                                                    ["-M"
 #if __GLASGOW_HASKELL__ >= 610
                                                             ,"-dep-makefile"
 #else
@@ -132,6 +137,20 @@ ghcDeps dname src announceme =
 
 -- privateExecutable is used for executables used by the build system but
 -- not to be installed.  It's also used internally by executable.
+
+hiIsInPackage :: [String] -> String -> C (Maybe String)
+hiIsInPackage pn hi =
+    do mpm <- reallyGetModulePackageMap
+       return $ case filter (`elem` pn) `fmap` lookupT (objToModName $ init hi) mpm of
+                Just (p:_) -> Just p
+                _ -> Nothing
+
+objectIsInPackage :: String -> String -> C Bool
+objectIsInPackage pn o =
+    do mpm <- reallyGetModulePackageMap
+       case lookupT (objToModName o) mpm of
+         Nothing -> return False
+         Just ps -> return (pn `elem` ps)
 
 privateExecutable :: String -> String -> [String] -> C [String]
 privateExecutable  simpleexname src0 cfiles0 =
@@ -150,14 +169,27 @@ privateExecutable  simpleexname src0 cfiles0 =
               else return src0
        ghcDeps depend [src] $ putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend
-       (objs,_) <- io (readFile depend) >>= parseDeps []
+       pn <- getPackageVersion
+       here <- pwd
+       addToGhcPath (here++"/.package.conf")
+       (objs0,_) <- io (readFile depend) >>=
+                    parseDeps (catMaybes [pn]) Nothing [".package.conf"]
+       objs <- case pn of
+               Just n -> filterM (fmap not . objectIsInPackage n) objs0
+               Nothing -> return objs0
        let mk _ = do stubos <- filterM (io . doesFileExist) $ map (stubit "o") objs
-                     ghc system (objs++ cobjs ++ extraobjs ++ stubos ++ ["-o",exname])
+                     maybe (return ()) (addPackages . (:[])) pn
+                     comp <- ghc Nothing system
+                             (objs++ cobjs ++ extraobjs ++ stubos ++ ["-o",exname])
+                     maybe (return ()) (removePackages . (:[])) pn
+                     comp
            stubit c x = take (length x - 2) x ++ "_stub."++c
            (cfiles, extraobjs) = partition (".c" `isSuffixOf`) cfiles0
            cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
-       mapM_ addTarget $ zipWith (\c o -> [o] <: [c]) cfiles cobjs
-       addTarget $ [exname, phony simpleexname] :< (src:objs++cobjs++extraobjs)
+           libname p = "lib"++ reverse (drop 1 $ dropWhile (/='-') $ reverse p)++".a"
+       mapM_ (>>= addTarget) $ zipWith compile_C cobjs cfiles
+       addTarget $ [exname, phony simpleexname]
+                  :< (src:objs++cobjs++extraobjs++maybe [] (\x -> [libname x]) pn)
                   :<- defaultRule { make = mk, clean = \b -> depend : map (stubit "o") objs ++
                                                                       map (stubit "c") objs ++ cleanIt b }
        return [exname, phony simpleexname]
@@ -176,15 +208,19 @@ package pn modules cfiles =
     do maketixdir
        checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
+       xpn <- getPackageVersion
        whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
        getHscs -- to build any hsc files we need to.
-       let depend = pn++".depend"
+       let depend = pn++"-package.depend"
+       setOutputDirectory $ "dist/"++pn
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
-       (mods,his) <- io (readFile depend) >>= parseDeps [extraData "version"]
+       (mods,his) <- io (readFile depend) >>= parseDeps [] xpn [extraData "version"]
        ver <- getVersion
        libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
        libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
+       packageProvidesModules (maybe pn id xpn) (map objToModName mods)
+       deps <- packages
        let guessVersion = -- crude heuristic for dependencies
                           reverse . drop 1 . dropWhile (/='-') . reverse
            appendExtra f d = do mval <- getExtraData d
@@ -193,7 +229,6 @@ package pn modules cfiles =
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
            hiddenmodules = map objToModName mods \\ modules
            makeconfig _ =do mai <- getMaintainer
-                            deps <- packages
                             mkFile (pn++".config") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
@@ -206,7 +241,6 @@ package pn modules cfiles =
                                            "exposed: True",
                                            "depends: "++commaWords deps]
            makecabal  _ =do mai <- getMaintainer
-                            deps <- packages
                             mkFile (pn++".cabal") $ unlines
                                           ["name: "++pn,
                                            "version: "++ver,
@@ -236,7 +270,7 @@ package pn modules cfiles =
                                                     concatMap (\hm -> ["--hide",hm]) hiddenmodules++
                                                     cssflag++sourceflags++["-o","../"++haddockdir]) }
        cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
-                               addTarget $ [o] <: [f]
+                               compile_C o f >>= addTarget
                                return o) cfiles
        addTarget $ [pn++".config"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makeconfig }
@@ -248,10 +282,15 @@ package pn modules cfiles =
                   :<- defaultRule {
                       make = \_ ->
                          do stubos <- filterM (io . doesFileExist) $ map (stubit "o") mods
-                            system "ar" ("cqs":("lib"++pn++".a"):mods++cobjs++stubos),
+                            system "ar" ("cqs":("lib"++pn++".a"):mods++cobjs++stubos)
+                            here <- pwd
+                            setEnv "FRANCHISE_GHC_PACKAGE_CONF" (here++"/.package.conf")
+                            installPackageInto pn (here++"/."++pn),
                       install = \_ -> Just $ installPackageInto pn libdir,
-                      clean = \b -> (pn++".cfg") : depend : map (stubit "o") mods ++
-                                                            map (stubit "c") mods ++ cleanIt b}
+                      clean = \b -> ".package.conf" : (pn++".cfg") : depend
+                              : map (stubit "o") mods ++
+                                map (stubit "c") mods ++ cleanIt b}
+       setOutputDirectory "."
        return [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
 
@@ -261,11 +300,13 @@ preprocessedTargets his haddockdir =
        let sources = nub $ filter (\x -> ".hs" `isSuffixOf` x || ".lhs" `isSuffixOf` x) $
                      concatMap (toListS . dependencies) targets
            preproc s = do let preprocs = ".preproc/"++s
+                          compileit <- ghc Nothing system
+                                       ["-cpp","-E","-optP-P","-D__HADDOCK__",
+                                        s, "-o", preprocs]
                           addTarget $ [preprocs] :< [s] :<-
                             defaultRule { make = const $
                                           do mkdir $ dirname preprocs
-                                             ghc system ["-cpp","-E","-optP-P","-D__HADDOCK__",
-                                                         s, "-o", preprocs] }
+                                             compileit}
                           wd <- rememberDirectory
                           scolor <- withProgram "HsColour" ["hscolour"] $ \hscolour ->
                                     do addTarget $ [haddockdir++"/"++s++".html"] :< [s] :<-
@@ -291,12 +332,11 @@ installPackageInto pn libdir =
        case mt of
          Nothing -> fail $ "no such package:  "++pn
          Just (Target _ ds _) ->
-             do putD $ "createDirectoryIfMissing "++ destination
-                io $ createDirectoryIfMissing True destination
+             do mkdir destination
                 let inst x = do putD $ "installing for package "++x
                                 case dirname $ dropLowercaseDirs x of
                                   "" -> return ()
-                                  xdn -> io $ createDirectoryIfMissing True $ destination++"/"++xdn
+                                  xdn -> mkdir $ destination++"/"++xdn
                                 putD $ unwords ["copyFile", x, (destination++"/"++dropLowercaseDirs x)]
                                 io $ copyFile x (destination++"/"++dropLowercaseDirs x)
                     his = filter (".hi" `isSuffixOf`) $ toListS ds
@@ -341,24 +381,38 @@ commaWords [] = ""
 commaWords [x] = x
 commaWords (x:xs) = x++", "++commaWords xs
 
-parseDeps :: [String] -> String -> C ([String], [String])
-parseDeps extradeps x = do mapM_ addTarget builds
+parseDeps :: [String] -> Maybe String -> [String] -> String -> C ([String], [String])
+parseDeps ops pn extradeps x =
+                        do builds <- catMaybes `fmap` sequence mkbuilds
+                           mapM_ addTarget builds
                            let ohi ((o:h:_):<_:<-_) = (o,h)
                                ohi _ = error "bugggg"
                            return $ unzip $ map ohi builds
-    where builds = pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
+    where mkbuilds = pd $ catMaybes $ map breakdep $ filter notcomm $ lines x
           notcomm ('#':_) = False
           notcomm _ = True
           breakdep (' ':':':' ':r) = Just ("",r)
           breakdep (z:y) = do (a,b) <- breakdep y
                               Just (z:a,b)
           breakdep [] = Nothing
-          pd :: [(String,String)] -> [Buildable]
+          pd :: [(String,String)] -> [C (Maybe Buildable)]
           pd [] = []
-          pd ((z,y):r) | isSuffixOf ".o" z =
-                           ([z, takeAllBut 2 z++".hi"] <: y:map snd ys++extradeps) : pd r'
+          pd ((z,y):r) | isSuffixOf ".o" z = mkzy : pd r'
               where (ys,r') = partition ((==z).fst) r
+                    mkzy = do ys' <- filterM (fmap isNothing . hiIsInPackage ops) $
+                                     map snd ys
+                              ps <- (nub . catMaybes)
+                                    `fmap` mapM (hiIsInPackage ops) (map snd ys)
+                              alreadyKnown <- isJust `fmap` hiIsInPackage ops y
+                              if alreadyKnown
+                                 then return Nothing
+                                 else do addPackages ps
+                                         mk <- compile_hs pn (z, takeAllBut 2 z++".hi")
+                                               y (map libname ps++ys'++extradeps)
+                                         removePackages ps
+                                         return mk
           pd _ = error "bug in parseDeps pd"
+          libname p = "lib"++ reverse (drop 1 $ dropWhile (/='-') $ reverse p)++".a"
 
 hsc2hs :: (String -> [String] -> C a) -> [String] -> C a
 hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
@@ -368,12 +422,12 @@ hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
                      let opts = fl ++ defs ++ ld ++ cf
                      sys "hsc2hs" $ "--cc=ghc":opts++args
 
-ghc :: (String -> [String] -> C a) -> [String] -> C a
+ghc :: Maybe String -> (String -> [String] -> C a) -> [String] -> C (C a)
 ghc = ghcWithoutFlags []
 
-ghcWithoutFlags :: [String] -> (String -> [String] -> C a) -> [String] -> C a
-ghcWithoutFlags nonflags sys args = do
-  pn <- getPackageVersion
+ghcWithoutFlags :: [String] -> Maybe String
+                -> (String -> [String] -> C a) -> [String] -> C (C a)
+ghcWithoutFlags nonflags pn sys args = do
   packs <- concatMap (\p -> ["-package",p]) `fmap` packages
   fl <- getGhcFlags
   defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
@@ -382,9 +436,9 @@ ghcWithoutFlags nonflags sys args = do
   let opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
                         ++ (if any (isSuffixOf ".c") args then cf else packs)
   case pn of
-    Just p -> sys "ghc" $ filter (`notElem` nonflags) $
+    Just p -> return $ sys "ghc" $ filter (`notElem` nonflags) $
               opts++["-hide-all-packages","-package-name",p,"-fforce-recomp"]++packs++args
-    Nothing -> sys "ghc" $ filter (`notElem` nonflags) $
+    Nothing -> return $ sys "ghc" $ filter (`notElem` nonflags) $
                opts++"-hide-all-packages":"-fforce-recomp":packs++args
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
@@ -393,7 +447,7 @@ tryModule m imports code =
        mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
                               "main:: IO ()",
                               "main = undefined ("++code++")"]
-       e <- ghcWithoutFlags ["-Werror"] systemErr ["-c",fn]
+       e <- run $ ghcWithoutFlags ["-Werror"] Nothing systemErr ["-c",fn]
        mapM_ rm [fn,"Try"++m++".hi","Try"++m++".o"]
        return e
 
@@ -412,9 +466,11 @@ checkHeader h = require ("for header file "++h) $
                                               "main = foo"]
           foreignf = "foreign import ccall unsafe "++
                      "\"try-header-ffi.h foo\" foo :: IO ()"
-          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp","try-header-ffi.c"]
-                    ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","try-header",
-                                                         "try-header.hs","try-header-ffi.o"]
+          test = do run $ ghcWithoutFlags ["-Werror"] Nothing
+                                    systemV ["-c","-cpp","try-header-ffi.c"]
+                    run $ ghcWithoutFlags ["-Werror"] Nothing
+                                    systemV ["-fffi","-o","try-header",
+                                             "try-header.hs","try-header-ffi.o"]
           remove = mapM_ rm ["try-header-ffi.h","try-header-ffi.o",
                              "try-header-ffi.c","try-header","try-header.hs"]
 
@@ -436,12 +492,15 @@ getLibOutput lib h code = do checkMinimumPackages
                                              "main = foo"]
           foreignf = "foreign import ccall unsafe "++
                      "\"get-const-ffi.h foo\" foo :: IO ()"
-          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp","get-const-ffi.c"]
-                    csum [ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","get-const",
-                                                               "get-const.hs","get-const-ffi.o"]
+          test = do ghcWithoutFlags ["-Werror"] Nothing
+                                    systemV ["-c","-cpp","get-const-ffi.c"]
+                    csum [ghcWithoutFlags ["-Werror"] Nothing
+                                          systemV ["-fffi","-o","get-const",
+                                                   "get-const.hs","get-const-ffi.o"]
                          ,do ldFlags ["-l"++lib]
-                             ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","get-const",
-                                                                  "get-const.hs","get-const-ffi.o"]]
+                             ghcWithoutFlags ["-Werror"] Nothing
+                                             systemV ["-fffi","-o","get-const",
+                                                      "get-const.hs","get-const-ffi.o"]]
                     systemOut "./get-const" []
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
@@ -467,8 +526,10 @@ tryLib l h func = do checkMinimumPackages
                                                      else "#include \""++h++"\"",
                                            "void foo();",
                                            "void foo() { "++func++"; }"]
-          test = do ghcWithoutFlags ["-Werror"] systemV ["-c","-cpp",fn]
-                    ghcWithoutFlags ["-Werror"] systemV ["-fffi","-o","try-lib",fo,hf]
+          test = do run $ ghcWithoutFlags ["-Werror"] Nothing
+                        systemV ["-c","-cpp",fn]
+                    run $ ghcWithoutFlags ["-Werror"] Nothing
+                        systemV ["-fffi","-o","try-lib",fo,hf]
           remove = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi",
                              "try-lib","try-lib.o",hf]
 
@@ -532,10 +593,14 @@ withModuleExporting m i c j =
     (requireModuleExporting m i c >> j)
     `catchC` \_ -> return ()
 
+run :: C (C a) -> C a
+run j = j >>= id
+
 checkMinimumPackages :: C ()
 checkMinimumPackages = require "the compiler works" $
     do mkFile "try-min.hs" $ "main :: IO ()\nmain = return ()\n"
-       seekPackages (ghcWithoutFlags ["-Werror"] systemErr ["-o","try-min","try-min.hs"])
+       seekPackages (run $ ghcWithoutFlags ["-Werror"] Nothing
+                     systemErr ["-o","try-min","try-min.hs"])
        mapM_ rm ["try-min","try-min.hs","try-min.hi","try-min.o"]
        whenC amInWindows $ mapM_ rm ["try-min.exe", "try-min.exe.manifest"]
 
@@ -644,6 +709,15 @@ getHscs = do mhscs <- getExtraData "hsc2hs"
              mapM_ (\hsc -> addTarget $ [init hsc] :< [hsc]
                             :<- defaultRule { make = const $ hsc2hs system [hsc] }) hscs
              return hscs
+
+packageProvidesModules :: String -> [String] -> C ()
+packageProvidesModules p ms =
+    do mpm <- reallyGetModulePackageMap
+       setModulePackageMap $ addfoo ms mpm
+    where addfoo [] x = x
+          addfoo (y:ys) x = addfoo ys $ alterT y addp x
+          addp (Just ps) = Just (p : delete p ps)
+          addp Nothing = Just [p]
 
 findPackagesProvidingModule :: String -> C [String]
 findPackagesProvidingModule m = do mpm <- reallyGetModulePackageMap

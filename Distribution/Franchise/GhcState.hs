@@ -66,7 +66,8 @@ ghcFlags = addExtraUnique "ghcFlags"
 
 setOutputDirectory :: String -> C ()
 setOutputDirectory odir =
-    do fs <- getGhcFlags
+    do mkdir odir
+       fs <- getGhcFlags
        let fs' = rmoldodirs oldodirs fs
            oldodirs = filter (/=".") $ filter (not.null) $
                       catMaybes $ map (stripPrefix "-odir") fs
@@ -131,7 +132,7 @@ isDefined :: String -> C Bool
 isDefined x = (not . null . filter ((==x).fst)) `fmap` getDefinitions
 
 getVersion :: C String
-getVersion = maybe "0.0" id `fmap` getExtraData "version"
+getVersion = maybe "137.0" id `fmap` getExtraData "version"
 
 getMaintainer :: C String
 getMaintainer = do ema <- getEnv "EMAIL"

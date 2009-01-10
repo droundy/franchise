@@ -33,7 +33,7 @@ module Distribution.Franchise.ConfigureState
     ( amInWindows,
       getModulePackageMap, setModulePackageMap,
       getExtra, addExtra, addExtraUnique, putExtra, persistExtra,
-      getExtraData, getAllExtraData, addExtraData, haveExtraData,
+      getExtraData, getAllExtraData, addExtraData, haveExtraData, rmExtra,
       addHook, removeHook, runHooks,
       getNumJobs, setNumJobs, oneJob,
       CanModifyState(..),
@@ -108,6 +108,10 @@ addExtraData :: String -> String -> C ()
 addExtraData d v = do x <- gets configureState
                       C $ \ts -> return $ Right ((), ts { configureState = insertT d v x })
 
+rmExtra :: String -> C ()
+rmExtra d = do x <- gets configureState
+               C $ \ts -> return $ Right ((), ts { configureState = delT d x })
+
 -- | amInWindows is a hokey function to identify windows systems.  It's
 -- probably more portable than checking System.Info.os, which isn't saying
 -- much.
@@ -155,6 +159,7 @@ readDirectory d =
 mkdir :: FilePath -> C ()
 mkdir "" = return ()
 mkdir d0 = do d <- processFilePath d0
+              putD $ "mkdir "++d
               unlessC (io $ doesDirectoryExist d) $ do mkdir $ dirname d0
                                                        putV $ "mkdir "++d0
                                                        io $ createDirectory d
@@ -303,6 +308,7 @@ getCurrentSubdir = do sd <- gets currentSubDirectory
 
 processFilePath :: String -> C String
 processFilePath ('*':f) = return ('*':f) -- This is a phony target
+processFilePath ('/':f) = return ('/':f) -- This is an absolute path
 processFilePath f = do sd <- gets currentSubDirectory
                        return $ maybe f (++('/':f)) sd
 

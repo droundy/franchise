@@ -24,14 +24,15 @@ Setup.hs
 --------
 
 This couldn't be much easier.  You just need to indicate how to build
-them and then return a list with two elements:
+them, specifying the package first, and then return a list with two
+elements.
 
 ~~~~ tests/package-and-executable/Setup.hs
 import Distribution.Franchise
 
 main = build [] $
-       do e <- executable "hello" "hello-world.hs" []
-          p <- package "hello" ["Hello"] []
+       do p <- package "hello" ["Hello"] []
+          e <- executable "hello" "hello-world.hs" []
           return (p++e)
 ~~~~
 
@@ -40,7 +41,17 @@ Testing it out
 
 ~~~~ tests/package-and-executable/package-and-executable.sh
 set -ev
-runghc Setup.hs build
+
+echo GHC_PACKAGE_PATH is $GHC_PACKAGE_PATH
+
+runghc Setup.hs install build --prefix=$HOME/local
+
+cat franchise.log
+grep Hello.hs franchise.log
+# we should only compile Hello.hs once.
+#grep Hello.hs franchise.log | wc -l > numHello
+#grep 1 numHello
+#ls -l Hello.hi && exit 1 # Check that we didn't create a Hello.hi outside dist/
 ./hello
 ./hello | grep 'hello world'
 ~~~~

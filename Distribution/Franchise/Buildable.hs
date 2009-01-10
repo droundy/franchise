@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -115,9 +116,14 @@ build opts mkbuild =
     do args <- getArgs
        buildWithArgs args opts mkbuild
 
+#ifndef FRANCHISE_VERSION
+#define FRANCHISE_VERSION "franchise (unknown)"
+#endif
+
 buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
 buildWithArgs args opts mkbuild = runC $
-       do if "configure" `elem` args
+       do putV $ "compiled with "++FRANCHISE_VERSION
+          if "configure" `elem` args
               then return ()
               else (do readConfigureState "config.d"
                        putV "reusing old configuration")
@@ -351,7 +357,9 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                                               lookAtDeps nw2 ds
 
 installBin :: Dependency -> Maybe (C ())
-installBin (xs:<_) = Just $ do pref <- getBinDir
+installBin (xs:<_) = Just $ do putS "installBin"
+                               pref <- getBinDir
+                               mkdir pref
                                let xs' = filter (not . isPhony) xs
                                putD $ unwords ("copyFile":xs'++[pref++"/"])
                                mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
