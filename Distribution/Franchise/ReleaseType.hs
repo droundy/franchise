@@ -42,8 +42,8 @@ releaseRegexp NumberedPreRc = "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$"
 releaseRegexp AnyTag = "."
 
 releaseUnknown :: ReleaseType -> String
-releaseUnknown Numbered = "0.0"
-releaseUnknown NumberedPreRc = "0.0-pre"
+releaseUnknown Numbered = "137.0"
+releaseUnknown NumberedPreRc = "137.0-pre"
 releaseUnknown AnyTag = "unknown"
 
 releaseFile :: ReleaseType -> String
