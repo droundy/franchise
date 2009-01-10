@@ -357,8 +357,7 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                                               lookAtDeps nw2 ds
 
 installBin :: Dependency -> Maybe (C ())
-installBin (xs:<_) = Just $ do putS "installBin"
-                               pref <- getBinDir
+installBin (xs:<_) = Just $ do pref <- getBinDir
                                mkdir pref
                                let xs' = filter (not . isPhony) xs
                                putD $ unwords ("copyFile":xs'++[pref++"/"])
