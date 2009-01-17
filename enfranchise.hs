@@ -41,6 +41,7 @@ main = build [] $
           withTokens "extensions" $ \es -> ghcFlags $ map ("-X"++) es
           withTokens "cpp-options" ghcFlags
           withTokens "ghc-options" ghcFlags
+          withTokens "extra-libraries" $ \libs -> ldFlags $ map ("-l"++) libs
           withField "exposed-modules" $ \ds ->
               do pn <- withToken "name" return
                  withField "description" $ addExtraData "description" . unlines
@@ -59,8 +60,9 @@ readTokens ('\r':r) = readTokens r
 readTokens x@('"':_) = case reads x of
                        (t,r):_ -> t : readTokens r
                        [] -> readTokens $ drop 1 x
-readTokens x = takeWhile (`notElem` " \t\n\r") x :
+readTokens x = dropComma (takeWhile (`notElem` " \t\n\r") x) :
                readTokens (dropWhile (`notElem` " \t\n\r") x)
+    where dropComma w = if last w == ',' then init w else w
 
 parseCabal :: [String] -> [(String, [String])]
 parseCabal = parseCabal' . filter (not . isComment)
