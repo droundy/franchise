@@ -53,7 +53,7 @@ Setup.hs
 --------
 
 ~~~~ tests/hpc/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [configurableProgram "shell" "shsh" ["bash","sh"]] $
        do let mytests = ["testfoo.bash", "testupperFoo.bash", "testBye.bash"]

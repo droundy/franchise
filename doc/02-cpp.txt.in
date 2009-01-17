@@ -15,17 +15,17 @@ to set a macro to some `String` value.  In this case, we [defineAs][] `DATA`
 to be `"True"`, since in the above program, `DATA` is used as a `Bool`
 type.
 
-[define]: haddock/Distribution-Franchise.html#v%3Adefine
-[defineAs]: haddock/Distribution-Franchise.html#v%3AdefineAs
+[define]: haddock/Distribution-Franchise_1.html#v%3Adefine
+[defineAs]: haddock/Distribution-Franchise_1.html#v%3AdefineAs
 
 Note that we also use the [ghcFlags][] macro to add the `-cpp` flag to the
 list of flags passed to `ghc`.  We could alternatively have asked for `cpp`
 in a pragma in the `executable.hs` file.
 
-[ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
+[ghcFlags]: haddock/Distribution-Franchise_1.html#v%3AghcFlags
 
 ~~~~ tests/cpp/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [] $
        do defineAs "DATA" "True"

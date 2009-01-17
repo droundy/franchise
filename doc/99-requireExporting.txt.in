@@ -10,7 +10,7 @@ We create two packages, `a` and `b`, each of which export the module
 `Foo`, but with a subtly different API.
 
 ~~~~ tests/requireExporting/a/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 main = build [] $ do version "1.0"
                      package "a" ["Foo"] []
 ~~~~
@@ -26,7 +26,7 @@ foo = "Foo a"
 ~~~~
 
 ~~~~ tests/requireExporting/b/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 main = build [] $ do version "2.0"
                      package "b" ["Foo"] []
 ~~~~
@@ -46,7 +46,7 @@ to import either from package `a` or package `b` using
 `requireModuleExporting`.
 
 ~~~~ tests/requireExporting/c/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 req a = requireModuleExporting "Foo" a (a++" :: Int")
 options = [flag "with-a" "" (req "a"),
            flag "with-b" "" (req "b")]

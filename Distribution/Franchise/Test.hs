@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
+module Distribution.Franchise.Test ( phonyRule, test, testC, testOne, testOutput,
                                      prepareForTest, beginTestWith )
     where
 
@@ -42,12 +42,17 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Parallel ( mapC )
 
--- | Create a build target for test suites.
+-- | Create a phony build target, perhaps with dependencies.
+
+phonyRule :: String -- ^ name of target
+          -> [String] -- ^ list of dependencies
+          -> C () -- ^ rule to build this (phony) target
+          -> C ()
+phonyRule n deps j =
+    addTarget $ [phony n] :< deps |<- defaultRule { make = const j }
 
 testC :: String -> C () -> C ()
-testC n j = do withcwd <- rememberDirectory
-               addTarget $ [phony n] :< [phony "build", phony "prepare-for-test"]
-                   |<- defaultRule { make = const $ withcwd runtest }
+testC n j = phonyRule n [phony "build", phony "prepare-for-test"] runtest
     where runtest =
               do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
                  (do begin

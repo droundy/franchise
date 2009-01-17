@@ -55,10 +55,10 @@ Here's the ``Setup.hs`` file.  The only trickiness we need is to use [ghcFlags][
 to use the FFI.  This could alternatively have been achieved using a pragma
 at the top of the `TestModule.hs` file.
 
-[ghcFlags]: haddock/Distribution-Franchise.html#v%3AghcFlags
+[ghcFlags]: haddock/Distribution-Franchise_1.html#v%3AghcFlags
 
 ~~~~ tests/foreign-wrapper/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [] $
        do ghcFlags ["-fffi"]

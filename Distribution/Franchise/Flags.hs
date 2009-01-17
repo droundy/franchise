@@ -46,17 +46,23 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState ( ghcFlags, ldFlags, cFlags, pkgFlags,
                                          rmGhcFlags, addPackages )
 
-type FranchiseFlag = OptDescr (C ())
+-- |At heart, a FranchiseFlag is just a getopt OptDescr, but it is
+-- kept abstract so I can change the API.
+
+newtype FranchiseFlag = FF (OptDescr (C ()))
+
+unFF :: FranchiseFlag -> OptDescr (C ())
+unFF (FF x) = x
 
 configureFlagWithDefault :: String -> String -> String
                          -> C () -> (String -> C ()) -> C FranchiseFlag
 configureFlagWithDefault n argname h defaultaction j =
  do addHook n defaultaction
-    return $ Option [] [n] (ReqArg (addHook n . j') argname) h
+    return $ FF $ Option [] [n] (ReqArg (addHook n . j') argname) h
     where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
 
 flag :: String -> String -> C () -> C FranchiseFlag
-flag n h j = return $ Option [] [n] (NoArg j') h
+flag n h j = return $ FF $ Option [] [n] (NoArg j') h
     where j' = do putV $ "handling flag --"++n; j
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
@@ -81,7 +87,7 @@ handleArgs optsc =
        withEnv "LIBDIR" (addExtraData "libdir")
        withEnv "BINDIR" (addExtraData "bindir")
        withEnv "PREFIX" (addExtraData "prefix")
-       opts <- sequence optsc
+       opts <- map unFF `fmap` sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            validCommands = ["configure","build","clean","install"] -- should be in monad
            inbrackets x = "["++x++"]"
@@ -131,9 +137,9 @@ handleArgs optsc =
                                  flag "global" "not --user" $ return (),
                                  flag "disable-optimize" "disable optimization" $
                                       rmGhcFlags ["-O2","-O"],
-                                 return $ Option [] ["constraint"]
+                                 return $ FF $ Option [] ["constraint"]
                                  (ReqArg (const (return ())) "ugh") "ignored" ]
-       case getOpt Permute (options++eviloptions) args of
+       case getOpt Permute (options++map unFF eviloptions) args of
          (flags, commands, []) -> do sequence_ flags
                                      return $ delete "configure" commands
          (_, _, msgs)   -> fail $ concat msgs ++ usageInfo header options

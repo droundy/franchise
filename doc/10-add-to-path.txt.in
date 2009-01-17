@@ -4,7 +4,7 @@ Using addToPath
 You can use the [addToPath][] function to add a new directory to your
 path.  This is useful for tests.
 
-[addToPath]: haddock/Distribution-Franchise.html#v%3AaddToPath
+[addToPath]: haddock/Distribution-Franchise_1.html#v%3AaddToPath
 
 ~~~~ tests/add-to-path/out/simple.hs
 main = putStrLn "hello world"
@@ -14,12 +14,13 @@ Setup.hs
 --------
 
 ~~~~ tests/add-to-path/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [] $
        do d <- pwd
           addToPath (d++"/out")
-          testC "test" $ system "simple" [] -- test that "simple" can be run.
+          phonyRule "test" ["build"] $
+               system "simple" [] -- test that "simple" can be run.
           executable "out/simple" "out/simple.hs" []
 ~~~~
 

@@ -7,8 +7,8 @@ main = putStrLn "hello world"
 ~~~~
 
 ~~~~ tests/check-just-once/Setup.hs
-import Distribution.Franchise
-main = build [] $ do requireModule "Distribution.Franchise"
+import Distribution.Franchise_1
+main = build [] $ do requireModule "Distribution.Franchise_1"
                      putS "foobar foobar"
                      executable "executable" "executable.hs" []
 ~~~~

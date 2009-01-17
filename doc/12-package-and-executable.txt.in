@@ -28,7 +28,7 @@ them, specifying the package first, and then return a list with two
 elements.
 
 ~~~~ tests/package-and-executable/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [] $
        do p <- package "hello" ["Hello"] []

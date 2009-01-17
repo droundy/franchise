@@ -234,6 +234,8 @@ data ErrorState = Err { failMsg :: String,
                         persistentExtras :: [(String,String)],
                         moduleMap :: Maybe (Trie [String]) }
 
+-- | The C monad is the monad in which you write your Setup.hs file.
+
 newtype C a = C (TotalState -> IO (Either ErrorState (a,TotalState)))
 
 unC :: C a -> TotalState -> IO (Either ErrorState (a,TotalState))

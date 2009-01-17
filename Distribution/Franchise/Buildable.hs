@@ -47,14 +47,12 @@ import System.Directory ( doesFileExist, removeFile, copyFile,
 import Control.Concurrent ( readChan, writeChan, newChan )
 import Control.Monad ( when, mplus )
 
-import System.Console.GetOpt ( OptDescr(..) )
-
 import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
 import Distribution.Franchise.GhcState ( getBinDir )
-import Distribution.Franchise.Flags ( handleArgs )
+import Distribution.Franchise.Flags ( FranchiseFlag, handleArgs )
 
 data Dependency = [String] :< [String]
 
@@ -111,7 +109,13 @@ depName (n :< _) = n
 buildName :: Buildable -> [String]
 buildName (d:<-_) = depName d
 
-build :: [C (OptDescr (C ()))] -> C [String] -> IO ()
+-- | This is at the heart of any Setup.hs build script, and drives the
+-- entire build process.  Its first argument is a list of flags you
+-- want the Setup.hs script to accept, and the second argument is your
+-- actual configure (or build) function, which returns a list of
+-- targets that are built as part of the default build target.
+
+build :: [C FranchiseFlag] -> C [String] -> IO ()
 build opts mkbuild =
     do args <- getArgs
        buildWithArgs args opts mkbuild
@@ -120,7 +124,7 @@ build opts mkbuild =
 #define FRANCHISE_VERSION "franchise (unknown)"
 #endif
 
-buildWithArgs :: [String] -> [C (OptDescr (C ()))] -> C [String] -> IO ()
+buildWithArgs :: [String] -> [C FranchiseFlag] -> C [String] -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do putV $ "compiled with "++FRANCHISE_VERSION
           if "configure" `elem` args

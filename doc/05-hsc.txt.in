@@ -31,7 +31,7 @@ differs from the very simplest `Setup.hs` file in the name of the source
 file for the executable.  This is the point...
 
 ~~~~ tests/hsc/Setup.hs
-import Distribution.Franchise
+import Distribution.Franchise_1
 
 main = build [] $ executable "executable" "executable.hsc" []
 ~~~~
