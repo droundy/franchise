@@ -34,31 +34,31 @@ module Distribution.Franchise_1 ( C, FranchiseFlag, build, phonyRule,
                                   replace, replaceLiteral, createFile,
                                   define, defineAs, isDefined,
                                   io, catchC, unlessC, whenC,
-                                  -- Handy module-searching
+                                  -- * Handy module-searching
                                   requireModule, withModule,
                                   requireModuleExporting, withModuleExporting,
-                                  -- Searching for an executable
+                                  -- * Searching for an executable
                                   findProgram, withProgram,
                                   configurableProgram, configuredProgram, withConfiguredProgram,
                                   requireLib, withLib,
-                                  -- defining package properties
+                                  -- * Defining package properties
                                   package, cabal, copyright, license, version,
-                                  -- Some common platform tests
+                                  -- * Some common platform tests
                                   amInWindows, amLittleEndian,
-                                  -- generalized version control support
+                                  -- * Generalized version control support
                                   ReleaseType(..),
                                   autoVersion, autoPatchVersion,
-                                  -- setting compile parameters
+                                  -- * Setting compile parameters
                                   ghcFlags, ldFlags, cFlags, pkgFlags,
-                                  -- utility for running external code
+                                  -- * Utility for running external code
                                   system, systemOut,
                                   cd, mkdir, pwd, ls, cat, rm_rf, mv,
                                   withDirectory,
-                                  -- environment-handling functions
+                                  -- * Environment-handling functions
                                   setEnv, getEnv, addToPath,
-                                  -- useful for user-oriented messages.
+                                  -- * Useful for user-oriented messages.
                                   putS, putV, putSV,
-                                  -- simplification of getopt data types
+                                  -- * Simplification of getopt data types
                                   flag, unlessFlag )
     where
 
