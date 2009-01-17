@@ -352,11 +352,15 @@ installPackageInto pn libdir =
          Just (Target _ ds _) ->
              do mkdir destination
                 let inst x = do putD $ "installing for package "++x
-                                case dirname $ dropLowercaseDirs x of
+                                let x' = case drop 1 $ dropWhile (/='/') $
+                                              drop 1 $ dropWhile (/='/') x of
+                                           "" -> x
+                                           xx -> xx
+                                case dirname x' of
                                   "" -> return ()
                                   xdn -> mkdir $ destination++"/"++xdn
-                                putD $ unwords ["copyFile", x, (destination++"/"++dropLowercaseDirs x)]
-                                io $ copyFile x (destination++"/"++dropLowercaseDirs x)
+                                putD $ unwords ["copyFile", x, (destination++"/"++x')]
+                                io $ copyFile x (destination++"/"++x')
                     his = filter (".hi" `isSuffixOf`) $ toListS ds
                 mapM_ inst (("lib"++pn++".a") : his)
                 pkgflags <- getPkgFlags
@@ -368,20 +372,6 @@ installPackageInto pn libdir =
 
 objToModName :: String -> String
 objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap . breakDirs . takeAllBut 2
-    where isntCap (c:_) = c `notElem` ['A'..'Z']
-          isntCap [] = True
-          breakDirs xs = case break (`elem` "/\\") xs of
-                           ("",'/':r) -> breakDirs r
-                           ("",'\\':r) -> breakDirs r
-                           ("","") -> []
-                           ("",_) -> [xs]
-                           (a,b) -> a : breakDirs (drop 1 b)
-
-
-dropLowercaseDirs :: String -> String
-dropLowercaseDirs p = case breakDirs p of
-                      [_] -> p
-                      p' -> drop 1 $ concatMap ('/':) $ dropWhile isntCap p'
     where isntCap (c:_) = c `notElem` ['A'..'Z']
           isntCap [] = True
           breakDirs xs = case break (`elem` "/\\") xs of
