@@ -146,9 +146,10 @@ getPackageName :: C (Maybe String)
 getPackageName = getExtraData "packageName"
 
 getPackageVersion :: C (Maybe String)
-getPackageVersion = do ver <- getVersion
+getPackageVersion = do ver <- cleanVersionForPackage `fmap` getVersion
                        pn <- getPackageName
                        return $ fmap (++("-"++ver)) pn
+    where cleanVersionForPackage = takeWhile (`elem` ('.':['0'..'9']))
 
 getPrefix :: C String
 getPrefix =
