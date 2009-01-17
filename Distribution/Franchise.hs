@@ -57,7 +57,7 @@ module Distribution.Franchise ( C, FranchiseFlag, build, buildWithArgs,
                                 findPackagesFor,
                                 withLibOutput,
                                 -- defining package properties
-                                package, copyright, license, version,
+                                package, cabal, copyright, license, version,
                                 addExtraData, haveExtraData, installPackageInto,
                                 -- Some common platform tests
                                 amInWindows, amLittleEndian,

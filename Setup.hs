@@ -32,8 +32,10 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           autoVersion Numbered
           releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
           buildDoc
+          let exported = ["Distribution.Franchise"]
+          p <- package "franchise" exported []
+          cabal "franchise" exported
           darcsDist "franchise" ["franchise.cabal"]
-          p <- package "franchise" ["Distribution.Franchise"] []
           e <- executable "enfranchise" "enfranchise.hs" []
           return (p++e)
 

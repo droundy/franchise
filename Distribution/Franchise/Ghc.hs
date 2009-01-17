@@ -38,7 +38,7 @@ module Distribution.Franchise.Ghc
       requireModuleExporting, lookForModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
-      package, installPackageInto ) where
+      package, cabal, installPackageInto ) where
 
 import Control.Monad ( msum, when, filterM )
 import System.Exit ( ExitCode(..) )
@@ -211,7 +211,6 @@ package pn modules cfiles =
        checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
        xpn <- getPackageVersion
-       whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
        getHscs -- to build any hsc files we need to.
        let depend = pn++"-package.depend"
        setOutputDirectory $ "dist/"++pn
@@ -223,13 +222,7 @@ package pn modules cfiles =
        libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
        packageProvidesModules (maybe pn id xpn) (map objToModName mods)
        deps <- packages
-       let guessVersion = -- crude heuristic for dependencies
-                          reverse . drop 1 . dropWhile (/='-') . reverse
-           appendExtra f d = do mval <- getExtraData d
-                                case mval of
-                                  Nothing -> return ()
-                                  Just v -> io $ appendFile f $ d++": "++v++"\n"
-           hiddenmodules = map objToModName mods \\ modules
+       let hiddenmodules = map objToModName mods \\ modules
            makeconfig _ =do mai <- getMaintainer
                             mkFile (pn++".config") $ unlines
                                           ["name: "++pn,
@@ -242,18 +235,6 @@ package pn modules cfiles =
                                            "extra-lib-dirs: "++unwords libdirs,
                                            "exposed: True",
                                            "depends: "++commaWords deps]
-           makecabal  _ =do mai <- getMaintainer
-                            mkFile (pn++".cabal") $ unlines
-                                          ["name: "++pn,
-                                           "version: "++ver,
-                                           "maintainer: "++mai,
-                                           "exposed-modules: "++unwords modules,
-                                           "build-type: Custom",
-                                           "build-depends: "++commaWords (map guessVersion deps)]
-                            mapM_ (appendExtra (pn++".cabal"))
-                                  ["author", "license", "copyright", "homepage", "bug-reports",
-                                   "stability", "package-url", "tested-with", "license-file",
-                                   "category", "synopsis", "description"]
        mhaddockdir <- getExtraData "haddock-directory"
        let haddockdir = maybe "haddock" id mhaddockdir
        (preprocsources, coloredfiles) <- preprocessedTargets his haddockdir
@@ -276,8 +257,6 @@ package pn modules cfiles =
                                return o) cfiles
        addTarget $ [pn++".config"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makeconfig }
-       addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
-                    :<- defaultRule { make = makecabal }
        libdir <- getLibDir
        addTarget $ ["lib"++pn++".a", phony (pn++"-package")]
                   :< ((pn++".config"):mods++his++cobjs)
@@ -295,6 +274,43 @@ package pn modules cfiles =
        setOutputDirectory "."
        return [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
+
+cabal :: String -> [String] -> C [String]
+cabal pn modules =
+    do checkMinimumPackages -- ensure that we've got at least the prelude...
+       packageName pn
+       whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
+       getHscs -- to build any hsc files we need to.
+       let depend = pn++"-package.depend"
+       setOutputDirectory $ "dist/"++pn
+       ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
+       build' CanModifyState depend
+       ver <- getVersion
+       libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
+       deps <- packages
+       let guessVersion = -- crude heuristic for dependencies
+                          reverse . drop 1 . dropWhile (/='-') . reverse
+           appendExtra f d = do mval <- getExtraData d
+                                case mval of
+                                  Nothing -> return ()
+                                  Just v -> io $ appendFile f $ d++": "++v++"\n"
+           makecabal  _ =do mai <- getMaintainer
+                            mkFile (pn++".cabal") $ unlines
+                                          ["name: "++pn,
+                                           "version: "++ver,
+                                           "maintainer: "++mai,
+                                           "exposed-modules: "++unwords modules,
+                                           "extra-libraries: "++unwords libs,
+                                           "build-type: Custom",
+                                           "build-depends: "++commaWords (map guessVersion deps)]
+                            mapM_ (appendExtra (pn++".cabal"))
+                                  ["author", "license", "copyright", "homepage", "bug-reports",
+                                   "stability", "package-url", "tested-with", "license-file",
+                                   "category", "synopsis", "description"]
+       addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
+                    :<- defaultRule { make = makecabal }
+       setOutputDirectory "."
+       return [pn++".cabal"]
 
 preprocessedTargets :: [String] -> FilePath -> C ([String],[String])
 preprocessedTargets his haddockdir =
