@@ -70,16 +70,16 @@ parseCabal = parseCabal' . filter (not . isComment)
 parseCabal' :: [String] -> [(String, [String])]
 parseCabal' [] = []
 parseCabal' (l:lls) =
-    case break (==':') $ dropWhile (==' ') l of
+    case break (==':') $ dropWhile (`elem` " \t") l of
     (fn,':':val) ->
-        case takeMore (takeWhile (==' ') l) lls of
-        (vals, rest) -> (fn,dropWhile (==' ') val:vals) : parseCabal' rest
+        case takeMore (takeWhile (`elem`" \t") l) lls of
+        (vals, rest) -> (fn,dropWhile (`elem`" \t") val:vals) : parseCabal' rest
     _ -> parseCabal' lls
     where takeMore _ [] = ([],[])
           takeMore indent (x:xs) =
               case stripPrefix indent x of
               Nothing -> ([],x:xs)
-              Just x' -> case break (/=' ') x' of
+              Just x' -> case break (`notElem`" \t") x' of
                          ("",_) -> ([],x:xs)
                          (indent',v1) -> case keepGoing (indent++indent') xs of
                                          (vs,r) -> (v1:vs, r)
@@ -88,4 +88,4 @@ parseCabal' (l:lls) =
               (pvs, r) -> (catMaybes $ map (stripPrefix indent) pvs, r)
 
 isComment :: String -> Bool
-isComment = isJust . stripPrefix "--" . dropWhile (==' ')
+isComment = isJust . stripPrefix "--" . dropWhile (`elem`" \t")
