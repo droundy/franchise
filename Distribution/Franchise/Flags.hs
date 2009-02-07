@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {- Copyright (c) 2008 David Roundy
 
 All rights reserved.
@@ -46,9 +47,15 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState ( ghcFlags, ldFlags, cFlags, pkgFlags,
                                          rmGhcFlags, addPackages )
 
+franchiseVersion :: String
+#ifdef VERSION
+franchiseVersion = VERSION
+#else
+franchiseVersion = "unknown"
+#endif
+
 -- |At heart, a FranchiseFlag is just a getopt OptDescr, but it is
 -- kept abstract so I can change the API.
-
 newtype FranchiseFlag = FF (OptDescr (C ()))
 
 unFF :: FranchiseFlag -> OptDescr (C ())
@@ -130,7 +137,7 @@ handleArgs optsc =
                                      _ -> Nothing
            putAndExit x = do io $ putStrLn x
                              io $ exitWith ExitSuccess
-           showVersion = putAndExit "version 0.0"
+           showVersion = putAndExit franchiseVersion
            showUsage = putAndExit (usageInfo header options)
            options = opts++defaults
        eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),

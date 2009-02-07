@@ -29,7 +29,7 @@ configure = do copyright "Copyright 2008 David Roundy"
 
 main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
        do configure
-          autoVersion Numbered
+          autoVersion Numbered >>= (defineAs "VERSION" . show)
           releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
           buildDoc
           let exported = ["Distribution.Franchise", "Distribution.Franchise.V1"]
