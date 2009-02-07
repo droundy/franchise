@@ -29,7 +29,11 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( module Distribution.Franchise_1,
+module Distribution.Franchise ( -- * The recommended API is defined in the
+                                --   module Distribution.Franchise_1.
+                                module Distribution.Franchise_1,
+                                -- * The rest of the API defined below is
+                                --   either deprecated or experimental!
                                 buildWithArgs,
                                 buildTarget, privateExecutable,
                                 installBin, addTarget,
