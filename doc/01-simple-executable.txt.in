@@ -14,12 +14,12 @@ Setup.hs
 --------
 
 To use `franchise`, you need a `Setup.hs` file.  Every `Setup.hs` file
-will import [Distribution.Franchise_1][].  This import includes an API
+will import [Distribution.Franchise.V1][].  This import includes an API
 version number, so we can extend the API without breaking any existing
 scripts.  If you want access to the latest and greatest unstable API,
-just import [Distribution.Franchise_1][].
+just import [Distribution.Franchise.V1][].
 
-[Distribution.Franchise_1]: haddock/Distribution-Franchise_1.html
+[Distribution.Franchise.V1]: haddock/Distribution-Franchise_1.html
 
 The main function of every `Setup.hs` script is given by the [build][]
 function.  This function currently accepts two arguments.  The first is a
@@ -40,7 +40,7 @@ dependencies on C files).
 [executable]: haddock/Distribution-Franchise_1.html#v%3Aexecutable
 
 ~~~~ tests/simple/Setup.hs
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 
 main = build [] $ executable "simple" "simple.hs" []
 ~~~~

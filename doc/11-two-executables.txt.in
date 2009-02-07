@@ -18,7 +18,7 @@ This couldn't be easier.  You just need to indicate how to build them, and
 then return a list with two elements:
 
 ~~~~ tests/two-executables/Setup.hs
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 
 main = build [] $
        do executable "hello" "hello.hs" []

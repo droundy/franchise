@@ -31,7 +31,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise ( -- * The recommended API is defined in the
                                 --   module Distribution.Franchise_1.
-                                module Distribution.Franchise_1,
+                                module Distribution.Franchise.V1,
                                 -- * The rest of the API defined below is
                                 --   either deprecated or experimental!
                                 buildWithArgs,
@@ -82,7 +82,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the
                                 extraData )
     where
 
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.Ghc

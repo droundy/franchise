@@ -29,7 +29,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise_1 ( C, FranchiseFlag, build, phonyRule,
+module Distribution.Franchise.V1 ( C, FranchiseFlag, build, phonyRule,
                                   executable,
                                   replace, replaceLiteral, createFile,
                                   define, defineAs, isDefined,

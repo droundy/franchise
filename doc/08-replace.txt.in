@@ -28,7 +28,7 @@ Setup.hs
 
 
 ~~~~ tests/replace/Setup.hs
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 
 main = build [] $
        do replace "@Foo@" "Foo message"

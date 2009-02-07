@@ -58,7 +58,7 @@ at the top of the `TestModule.hs` file.
 [ghcFlags]: haddock/Distribution-Franchise_1.html#v%3AghcFlags
 
 ~~~~ tests/foreign-wrapper/Setup.hs
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 
 main = build [] $
        do ghcFlags ["-fffi"]

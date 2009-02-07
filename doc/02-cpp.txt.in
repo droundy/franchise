@@ -25,7 +25,7 @@ in a pragma in the `executable.hs` file.
 [ghcFlags]: haddock/Distribution-Franchise_1.html#v%3AghcFlags
 
 ~~~~ tests/cpp/Setup.hs
-import Distribution.Franchise_1
+import Distribution.Franchise.V1
 
 main = build [] $
        do defineAs "DATA" "True"
