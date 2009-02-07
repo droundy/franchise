@@ -131,7 +131,8 @@ buildWithArgs args opts mkbuild = runC $
               then return ()
               else (do readConfigureState "config.d"
                        putV "reusing old configuration")
-                   `catchC` \_ -> do putV "Couldn't read old config.d"
+                   `catchC` \e -> do putD e
+                                     putV "Couldn't read old config.d"
                                      rm_rf "config.d"
           putExtra "commandLine" args
           targets <- handleArgs opts
