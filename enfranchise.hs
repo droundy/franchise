@@ -38,7 +38,9 @@ main = build [] $
               withField d j = maybe (return mempty) j $ lookupField d
           withToken "version" version
           withTokens "hs-source-dirs" $ \ds -> ghcFlags $ map ("-i"++) ds
-          withTokens "extensions" $ \es -> ghcFlags $ map ("-X"++) es
+          -- withoutField "hs-source-dirs" $ ghcFlags ["-i."]
+          withTokens "include-dirs" $ \ds -> ghcFlags $ map ("-I"++) ds
+          withTokens "extensions" $ \es -> ghcFlags $ map extension2flag es
           withTokens "cpp-options" ghcFlags
           withTokens "ghc-options" ghcFlags
           withTokens "extra-libraries" $ \libs -> ldFlags $ map ("-l"++) libs
@@ -51,6 +53,8 @@ main = build [] $
           withToken "main-is" $ \m ->
               executable (reverse $ drop 1 $ dropWhile (/='.') $ reverse m) m []
           return []
+    where extension2flag "CPP" = "-cpp"
+          extension2flag x = "-X"++x
 
 readTokens :: String -> [String]
 readTokens "" = []
