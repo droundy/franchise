@@ -37,7 +37,6 @@ module Distribution.Franchise.Program ( findProgram, withProgram,
 
 import System.Directory ( findExecutable )
 import Data.Monoid ( Monoid, mempty )
-import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Flags ( FranchiseFlag, configureFlagWithDefault )
@@ -58,34 +57,29 @@ withProgram pname alts j = (findProgram pname alts >>= j)
 
 configurableProgram :: String -> String -> [String] -> C FranchiseFlag
 configurableProgram humanName defaultProg options =
-    configureFlagWithDefault ("with-"++humanName) "COMMAND" ("use command as "++humanName)
-                             (requireWithPrereqWithFeedback ("for "++ humanName) humanName
-                                                      (return $ defaultProg:options) $
-                              do rn <- getExtra requestedname
-                                 case rn of
-                                   "Manually" -> getExtra extraname
-                                   _ -> do p <- findProgram defaultProg options
-                                           addExtraData extraname p
-                                           persistExtra extraname
-                                           return p)
-                             (\p -> do addExtraData extraname p
-                                       cl <- getExtra "commandLine"
-                                       when ("configure" `elem` cl) $ do
-                                         requireWithPrereqWithFeedback ("for "++humanName) humanName
-                                                                 (return $ defaultProg:options)
-                                                                 (return p)
-                                         persistExtra extraname
-                                         addExtra requestedname "Manually"
-                                         persistExtra requestedname)
-    where requestedname = "program-"++humanName++"-requested"
-          extraname = "program-"++humanName
+    configureFlagWithDefault
+        ("with-"++humanName) "COMMAND"
+        ("use command as "++humanName)
+        (do putExtra ("program-default-"++humanName) defaultProg
+            putExtra ("program-options-"++humanName) options)
+        (\p -> do putExtra ("program-default-"++humanName) p
+                  putExtra ("program-options-"++humanName) ([] :: [String]))
 
 configuredProgram :: String -> C String
 configuredProgram humanName = withConfiguredProgram humanName return
 
 withConfiguredProgram :: String -> (String -> C a) -> C a
 withConfiguredProgram humanName j =
-    do mp <- getExtraData ("program-"++humanName)
+    do let extraname = "program-"++humanName
+       def <- getExtra ("program-default-"++humanName)
+       opts <- getExtra ("program-options-"++humanName)
+       requireWithPrereqWithFeedback ("for "++humanName) humanName
+                                     (return $ def:opts) $
+         do p <- findProgram def opts
+            addExtraData extraname p
+            persistExtra extraname
+            return p
+       mp <- getExtraData extraname
        case mp of
          Just p -> j p
          Nothing -> fail $ "No "++ humanName ++" program"
