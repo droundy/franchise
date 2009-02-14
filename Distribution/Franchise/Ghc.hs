@@ -252,7 +252,7 @@ package pn modules cfiles =
                                   system "haddock" ("-h":preprocsources++
                                                     concatMap (\hm -> ["--hide",hm]) hiddenmodules++
                                                     cssflag++sourceflags++["-o","../"++haddockdir]) }
-       cobjs <- mapM (\f -> do let o = takeAllBut 2 f++".o"
+       cobjs <- mapM (\f -> do let o = "dist/"++pn++"/"++takeAllBut 2 f++".o"
                                compile_C o f >>= addTarget
                                return o) cfiles
        addTarget $ [pn++".config"] :< [depend, extraData "version"]
