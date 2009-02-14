@@ -704,16 +704,13 @@ findRuleForModule m =
 
 addHsc :: String -> C ()
 addHsc hsc = do hscs <- getHscs
-                addExtraData "hsc2hs" $ show $ nub (hsc:hscs)
+                putExtra "hsc2hs" $ nub (hsc:hscs)
                 let hscit = hsc2hs system [hsc]
                 addTarget $ [init hsc] :< [hsc] :<- defaultRule { make = const hscit }
                 hscit
 
 getHscs :: C [String]
-getHscs = do mhscs <- getExtraData "hsc2hs"
-             let hscs = case reads `fmap` mhscs of
-                        Just [(xx,"")] -> xx
-                        _ -> []
+getHscs = do hscs <- getExtra "hsc2hs"
              mapM_ (\hsc -> addTarget $ [init hsc] :< [hsc]
                             :<- defaultRule { make = const $ hsc2hs system [hsc] }) hscs
              return hscs
