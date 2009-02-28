@@ -217,7 +217,7 @@ package pn modules cfiles =
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
        (mods,his) <- io (readFile depend) >>= parseDeps [] xpn [extraData "version"]
-       ver <- getVersion
+       ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
        libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
        libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
        packageProvidesModules (maybe pn id xpn) (map objToModName mods)
