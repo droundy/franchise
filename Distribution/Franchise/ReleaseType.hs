@@ -39,7 +39,7 @@ data ReleaseType = Numbered | NumberedPreRc | AnyTag
 releaseRegexp :: ReleaseType -> String
 releaseRegexp Numbered = "^[0-9\\.]+$"
 releaseRegexp NumberedPreRc = "^[0-9\\.]+-?(rc[0-9]*|pre[0-9]*)?$"
-releaseRegexp AnyTag = "."
+releaseRegexp AnyTag = "^[^ ]+$"
 
 releaseUnknown :: ReleaseType -> String
 releaseUnknown Numbered = "137.0"
