@@ -35,6 +35,7 @@ module Distribution.Franchise.Env ( setEnv, getEnv, addToPath, extraPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
+import Control.Monad ( msum )
 import qualified System.Environment as E ( getEnv,
 #ifdef GETENVIRONMENTWORKS
                                            getEnvironment
@@ -42,7 +43,8 @@ import qualified System.Environment as E ( getEnv,
                                          )
 
 import Distribution.Franchise.ConfigureState
-    ( C, getAllExtraData, getExtraData, addExtraData, io, catchC, amInWindows )
+    ( C, getAllExtraData, getExtraData, addExtraData, addExtra, getExtra, rmExtra,
+      io, catchC, amInWindows )
 import Distribution.Franchise.ListUtils ( stripPrefix )
 
 getEnv :: String -> C (Maybe String)
@@ -80,14 +82,17 @@ getEnvironment = do pe <- getPrivateEnvironment
 
 addToPath :: FilePath -> C ()
 addToPath d = do amw <- amInWindows
-                 oldpath <- maybe "" id `fmap` getEnv "PATH"
-                 setEnv "PATH" $ if amw then d++';':oldpath
-                                        else d++':':oldpath
+                 if amw
+                     then do -- environment variables are case-insensitive on windows
+                             Just oldpath <- msum `fmap` sequence [getEnv "PATH",
+                                                                   getEnv "Path",
+                                                                   return $ Just ""]
+                             rmExtra "env-Path"
+                             setEnv "PATH" $ d++';':oldpath
+                     else do oldpath <- maybe "" id `fmap` getEnv "PATH"
+                             setEnv "PATH" $ d++':':oldpath
                  ps <- extraPath
-                 addExtraData "extra-path" $ show (d:ps)
+                 addExtra "extra-path" (d:ps)
 
 extraPath :: C [FilePath]
-extraPath = do ep <- getExtraData "extra-path"
-               case reads `fmap` ep of
-                 Just [(p,"")] -> return p
-                 _ -> return []
+extraPath = getExtra "extra-path"
