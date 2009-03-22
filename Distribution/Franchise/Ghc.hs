@@ -155,7 +155,7 @@ objectIsInPackage pn o =
          Just ps -> return (pn `elem` ps)
 
 privateExecutable :: String -> String -> [String] -> C [String]
-privateExecutable  simpleexname src0 cfiles0 =
+privateExecutable  simpleexname src0 cfiles =
     do maketixdir
        checkMinimumPackages
        aminwin <- amInWindows
@@ -179,19 +179,27 @@ privateExecutable  simpleexname src0 cfiles0 =
        objs <- case pn of
                Just n -> filterM (fmap not . objectIsInPackage n) objs0
                Nothing -> return objs0
+       let ccompile f | takeWhile (/='.') (reverse f) == "c" =
+                          do let o = takeAllBut 2 f++".o"
+                             compile_C o f >>= addTarget
+                             return o
+                      | takeWhile (/='.') (reverse f) == "ppc" =
+                          do let o = takeAllBut 4 f++".o"
+                             compile_C o f >>= addTarget
+                             return o
+                      | otherwise = return f
+       cobjs <- mapM ccompile cfiles
        let mk _ = do stubos <- filterM (io . doesFileExist) $ map (stubit "o") objs
                      maybe (return ()) (addPackages . (:[])) pn
                      comp <- ghc Nothing system
-                             (objs++ cobjs ++ extraobjs ++ stubos ++ ["-o",exname])
+                             (objs++ cobjs ++ stubos ++ ["-o",exname])
                      maybe (return ()) (removePackages . (:[])) pn
                      comp
            stubit c x = take (length x - 2) x ++ "_stub."++c
-           (cfiles, extraobjs) = partition (".c" `isSuffixOf`) cfiles0
-           cobjs = map (\f -> takeAllBut 2 f++".o") cfiles
            libname p = "lib"++ reverse (drop 1 $ dropWhile (/='-') $ reverse p)++".a"
-       mapM_ (>>= addTarget) $ zipWith compile_C cobjs cfiles
+
        addTarget $ [exname, phony simpleexname]
-                  :< (src:objs++cobjs++extraobjs++maybe [] (\x -> [libname x]) pn)
+                  :< (src:objs++cobjs++maybe [] (\x -> [libname x]) pn)
                   :<- defaultRule { make = mk, clean = \b -> depend : map (stubit "o") objs ++
                                                                       map (stubit "c") objs ++ cleanIt b }
        return [exname, phony simpleexname]
@@ -252,9 +260,16 @@ package pn modules cfiles =
                                   system "haddock" ("-h":preprocsources++
                                                     concatMap (\hm -> ["--hide",hm]) hiddenmodules++
                                                     cssflag++sourceflags++["-o","../"++haddockdir]) }
-       cobjs <- mapM (\f -> do let o = "dist/"++pn++"/"++takeAllBut 2 f++".o"
-                               compile_C o f >>= addTarget
-                               return o) cfiles
+       let ccompile f | takeWhile (/='.') (reverse f) == "c" =
+                          do let o = "dist/"++pn++"/"++takeAllBut 2 f++".o"
+                             compile_C o f >>= addTarget
+                             return o
+                      | takeWhile (/='.') (reverse f) == "ppc" =
+                          do let o = "dist/"++pn++"/"++takeAllBut 4 f++".o"
+                             compile_C o f >>= addTarget
+                             return o
+                      | otherwise = return f
+       cobjs <- mapM ccompile cfiles
        addTarget $ [pn++".config"] :< [depend, extraData "version"]
                     :<- defaultRule { make = makeconfig }
        libdir <- getLibDir
