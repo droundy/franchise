@@ -1,6 +1,7 @@
 #!/usr/bin/runhaskell
 import Distribution.Franchise
 import Data.List ( sort, isSuffixOf, isPrefixOf )
+import System.Exit ( ExitCode(..) )
 
 configure = do copyright "Copyright 2008 David Roundy"
                license "BSD3"
@@ -63,8 +64,17 @@ buildDoc = do rm_rf "doc/tests"
                              let tests = map splitPath $
                                          filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             sh <- configuredProgram "shell"
-                             ts <- mapM (\ (d, t) -> withDirectory d $ testOne t sh t >> return t) tests
+                             let mktest (d,t) =
+                                     do withDirectory d $ testC t $
+                                            do sh <- configuredProgram "shell"
+                                               ec <- systemOutErrToFile sh [t] (t++".out")
+                                               out <- cat (t++".out")
+                                               case ec of
+                                                 ExitSuccess ->
+                                                     putV $ unlines $ map (\l->('|':' ':l)) $ lines out
+                                                 _ -> fail $ show ec++"\n"++out
+                                        return t
+                             ts <- mapM mktest tests
                              return ([txtf],ts)
           buildIndex inps =
                   do withd <- rememberDirectory
