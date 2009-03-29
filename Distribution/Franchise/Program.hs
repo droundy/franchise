@@ -78,7 +78,7 @@ withConfiguredProgram humanName j =
          do p <- findProgram def opts
             addExtraData extraname p
             persistExtra extraname
-            return p
+            return (p, ())
        mp <- getExtraData extraname
        case mp of
          Just p -> j p

@@ -37,6 +37,7 @@ module Distribution.Franchise.Persistency
         where
 
 import Distribution.Franchise.ConfigureState
+import Data.Monoid ( mempty, Monoid )
 
 cacheifC :: String -> C Bool -> C () -> C () -> C ()
 cacheifC name check ifok iffail =
@@ -60,41 +61,48 @@ cacheifC name check ifok iffail =
                                   putExtra checkname [False]
                                   persistExtra checkname)
 
-setOnce :: String -> C () -> C ()
+setOnce :: Monoid a => String -> C a -> C a
 setOnce name j = requireWithPrereqActionWithFeedback "setting" name name
-                 (return ["SET"]) (j >> return "done")
+                 (return ["SET"]) $ do x <- j
+                                       return ("done",x)
 
-checkOnce :: String -> C () -> C ()
-checkOnce name check = require name check `catchC` \_ -> return ()
+checkOnce :: Monoid a => String -> C a -> C a
+checkOnce name check = require name check `catchC` \_ -> return mempty
 
 requireWithFeedback :: String -> C String -> C ()
-requireWithFeedback name check = requireWithPrereqWithFeedback name name (return ["TEST"]) check
+requireWithFeedback name check =
+    requireWithPrereqWithFeedback name name (return ["TEST"]) $ do x <- check
+                                                                   return (x,())
 
-require :: String -> C () -> C ()
+require :: Monoid a => String -> C a -> C a
 require name check = requireWithPrereq name name (return ["TEST"]) check
 
-requireWithPrereq :: String -> String -> C [String] -> C () -> C ()
+requireWithPrereq :: Monoid a => String -> String -> C [String] -> C a -> C a
 requireWithPrereq name longname prereq check =
-    requireWithPrereqWithFeedback name longname prereq (check >> return "yes")
+    requireWithPrereqWithFeedback name longname prereq $ do x <- check
+                                                            return ("yes",x)
 
-requireWithPrereqWithFeedback :: String -> String -> C [String] -> C String -> C ()
+requireWithPrereqWithFeedback :: Monoid a => String -> String
+                              -> C [String] -> C (String,a) -> C a
 requireWithPrereqWithFeedback name longname prereq check =
     requireWithPrereqActionWithFeedback "checking" name longname prereq check
 
-requireWithPrereqActionWithFeedback :: String -> String -> String -> C [String] -> C String -> C ()
+requireWithPrereqActionWithFeedback :: Monoid a => String -> String -> String
+                                    -> C [String] -> C (String,a) -> C a
 requireWithPrereqActionWithFeedback action name longname prereq check =
     do let checkname = cleanName $ action++"-"++longname
        v <- prereq
        checkval <- getExtra checkname
        case checkval of
          ("FAIL":e:v') | v' == v -> fail e
-         ("PASS":v') | v' == v -> return ()
+         ("PASS":v') | v' == v -> return mempty
          z -> do putD $ "found confirmation "++ show z ++ " on "++ name
                  putSnoln $ action++" "++name++" ... "
-                 out <- quietly check
+                 (out,x) <- quietly check
                  putS out
                  satisfyWithPrereq checkname prereq
                  persistExtra checkname
+                 return x
              `catchC` \e -> do putS "no"
                                failWithPrereq checkname prereq e
 
