@@ -45,6 +45,8 @@ import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe, isJust, isNothing )
 import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf, nub )
 import System.Directory ( copyFile, doesFileExist )
+import System.Info ( compilerName, compilerVersion )
+import Data.Version ( versionBranch )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -356,7 +358,7 @@ preprocessedTargets his haddockdir =
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
     do ver <- getVersion
-       let destination = libdir++"/"++pn++"-"++ver++"/"
+       let destination = libdir++"/"++pn++"-"++ver++"/"++compilerName++concatMap (('.':) . show) (versionBranch compilerVersion)
        config <- cat (pn++".config")
        mkFile (pn++".cfg") $ unlines [config,
                                       "import-dirs: "++ show destination,
