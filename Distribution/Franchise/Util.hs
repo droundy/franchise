@@ -264,6 +264,7 @@ isFile f = do f' <- processFilePath f
               io $ doesFileExist f'
 
 takeExtension :: String -> String
+takeExtension "" = ""
 takeExtension ('.':s) = case dropWhile (/='.') s of
                           "" -> s
                           s' -> takeExtension s'
