@@ -458,8 +458,9 @@ ghcWithoutFlags nonflags pn sys args = do
   defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
   cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
   ld <- map ("-optl"++) `fmap` getLdFlags
-  let opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
-                        ++ (if any (isSuffixOf ".c") args then cf else packs)
+  let isCfile s = takeExtension s `elem` ["c","cpp","cc","C"]
+      opts = fl ++ defs ++ (if "-c" `elem` args then [] else ld)
+                        ++ (if any isCfile args then cf else packs)
   case pn of
     Just p -> return $ sys "ghc" $ filter (`notElem` nonflags) $
               opts++["-hide-all-packages","-package-name",p,"-fforce-recomp"]++packs++args

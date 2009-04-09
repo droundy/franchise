@@ -34,7 +34,7 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
                                      mkFile, cat, pwd, ls, mv,
-                                     isFile,
+                                     isFile, takeExtension,
                                      bracketC, csum, finallyC, bracketC_ )
     where
 
@@ -262,6 +262,12 @@ mv a b = do a' <- processFilePath a
 isFile :: String -> C Bool
 isFile f = do f' <- processFilePath f
               io $ doesFileExist f'
+
+takeExtension :: String -> String
+takeExtension ('.':s) = case dropWhile (/='.') s of
+                          "" -> s
+                          s' -> takeExtension s'
+takeExtension s = takeExtension $ dropWhile (/='.') s
 
 -- | Just like 'Control.Exception.bracket', except we're in the C monad.
 bracketC :: C a         -- ^ computation to run first (\"make files\")
