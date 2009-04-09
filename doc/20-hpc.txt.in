@@ -72,7 +72,10 @@ achieved 100% coverage of all properties that hpc tests.
 ~~~~ tests/hpc/hpc.sh
 set -ev
 
-hpc help || runghc Setup.hs test && exit 0
+if ! hpc help; then
+  runghc Setup.hs test --verbose
+  exit 0
+fi
 
 # we have hpc, so we can test for full code coverage
 runghc Setup.hs --enable-hpc test
