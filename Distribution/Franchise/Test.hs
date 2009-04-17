@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( phonyRule, test, testC, testOne, testOutput,
+module Distribution.Franchise.Test ( phonyRule, testy, test, testC, testOne, testOutput,
                                      prepareForTest, beginTestWith )
     where
 
@@ -108,26 +108,29 @@ beginTestWith initialize =
                                             addExtraData "began-test" "" }
 
 test :: [String] -> C ()
-test ts0 =
+test = testy "test"
+
+testy :: String -> [String] -> C ()
+testy tname ts0 =
     do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
-       addTarget $ [phony "test"] :< [phony "build", phony "prepare-for-test"]
+       addTarget $ [phony tname] :< [phony "build", phony "prepare-for-test"]
            |<- defaultRule { make = const $ do begin
                                                results <- mapC runSingleTest ts0
                                                announceResults (length $ filter (==Passed) results)
                                                                (length $ filter (==Surprise) results)
                                                                (length $ filter (==Expected) results)
                                                                (length $ filter (==Failed) results) }
-    where announceResults npassed 0 0 0 = putAll npassed "test" "passed!"
+    where announceResults npassed 0 0 0 = putAll npassed tname "passed!"
           announceResults npassed oddpass expectedfail 0 =
-              do putNonZero expectedfail "test" "failed as expected."
-                 putNonZero oddpass "test" " unexpectedly passed!"
-                 putCountable npassed "test" "passed."
-          announceResults 0 0 0 nfailed = do putAll nfailed "test" "FAILED!"
+              do putNonZero expectedfail tname "failed as expected."
+                 putNonZero oddpass tname " unexpectedly passed!"
+                 putCountable npassed tname "passed."
+          announceResults 0 0 0 nfailed = do putAll nfailed tname "FAILED!"
                                              fail "tests failed!"
           announceResults npassed oddpass expectedfail nfailed =
               do putS $ show nfailed++"/"++show (npassed+nfailed)++" tests FAILED!"
-                 putNonZero expectedfail "test" "failed as expected."
-                 putNonZero oddpass "test" "unexpectedly passed!"
+                 putNonZero expectedfail tname "failed as expected."
+                 putNonZero oddpass tname "unexpectedly passed!"
                  fail "tests failed!"
           runSingleTest t =
               do whenC oneJob $ putSnoln $ pad t
