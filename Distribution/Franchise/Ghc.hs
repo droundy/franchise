@@ -728,9 +728,11 @@ addHsc hsc = do hscs <- getHscs
 
 getHscs :: C [String]
 getHscs = do hscs <- getExtra "hsc2hs"
-             mapM_ (\hsc -> addTarget $ [init hsc] :< [hsc]
+             mapM_ (\hsc -> addTarget $ [dropdotslash $ init hsc] :< [dropdotslash hsc]
                             :<- defaultRule { make = const $ hsc2hs system [hsc] }) hscs
              return hscs
+    where dropdotslash ('.':'/':r) = dropdotslash $ dropWhile (=='/') r
+          dropdotslash x = x
 
 packageProvidesModules :: String -> [String] -> C ()
 packageProvidesModules p ms =
