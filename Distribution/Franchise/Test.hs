@@ -173,7 +173,7 @@ announceResults tname npassed oddpass expectedfail nfailed =
        fail "tests failed!"
 
 summarizeTestsIfMoreThan :: Int -> C ()
-summarizeTestsIfMoreThan n = do f <- maybe ".tests" id `fmap` getExtra "test-results-file"
+summarizeTestsIfMoreThan n = do f <- getResultsFile
                                 failures <- lines `fmap` cat (f++"-failed")
                                 unepected <- lines `fmap` cat (f++"-pass-unexpected")
                                 passes <- lines `fmap` cat (f++"-passed")
@@ -183,8 +183,12 @@ summarizeTestsIfMoreThan n = do f <- maybe ".tests" id `fmap` getExtra "test-res
                                      announceResults "test" (length passes) (length unepected)
                                                             (length expected) (length failures)
 
+getResultsFile :: C String
+getResultsFile = do x <- getExtra "test-results-file"
+                    return $ if null x then ".tests" else x
+
 saveResult :: String -> String -> C ()
-saveResult r t = do f <- maybe ".tests" id `fmap` getExtra "test-results-file"
+saveResult r t = do f <- getResultsFile
                     io $ appendFile (f++'-':r) (t++"\n")
 
 testResultsFile :: FilePath -> C ()
@@ -192,7 +196,7 @@ testResultsFile f = do putExtra "test-results-file" (Just f)
                        clearTestResults
 
 clearTestResults :: C ()
-clearTestResults = do f <- maybe ".tests" id `fmap` getExtra "test-results-file"
+clearTestResults = do f <- getResultsFile
                       io $ writeFile (f++"-failed") ""
                       io $ writeFile (f++"-pass-unexpected") ""
                       io $ writeFile (f++"-passed") ""
