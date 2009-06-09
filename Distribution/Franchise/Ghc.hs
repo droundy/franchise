@@ -113,6 +113,7 @@ ghcRelatedConfig = [extraData "packages", extraData "definitions"]
 ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
     do needDefinitions
+       hscs <- getHscs
        x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
                        filter (not . isSuffixOf ".o") .
@@ -120,7 +121,7 @@ ghcDeps dname src announceme =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       addTarget $ [dname] :< (ghcRelatedConfig++cleandeps x)
+       addTarget $ [dname] :< (ghcRelatedConfig++cleandeps x++map init hscs)
                   :<- defaultRule { make = builddeps }
   where builddeps _ = do announceme
                          rm dname
@@ -166,7 +167,6 @@ privateExecutable  simpleexname src0 cfiles =
                          return (simpleexname++".exe")
                  else return simpleexname
        whenJust (directoryPart src0) $ \d -> ghcFlags ["-i"++d, "-I"++d]
-       getHscs -- make sure to run hsc2hs on files we know about first...
        let depend = exname++".depend"
        src <- if ".hsc" `isSuffixOf` src0
               then do addHsc src0; return $ init src0
@@ -221,7 +221,6 @@ package pn modules cfiles =
        checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
        xpn <- getPackageVersion
-       getHscs -- to build any hsc files we need to.
        let depend = pn++"-package.depend"
        setOutputDirectory $ "dist/"++pn
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
