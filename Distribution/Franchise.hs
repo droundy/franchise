@@ -40,6 +40,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the
                                 csum,
                                 -- test suite helpers
                                 testy, test, testC, testOne, testOutput,
+                                testResultsFile,
                                 beginTestWith, prepareForTest,
                                 addToRule,
                                 -- The constructors are exported so users

@@ -31,11 +31,13 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Test ( phonyRule, testy, test, testC, testOne, testOutput,
+                                     testResultsFile,
                                      prepareForTest, beginTestWith )
     where
 
 import System.Exit ( ExitCode(..) )
 import Data.List ( isPrefixOf )
+import Data.Maybe ( isJust )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -97,7 +99,8 @@ data TestResult = Passed | Failed | Surprise | Expected deriving ( Eq )
 
 prepareForTest :: C () -> C ()
 prepareForTest initialize =
-    addTarget $ [phony "prepare-for-test"] :< [] |<- defaultRule { make = const initialize }
+    addTarget $ [phony "prepare-for-test"] :< []
+        |<- defaultRule { make = const (clearTestResults >> initialize) }
 
 beginTestWith :: C () -> C ()
 beginTestWith initialize =
@@ -113,6 +116,9 @@ test = testy "test"
 testy :: String -> [String] -> C ()
 testy tname ts0 =
     do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+       unlessC (isJust `fmap` getTarget "prepare-for-test") $
+               addTarget $ [phony "prepare-for-test"] :< []
+                   |<- defaultRule { make = const clearTestResults }
        addTarget $ [phony tname] :< [phony "build", phony "prepare-for-test"]
            |<- defaultRule { make = const $ do begin
                                                results <- mapC runSingleTest ts0
@@ -137,19 +143,38 @@ testy tname ts0 =
                  silently $ build' CannotModifyState t
                  if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
                    then do announceResult " unexpectedly succeeded!"
+                           saveResult "pass-unexpected" t
                            return Surprise
                    else do announceResult " ok"
+                           saveResult "passed" t
                            return Passed
              `catchC` \e ->
                  do if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
                       then do announceResult " failed as expected."
+                              saveResult "failure-expected" t
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Expected
                       else do announceResult " FAILED!"
+                              saveResult "failed" t
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Failed
             where announceResult r = do whenC oneJob $ putS r
                                         unlessC oneJob $ putS $ pad t++r
+
+saveResult :: String -> String -> C ()
+saveResult r t = do f <- maybe "test-results" id `fmap` getExtra "test-results-file"
+                    io $ appendFile (f++'-':r) (t++"\n")
+
+testResultsFile :: FilePath -> C ()
+testResultsFile f = do putExtra "test-results-file" (Just f)
+                       clearTestResults
+
+clearTestResults :: C ()
+clearTestResults = do f <- maybe "test-results" id `fmap` getExtra "test-results-file"
+                      io $ writeFile (f++"-failed") ""
+                      io $ writeFile (f++"-pass-unexpected") ""
+                      io $ writeFile (f++"-passed") ""
+                      io $ writeFile (f++"-failure-expected") ""
 
 putAll :: Int -> String -> String -> C ()
 putAll 0 noun verb = putS $ "There were no "++noun++"s... but they all "++verb

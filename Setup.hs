@@ -53,6 +53,7 @@ buildDoc = do rm_rf "doc/tests"
                          addToGhcPath pfile
                          setEnv "FRANCHISE_GHC_PACKAGE_CONF" pfile
                          installPackageInto "franchise" (here++"/doc/tests/local/lib")
+              testResultsFile ".tests"
               test $ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
                                        htmls <- concat `fmap` mapM (\i -> markdownToHtml "../doc.css" i "")
