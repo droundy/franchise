@@ -176,7 +176,8 @@ needsWork t =
                               return True
                 Just mt -> do anylater <- anyM latertime $ toListS ds
                               if anylater then return ()
-                                          else do putD $ "Marking "++t++" as built since it's old"
+                                          else do putD $ "Marking "++t++" as built since it's older than "
+                                                       ++unwords (toListS ds)
                                                   setBuilt t
                               return anylater
                       where latertime y = do ye <- io $ doesFileExist y
