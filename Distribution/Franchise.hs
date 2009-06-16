@@ -43,6 +43,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the
                                 testResultsFile,
                                 beginTestWith, prepareForTest,
                                 addToRule,
+                                enforceAllPrivacy, enforceModulePrivacy,
                                 -- The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
@@ -104,3 +105,6 @@ import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.Persistency ( cacheifC, require, requireWithFeedback, requireWithPrereq,
                                             setOnce, checkOnce )
+
+import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
+                                              enforceModulePrivacy )

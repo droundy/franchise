@@ -200,6 +200,8 @@ data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 data Target = Target { fellowTargets :: !StringSet,
                        dependencies :: !StringSet,
                        rule :: !(C ()) }
+instance Show Target where
+    show (Target x y _) = show x++":\n\t"++show y
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,

@@ -38,6 +38,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           cabal "franchise" exported
           darcsDist "franchise" ["franchise.cabal"]
           e <- executable "enfranchise" "enfranchise.hs" []
+          enforceModulePrivacy ["Distribution.Franchise"]
           return (p++e)
 
 buildDoc = do rm_rf "doc/tests"

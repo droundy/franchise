@@ -1,0 +1,67 @@
+Enforcing module privacy
+========================
+
+If you want to enforce a reasonable module hierarchy, you can do this
+with enforceModulePrivacy or enforceAllPrivacy.  These functions allow
+you to use Haskell hierarchical modules to enforce a separation of
+private and public interfaces.  In particular, if the module "Foo.Bar"
+exists, then outside modules may not import "Foo.Bar.XXX".
+
+~~~~ tests/enforcePrivacy/Hello.hs
+module Hello where
+import Hello.Private
+hello = hi
+~~~~
+
+~~~~ tests/enforcePrivacy/Hello/Private.hs
+module Hello.Private where
+hi = "hello world"
+~~~~
+
+~~~~ tests/enforcePrivacy/HelloWorld.hs
+module HelloWorld where
+
+import Hello
+import Hello.Private
+foo = do putStrLn hello
+         putStrLn hi
+~~~~
+
+~~~~ tests/enforcePrivacy/hithere.hs
+import HelloWorld
+main = foo
+~~~~
+
+Setup.hs
+--------
+
+You need to use the enforceAllPrivacy function after you've defined
+the targets that use Haskell code.  You can either use it in the
+build/configure stage as demonstrated here, or you can put it in a
+test in your test suite.  The enforceModulePrivacy function allows you
+to limit the privacy to certain modules---which is potentially useful
+as you transition your code to respect module boundaries.
+
+~~~~ tests/enforcePrivacy/Setup.hs
+import Distribution.Franchise
+
+main = build [] $
+       do e <- executable "hello" "hithere.hs" []
+          enforceAllPrivacy
+          return e
+~~~~
+
+Testing it out
+--------------
+
+~~~~ tests/enforcePrivacy/enforcePrivacy.sh
+set -ev
+
+echo GHC_PACKAGE_PATH is $GHC_PACKAGE_PATH
+
+runghc Setup.hs build && exit 1
+
+cat franchise.log
+
+grep 'illegally imports' franchise.log
+~~~~
