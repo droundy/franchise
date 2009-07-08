@@ -1,0 +1,36 @@
+Optimization
+============
+
+Optimization (-O2) is enabled by default, but you can disable it---if
+you choose---by using the --disable-optimize flag.
+
+~~~~ tests/optimization/optimization.hs
+main = putStrLn "hello world"
+~~~~
+
+Setup.hs
+--------
+
+~~~~ tests/optimization/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $ executable "optimization" "optimization.hs" []
+~~~~
+
+Testing it out
+--------------
+
+~~~~ tests/optimization/optimization.sh
+set -ev
+echo $HOME | grep doc/tests
+runghc Setup.hs build
+./optimization
+# we optimize by default
+grep O2 franchise.log
+
+runghc Setup.hs configure --disable-optimize
+runghc Setup.hs build
+# we shouldn't be optimizing any longer.
+grep O2 franchise.log && exit 1
+true
+~~~~

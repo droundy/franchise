@@ -44,6 +44,7 @@ import System.Console.GetOpt ( OptDescr(..), ArgOrder(..), ArgDescr(..),
 import Data.List ( delete )
 
 import Distribution.Franchise.ConfigureState
+import Distribution.Franchise.Util ( isDirectory )
 import Distribution.Franchise.GhcState ( ghcFlags, ldFlags, cFlags, pkgFlags,
                                          rmGhcFlags, addPackages )
 
@@ -61,10 +62,15 @@ newtype FranchiseFlag = FF (OptDescr (C ()))
 unFF :: FranchiseFlag -> OptDescr (C ())
 unFF (FF x) = x
 
+amConfiguring :: C Bool
+amConfiguring = do args <- getExtra "commandLine"
+                   x <- isDirectory "config.d"
+                   return ("configure" `elem` args || (not x))
+
 configureFlagWithDefault :: String -> String -> String
                          -> C () -> (String -> C ()) -> C FranchiseFlag
 configureFlagWithDefault n argname h defaultaction j =
- do addHook n defaultaction
+ do whenC amConfiguring $ addHook n defaultaction
     return $ FF $ Option [] [n] (ReqArg (addHook n . j') argname) h
     where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
 
@@ -94,6 +100,7 @@ handleArgs optsc =
        withEnv "LIBDIR" (addExtraData "libdir")
        withEnv "BINDIR" (addExtraData "bindir")
        withEnv "PREFIX" (addExtraData "prefix")
+       whenC amConfiguring $ addHook "disable-optimize" $ ghcFlags ["-O2"]
        opts <- map unFF `fmap` sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
            validCommands = ["configure","build","clean","install"] -- should be in monad
@@ -102,8 +109,9 @@ handleArgs optsc =
                                    "show usage info",
                         Option [] ["user"]
                           (NoArg $ pkgFlags ["--user"]) "install as user",
-                        Option [] ["disable-optimization"]
-                          (NoArg $ rmGhcFlags ["-O2","-O"]) "disable optimization",
+                        Option [] ["disable-optimization","disable-optimize"]
+                          (NoArg $ addHook "disable-optimize" $ rmGhcFlags ["-O2","-O"])
+                          "disable optimization",
                         Option [] ["verbose"] (OptArg setVerbose "VERBOSITY")
                           ("Control verbosity (default verbosity level is 1)"),
                         Option [] ["debug"] (NoArg $ setVerbose $ Just "3")
@@ -142,8 +150,6 @@ handleArgs optsc =
            options = opts++defaults
        eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
                                  flag "global" "not --user" $ return (),
-                                 flag "disable-optimize" "disable optimization" $
-                                      rmGhcFlags ["-O2","-O"],
                                  return $ FF $ Option [] ["constraint"]
                                  (ReqArg (const (return ())) "ugh") "ignored" ]
        case getOpt Permute (options++map unFF eviloptions) args of

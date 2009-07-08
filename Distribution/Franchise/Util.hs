@@ -34,13 +34,13 @@ module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
                                      mkFile, cat, pwd, ls, mv,
-                                     isFile, takeExtension,
+                                     isFile, isDirectory, takeExtension,
                                      bracketC, csum, finallyC, bracketC_ )
     where
 
 import System.Exit ( ExitCode(..) )
 import System.Directory ( getCurrentDirectory, getDirectoryContents,
-                          doesFileExist, renameFile )
+                          doesFileExist, doesDirectoryExist, renameFile )
 import System.Process ( ProcessHandle, runInteractiveProcess, runProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads, forkIO )
@@ -262,6 +262,10 @@ mv a b = do a' <- processFilePath a
 isFile :: String -> C Bool
 isFile f = do f' <- processFilePath f
               io $ doesFileExist f'
+
+isDirectory :: String -> C Bool
+isDirectory f = do f' <- processFilePath f
+                   io $ doesDirectoryExist f'
 
 takeExtension :: String -> String
 takeExtension "" = ""
