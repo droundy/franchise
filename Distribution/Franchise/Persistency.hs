@@ -105,7 +105,7 @@ requireWithPrereqActionWithFeedback action name longname prereq check =
                  (out,x) <- quietly check
                  putS out
                  satisfyWithPrereq x checkname prereq
-                 persistExtra checkname
+                 -- persistExtra checkname
                  return x
              `catchC` \e -> do putS "no"
                                failWithPrereq checkname prereq e
