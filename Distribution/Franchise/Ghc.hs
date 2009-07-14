@@ -60,7 +60,7 @@ import Distribution.Franchise.GhcState ( getGhcFlags, getCFlags, getLdFlags, get
                                        )
 import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.StringSet ( toListS )
-import Distribution.Franchise.Env ( setEnv, getEnv )
+import Distribution.Franchise.Env ( setEnv, unsetEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath )
 import Distribution.Franchise.Trie ( Trie, lookupT, alterT )
@@ -382,7 +382,14 @@ installPackageInto pn libdir =
                 pkgflags <- getPkgFlags
                 mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
                 case mpf of
-                  Nothing -> system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
+                  Nothing -> do x <- getEnv "GHC_PACKAGE_PATH"
+                                case x of -- clear GHC_PACKAGE_PATH, which might not contain ~/.ghc/...
+                                  Just _ -> unsetEnv "GHC_PACKAGE_PATH"
+                                  Nothing -> return ()
+                                system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
+                                case x of
+                                  Just xx -> setEnv "GHC_PACKAGE_PATH" xx
+                                  Nothing -> return ()
                   Just pf -> system "ghc-pkg" $ filter (/="--user") pkgflags ++
                              ["update","--auto-ghci-libs",pn++".cfg", "--package-conf="++pf]
 

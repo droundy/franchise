@@ -31,7 +31,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Env ( setEnv, getEnv, addToPath, extraPath,
+module Distribution.Franchise.Env ( setEnv, getEnv, unsetEnv, addToPath, extraPath,
                                     getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
@@ -56,6 +56,9 @@ getEnv e =
 
 setEnv :: String -> String -> C ()
 setEnv e v = addExtraData ("env-"++e) v
+
+unsetEnv :: String -> C ()
+unsetEnv e = rmExtra ("env-"++e)
 
 getPrivateEnvironment :: C [(String, String)]
 getPrivateEnvironment = (catMaybes . map cleanEnv) `fmap` getAllExtraData
