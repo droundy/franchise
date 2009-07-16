@@ -42,11 +42,17 @@ import Distribution.Franchise.Trie ( keysT )
 import Distribution.Franchise.Buildable ( getTarget )
 import Distribution.Franchise.StringSet ( toListS )
 
+-- | enforceAllPrivacy is described in the manual in
+--   <../13-enforcePrivacy.html>
+
 enforceAllPrivacy :: C ()
 enforceAllPrivacy =
     do ts <- getTargets
        let ms = catMaybes $ map sourceToModule $ toListS $ keysT ts
        enforceModulePrivacy ms
+
+-- | enforceModulePrivacy is described in the manual in
+--   <../13-enforcePrivacy.html>
 
 enforceModulePrivacy :: [String] -> C ()
 enforceModulePrivacy modules =

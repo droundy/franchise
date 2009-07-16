@@ -8,8 +8,8 @@ In this example, we'll use the silly module name `Distribution.Simple` to
 illustrate that franchise (quire properly). prefers to use local source
 code rather than modules located in a package.
 
-[replace]: haddock/Distribution-Franchise_1.html#v%3Areplace
-[createFile]: haddock/Distribution-Franchise_1.html#v%3AcreateFile
+[replace]: haddock/Distribution-Franchise-V1.html#v%3Areplace
+[createFile]: haddock/Distribution-Franchise-V1.html#v%3AcreateFile
 
 ~~~~ tests/replace/Distribution/Simple.hs.in
 module Distribution.Simple where

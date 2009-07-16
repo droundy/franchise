@@ -2,10 +2,13 @@ Enforcing module privacy
 ========================
 
 If you want to enforce a reasonable module hierarchy, you can do this
-with enforceModulePrivacy or enforceAllPrivacy.  These functions allow
+with [enforceModulePrivacy][] or [enforceAllPrivacy][].  These functions allow
 you to use Haskell hierarchical modules to enforce a separation of
 private and public interfaces.  In particular, if the module "Foo.Bar"
 exists, then outside modules may not import "Foo.Bar.XXX".
+
+[enforceAllPrivacy]: haddock/Distribution-Franchise.html#v%3AenforceAllPrivacy
+[enforceModulePrivacy]: haddock/Distribution-Franchise.html#v%3AenforceModulePrivacy
 
 ~~~~ tests/enforcePrivacy/Hello.hs
 module Hello where
@@ -38,7 +41,7 @@ Setup.hs
 You need to use the enforceAllPrivacy function after you've defined
 the targets that use Haskell code.  You can either use it in the
 build/configure stage as demonstrated here, or you can put it in a
-test in your test suite.  The enforceModulePrivacy function allows you
+test in your test suite.  The [enforceModulePrivacy][] function allows you
 to limit the privacy to certain modules---which is potentially useful
 as you transition your code to respect module boundaries.
 
