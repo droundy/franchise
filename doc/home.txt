@@ -9,7 +9,7 @@ which packages, libraries and tools are present.
 
 ## Manual and test suite
 
-For more information, see the [rudimentary manual and test
+For more information, see the [manual and test
 suite](doc/manual/index.html).
 
 In addition, there is now [haddock documentation of the franchise
@@ -19,4 +19,4 @@ API](doc/manual/haddock/index.html).
 
 You can get franchise with darcs using
 
-    darcs get http://darcs.net/franchise
+    darcs get http://franchise.abridgegame.org franchise
