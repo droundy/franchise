@@ -29,37 +29,69 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.V1 ( C, FranchiseFlag, build, phonyRule,
-                                  executable,
-                                  replace, replaceLiteral, createFile,
-                                  define, defineAs, isDefined,
-                                  io, catchC, unlessC, whenC,
-                                  -- * Handy module-searching
-                                  requireModule, withModule,
-                                  requireModuleExporting, withModuleExporting,
-                                  -- * Searching for an executable
-                                  findProgram, withProgram,
-                                  configurableProgram, configuredProgram, withConfiguredProgram,
-                                  requireLib, withLib,
-                                  -- * Defining package properties
-                                  package, cabal, copyright, license, version,
-                                  -- * Some common platform tests
-                                  amInWindows, amLittleEndian,
-                                  -- * Generalized version control support
-                                  ReleaseType(..),
-                                  autoVersion, autoPatchVersion,
-                                  -- * Setting compile parameters
-                                  ghcFlags, ldFlags, cFlags, pkgFlags,
-                                  -- * Utility for running external code
-                                  system, systemOut,
-                                  cd, mkdir, pwd, ls, cat, rm_rf, mv,
-                                  withDirectory,
-                                  -- * Environment-handling functions
-                                  setEnv, getEnv, addToPath,
-                                  -- * Useful for user-oriented messages.
-                                  putS, putV, putSV,
-                                  -- * Simplification of getopt data types
-                                  flag, unlessFlag )
+-- | The module "Distribution.Franchise.V1" is the version 1 API of
+-- franchise, which will be supported for as long as franchise itself
+-- is supported.
+
+module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs to use
+                                   build, phonyRule, executable, package, version,
+                                   -- ** A handy configuration monad
+                                   C, io, catchC, whenC, unlessC,
+                                   putS, putV, putSV,
+                                   -- ** C preprocessor helpers
+                                   -- | For a tutorial in the use of the
+                                   -- C preprocessor, see
+                                   -- <../02-cpp.html>.
+                                   define, defineAs, isDefined,
+                                   -- ** Generation of source files
+                                   -- | For a tutorial on generating
+                                   -- source files, see
+                                   -- <../08-replace.html>.
+                                   createFile, replace, replaceLiteral,
+                                   -- ** Handy module searching
+                                   -- | Note that you don't need to
+                                   -- use these functions for most
+                                   -- modules you use, since franchise
+                                   -- will automatically require any
+                                   -- modules that you actually use.
+                                   -- It's only when you want to do
+                                   -- something tricky that you're
+                                   -- likely to need them.
+                                   requireModule, withModule,
+                                   requireModuleExporting, withModuleExporting,
+                                   -- ** Searching for an executable
+                                   findProgram, withProgram,
+                                   configurableProgram, configuredProgram, withConfiguredProgram,
+                                   -- ** Using C libraries
+                                   requireLib, withLib,
+                                   -- ** Creating cabal files
+                                   cabal, copyright, license,
+                                   -- ** Some common platform tests
+                                   amInWindows, amLittleEndian,
+                                   -- ** Generalized version control support
+                                   ReleaseType(..),
+                                   autoVersion, autoPatchVersion,
+                                   -- ** Setting compile parameters
+                                   ghcFlags, ldFlags, cFlags, pkgFlags,
+                                   -- ** Utilities for running executables
+                                   system, systemOut,
+                                   -- ** Filesystem-handling utilities
+                                   -- | Franchise has a slew of
+                                   -- filesystem-handling utilities,
+                                   -- with the goal that your build
+                                   -- rules can look a lot like
+                                   -- makefile rules.  Using these
+                                   -- utilities is greatly prefered,
+                                   -- as the true 'current working
+                                   -- directory' is not a useful
+                                   -- concept when running parallel
+                                   -- builds.
+                                   cd, mkdir, pwd, ls, cat, rm_rf, mv,
+                                   withDirectory,
+                                   -- ** Environment-handling functions
+                                   setEnv, getEnv, addToPath,
+                                   -- ** Simplification of getopt data types
+                                   FranchiseFlag, flag, unlessFlag )
     where
 
 import Distribution.Franchise.Util

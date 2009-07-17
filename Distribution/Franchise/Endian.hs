@@ -39,6 +39,11 @@ import Data.Word ( Word8, Word32 )
 
 import Distribution.Franchise.ConfigureState ( C, io )
 
+-- | A handy utility function that returns True if the operating
+-- system is little-endian.  Note that if we ever support
+-- cross-compiling (e.g. with jhc), use of this function will cause
+-- trouble.
+
 amLittleEndian :: C Bool
 amLittleEndian =
     io $ with (1 :: Word32) $ \p -> do o <- peek $ castPtr p

@@ -47,6 +47,7 @@ import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf, nub )
 import System.Directory ( copyFile, doesFileExist )
 import System.Info ( compilerName, compilerVersion )
 import Data.Version ( versionBranch )
+import Data.Monoid ( Monoid, mempty )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -92,7 +93,18 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
                 setEnv "HPCTIXDIR" tixdir
                 addToRule "*clean*" (rm_rf tixdir)
 
-executable :: String -> String -> [String] -> C [String]
+-- | The 'executable' function creates a haskell executable target.
+-- Its return value is a list of targets suitable for including in the
+-- return value of build.  This is needed in order to conveniently
+-- handle Windows, where executables always end with \'.exe\'.
+--
+-- For a tutorial in the use of 'executables', see
+-- <../01-simple-executable.html>.
+
+executable :: String -- ^ name of executable to be generated
+           -> String -- ^ name of main file
+           -> [String] -- ^ list of C source files to be included
+           -> C [String]
 executable exname src cfiles =
     do exname' <- privateExecutable exname src cfiles
        Just (x :< y :<- b) <- getBuildable exname
@@ -215,7 +227,13 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
-package :: String -> [String] -> [String] -> C [String]
+-- | If you want to build a haskell package (i.e. library), you can
+-- easily do so with the 'package' function.
+
+package :: String -- ^ name of package to be generated
+        -> [String] -- ^ list of modules to be exported
+        -> [String] -- ^ list of C source files to be included
+        -> C [String] -- ^ target list suitable for inclusion in build output
 package pn modules cfiles =
     do maketixdir
        checkMinimumPackages -- ensure that we've got at least the prelude...
@@ -290,6 +308,9 @@ package pn modules cfiles =
        setOutputDirectory "."
        return [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
+
+-- | Generate a cabal file describing a package.  The arguments are
+-- the same as those to 'package'.
 
 cabal :: String -> [String] -> C [String]
 cabal pn modules =
@@ -549,9 +570,10 @@ getLibOutput lib h code = do checkMinimumPackages
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
 
-withLibOutput :: String -> String -> String -> (String -> C ()) -> C ()
+withLibOutput :: Monoid a => String -> String -> String -> (String -> C a) -> C a
 withLibOutput lib h code job = (getLibOutput lib h code >>= job)
-                               `catchC`  \_ -> putS $ "failed to run "++code
+                               `catchC`  \_ -> do putS $ "failed to run "++code
+                                                  return mempty
 
 tryLib :: String -> String -> String -> C ()
 tryLib l h func = do checkMinimumPackages
@@ -577,14 +599,23 @@ tryLib l h func = do checkMinimumPackages
           remove = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi",
                              "try-lib","try-lib.o",hf]
 
-withLib :: String -> String -> String -> C () -> C ()
-withLib l h func job = whenC (lookForLib l h func) $ job
+-- | If specified library is available, do something.
+withLib :: Monoid a => String -- ^ library name (i.e. what goes in -lfoo)
+        -> String -- ^ header file to use
+        -> String -- ^ check for the presence of this function
+        -> C a -- ^ job to do
+        -> C a
+withLib l h func job = whenC (lookForLib l h func) job
 
 lookForLib :: String -> String -> String -> C Bool
 lookForLib l h func = (requireLib l h func >> return True)
                       `catchC` \_ -> return False
 
-requireLib :: String -> String -> String -> C ()
+-- | Fail if specified library isn't available.
+requireLib :: String -- ^ library name (i.e. what goes in -lfoo)
+           -> String -- ^ header file to use
+           -> String -- ^ check for the presence of this function
+           -> C ()
 requireLib l h func =
     requireWithPrereq ("for library "++l)
                       ("for library "++l++" exporting "++func++" using header "++h)
@@ -601,14 +632,18 @@ requireLib l h func =
                        putS $ "found library "++l++" with -l"++l
                    ,fail $ "couldn't find library "++l]
 
+-- | Fail if the specified module isn't available.
+
 requireModule :: String -> C ()
 requireModule m = requireWithPrereq ("for module "++m) ("for module "++m) packages $
                   do haveit <- lookForModule m
                      when (not haveit) $ fail $ "can't use module "++m
 
-withModule :: String -> C () -> C ()
+-- | If the specified module is available, do something.
+
+withModule :: Monoid a => String -> C a -> C a
 withModule m job = (requireModule m >> job)
-                   `catchC` \_ -> return ()
+                   `catchC` \_ -> return mempty
 
 lookForModule :: String -> C Bool
 lookForModule m = lookForModuleExporting m "" ""
@@ -625,17 +660,27 @@ lookForModuleExporting m i c =
     `catchC` \e -> do putV e
                       return False
 
-requireModuleExporting :: String -> String -> String -> C ()
+-- | Fail if there isn't available a module that provides the
+-- specified exports.  Ideally, the \'code\' argument should use all
+-- of the functions you're checking to see exported.  See also
+-- <../99-requireExporting.html>
+
+requireModuleExporting :: String -- ^ module name, e.g. System.Exit
+                       -> String -- ^ export list, e.g. ExitCode, exitWith
+                       -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
+                       -> C ()
 requireModuleExporting m i c = requireWithPrereq ("module "++m++" exporting "++i)
                                                  ("module "++m++" exporting "++i++" with code "++c)
                                                  packages $
                                unlessC (lookForModuleExporting m i c) $
                                    fail $ "can't use module "++m :: C ()
 
-withModuleExporting :: String -> String -> String -> C () -> C ()
+-- | If the specified module is available (and exports the right stuff), do something.
+
+withModuleExporting :: Monoid a => String -> String -> String -> C a -> C a
 withModuleExporting m i c j =
     (requireModuleExporting m i c >> j)
-    `catchC` \_ -> return ()
+    `catchC` \_ -> return mempty
 
 run :: C (C a) -> C a
 run j = j >>= id

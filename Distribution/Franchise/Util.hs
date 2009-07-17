@@ -232,7 +232,8 @@ mkFile f s = do f' <- processFilePath f
                 putL $ "wrote file "++f++":\n"
                 putL $ unlines $ map (\l->('|':' ':l)) $ lines s
 
--- | cat is just a strict readFile.
+-- | cat is a strict readFile that handles the franchise working
+-- directory properly.
 cat :: String -> C String
 cat fn = do fn' <- processFilePath fn
             x <- io $ readFile fn'
@@ -250,9 +251,15 @@ pwd = do x <- io $ getCurrentDirectory
          return $ case sd of Nothing -> x
                              Just d -> x++"/"++d
 
+-- | 'ls' lists the files in the franchise working directory.  Unlike
+-- the unix @ls@, it omits the directories @.@ and @..@, which aren't
+-- often useful in build rules.
+
 ls :: String -> C [String]
 ls d = do d' <- processFilePath d
           io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
+
+-- | Rename a file.
 
 mv :: String -> String -> C ()
 mv a b = do a' <- processFilePath a

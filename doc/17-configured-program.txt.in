@@ -1,0 +1,59 @@
+Configurable programs
+=====================
+
+The easiest way to use an external program is with [findProgram][],
+which allows you to specify a set of program names to search.  So, for
+instance, if you want to find a shell program, you could put into your
+`Setup.hs` file something like:
+
+    do x <- findProgram "bash" ["dash","shsh","sh"]
+       sh <- case x of Just xx -> return xx
+                       Nothing -> fail "Couldn't find shell!"
+
+This tells franchise to look for an executable named "bash", and if it
+can't find that, one named "dash", and so on.  This is great, unless
+your user wants to test the build using `shsh`, even though he has
+`bash` installed.  In that case, you need to use
+[configurableProgram][].  You can use [configurableProgram][] with a
+`Setup.hs` script such as:
+
+[findProgram]: haddock/Distribution-Franchise-V1.html#v%3AfindProgram
+[configurableProgram]: haddock/Distribution-Franchise-V1.html#v%3AconfigurableProgram
+
+~~~~ tests/configured-program/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [configurableProgram "shell" "bash" ["dash","shsh","sh"]] $
+       do sh <- configuredProgram "shell"
+          -- we won't actually call the shell in the test script...
+          -- system sh ["-c", "echo", "hello", sh]
+          putS ("hello "++sh)
+          return [] -- this Setup.hs doesn't actually build anything!
+~~~~
+
+With this `Setup.hs`, your user can specify the shell they want using
+`--with-shell=foo`.
+
+~~~~ tests/configured-program/configured-program.sh
+set -ev
+# we'd better mention with-shell in the help message!
+runghc Setup.hs --help | grep with-shell
+runghc Setup.hs configure | grep hello
+runghc Setup.hs configure --with-shell=foo && exit 1
+runghc Setup.hs configure --with-shell=foo | grep "Couldn't find executable foo"
+which bash && runghc Setup.hs configure --with-shell=bash | grep 'hello bash'
+which dash && runghc Setup.hs configure --with-shell=dash | grep 'hello dash'
+which shsh && runghc Setup.hs configure --with-shell=shsh | grep 'hello shsh'
+which true && runghc Setup.hs configure --with-shell=true | grep 'hello true'
+if which false; then
+   runghc Setup.hs configure --with-shell=false | grep 'hello false'
+   # Franchise should remember what you chose when configuring...
+   runghc Setup.hs build | grep 'hello false'
+fi
+if which shsh; then
+   runghc Setup.hs configure --with-shell=shsh | grep 'hello shsh'
+   # Franchise should remember what you chose when configuring...
+   runghc Setup.hs build | grep 'hello shsh'
+fi
+echo You passed.
+~~~~

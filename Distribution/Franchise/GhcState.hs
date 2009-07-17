@@ -58,9 +58,11 @@ removePackages :: [String] -> C ()
 removePackages x = do p <- getExtra "packages"
                       putExtra "packages" $ p \\ x
 
+-- | Add the specified flags to the list of flags passed to ghc-pkg.
 pkgFlags :: [String] -> C ()
 pkgFlags = addExtraUnique "pkgFlags"
 
+-- | Add the specified flags to the list of flags passed to ghc.
 ghcFlags :: [String] -> C ()
 ghcFlags = addExtraUnique "ghcFlags"
 
@@ -77,6 +79,8 @@ setOutputDirectory odir =
          then putExtra "ghcFlags" fs'
          else putExtra "ghcFlags" $ ["-odir"++odir,"-hidir"++odir,"-stubdir"++odir,"-i"++odir]++fs'
 
+-- | Add the specified flags to the list of flags passed to ghc for
+-- compiling C files.
 cFlags :: [String] -> C ()
 cFlags = addExtraUnique "cflags"
 
@@ -89,6 +93,22 @@ update k v [] = [(k,v)]
 update k v ((k',v'):xs) | k'==k     = (k,v):xs
                         | otherwise = (k',v'):update k v xs
 
+-- | The 'define' function allows you to create C preprocessor definitions.  e.g.
+-- 
+-- @
+--         'whenC' 'amInWindows' $ 'define' \"WINDOWS\"
+-- @
+--
+-- Then in your actual source code you would have blocks such as
+--
+-- @
+-- #ifdef WINDOW
+--     putStrLn \"You've got a lame operating system!\"
+-- #else
+--     putStrLn \"You've got a cool operating system!\"
+-- #endif
+-- @
+
 define :: String -> C ()
 define x = defineAs x ""
 
@@ -99,13 +119,34 @@ undefine x = do ds <- getDefinitions
 needDefinitions :: C ()
 needDefinitions = getDefinitions >>= putExtra "definitions"
 
+
+-- | The 'defineAs' function is like 'define', but it allows you to
+-- | specify the actual value of the defined C preprocessor macro:
+-- 
+-- @
+--         'defineAs' \"COOLNESS\" \"cool\"
+--         'whenC' 'amInWindows' $ 'defineAs' \"COOLNESS\" \"lame\"
+-- @
+--
+-- with your source code containing:
+--
+-- @
+--    'putStrLn' (\"Your operating system is \"++COOLNESS)
+-- @
+
 defineAs :: String -> String -> C ()
 defineAs x y = do ds <- getDefinitions
                   putExtra "definitions" $ update x y ds
 
-copyright, license, version :: String -> C ()
+-- | Define the copyright field for a cabal file.
+copyright :: String -> C ()
 copyright = addExtraData "copyright"
+-- | Define the license field for a cabal file.
+license :: String -> C ()
 license = addExtraData "license"
+-- | Define the version, which affects any package or cabal file that
+-- is generated.
+version :: String -> C ()
 version v = do addExtraData "version" v
                writeF "config.d/version" v
                       `catchC` \_ -> return ()
@@ -128,6 +169,11 @@ getPkgFlags = getExtra "pkgFlags"
 getDefinitions :: C [(String,String)]
 getDefinitions = getExtra "definitions"
 
+-- | You can find out if you've previously defined something with 'isDefined':
+--
+-- @
+--     cfiles <- 'whenC' ('isDefined' \"WINDOWS\") $ return [\"windows.c\"]
+-- @
 isDefined :: String -> C Bool
 isDefined x = (not . null . filter ((==x).fst)) `fmap` getDefinitions
 
@@ -172,5 +218,7 @@ getBinDir :: C String
 getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
 
+-- | Add the specified flags to the list of flags passed to ghc for
+-- linking.
 ldFlags :: [String] -> C ()
 ldFlags = addExtraUnique "ldflags"

@@ -46,7 +46,10 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
--- | Create a phony build target, perhaps with dependencies.
+-- | If you want to create a target that is \'phony\' in the sense
+-- used in makefiles, you can do this using 'phonyRule', which creates
+-- a build target with certain dependencies and a rule to do any extra
+-- actual building.
 
 phonyRule :: String -- ^ name of target
           -> [String] -- ^ list of dependencies

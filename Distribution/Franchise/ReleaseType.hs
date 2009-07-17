@@ -34,7 +34,15 @@ module Distribution.Franchise.ReleaseType
     ( ReleaseType(..), releaseRegexp, releaseFile, releasePredicate, releaseUnknown )
         where
 
-data ReleaseType = Numbered | NumberedPreRc | AnyTag
+data ReleaseType = Numbered -- ^ consider the latest tag matching
+                            -- (\d+\.)*\d+ to be the current version,
+                            -- e.g. 1.0.2, etc.
+                 | NumberedPreRc -- ^ consider the latest tag matching
+                                 -- (\d+\.)*\d+(pre\d+|rc\d+)? to be
+                                 -- the current version, e.g. 1.0.2 or
+                                 -- 1.0.2pre1, etc.
+                 | AnyTag -- ^ consider the latest tag to be the
+                          -- version, regardless of what it is.
 
 releaseRegexp :: ReleaseType -> String
 releaseRegexp Numbered = "^[0-9\\.]+$"

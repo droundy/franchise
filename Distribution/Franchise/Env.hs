@@ -47,12 +47,16 @@ import Distribution.Franchise.ConfigureState
       io, catchC, amInWindows )
 import Distribution.Franchise.ListUtils ( stripPrefix )
 
+-- | Find the value of an environment variable, if present.
+
 getEnv :: String -> C (Maybe String)
 getEnv e =
     do mv <- getExtraData ("env-"++e)
        case mv of
          Just v -> return (Just v)
          Nothing -> fmap Just (io (E.getEnv e)) `catchC` \_ -> return Nothing
+
+-- | Set the value of an environment variable.
 
 setEnv :: String -> String -> C ()
 setEnv e v = addExtraData ("env-"++e) v
@@ -82,6 +86,10 @@ getEnvironment = do pe <- getPrivateEnvironment
                                     "windir", "winsysdir", "TEMP"]
 #endif
                     return (pe ++ filter ((`notElem` (map fst pe)) . fst) e)
+
+-- | 'addToPath' adds a directory to the executable search path in a
+-- platform-independent way.  See <../10-add-to-path.html> for a
+-- demonstration of how 'addToPath' works.
 
 addToPath :: FilePath -> C ()
 addToPath d = do amw <- amInWindows

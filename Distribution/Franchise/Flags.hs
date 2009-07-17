@@ -74,9 +74,28 @@ configureFlagWithDefault n argname h defaultaction j =
     return $ FF $ Option [] [n] (ReqArg (addHook n . j') argname) h
     where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
 
-flag :: String -> String -> C () -> C FranchiseFlag
+-- | 'flag' associates a flag with a help and an action to be taken
+-- when this flag is passed.  You may wish to see
+-- <../99-requireExporting.html> for an example of 'flag' in use.  A
+-- very simple example would be:
+--
+-- @
+-- main = 'build' ['flag' \"define-foo\" \"defines FOO environment variable\" $ 'define' \"FOO\"]
+-- @
+
+flag :: String -- ^ flag name (without the preceeding \'--\'
+     -> String -- ^ help string
+     -> C () -- ^ action to take when the flag is passed
+     -> C FranchiseFlag
 flag n h j = return $ FF $ Option [] [n] (NoArg j') h
     where j' = do putV $ "handling flag --"++n; j
+
+-- | 'unlessFlag' is like 'flag', except that the action is performed
+-- when the flag is not passed while configuring.
+--
+-- @
+-- main = 'build' ['unlessFlag' \"no-foo\" \"do not define FOO environment variable\" $ 'define' \"FOO\"]
+-- @
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
 unlessFlag n h j = do addHook n j'

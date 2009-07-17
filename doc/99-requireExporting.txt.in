@@ -1,13 +1,18 @@
-Using requireExporting to select a module with a particular API
-===============================================================
+Using requireModuleExporting to select a module with a particular API
+=====================================================================
 
 Note: This test case is due to Stephen Hicks, and I've just done a bit
 of reformatting and making of examples.
 
-This test demonstrates how you can use `requireModuleExporting` to ensure
+This test demonstrates how you can use [requireModuleExporting][] to ensure
 that your code is linked with a module that exports a particular API.
 We create two packages, `a` and `b`, each of which export the module
 `Foo`, but with a subtly different API.
+
+This test also demonstrates use of [flag][].
+
+[requireModuleExporting]: haddock/Distribution-Franchise-V1.html#v%3ArequireModuleExporting
+[flag]: haddock/Distribution-Franchise-V1.html#v%3Aflag
 
 ~~~~ tests/requireExporting/a/Setup.hs
 import Distribution.Franchise.V1
@@ -43,7 +48,7 @@ foo = "Foo b"
 
 Finally, we introduce an executable called `c` that can be configured
 to import either from package `a` or package `b` using
-`requireModuleExporting`.
+[requireModuleExporting][].
 
 ~~~~ tests/requireExporting/c/Setup.hs
 import Distribution.Franchise.V1

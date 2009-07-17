@@ -93,10 +93,18 @@ getExtraData d = lookup d `fmap` getAllExtraData
 getAllExtraData :: C [(String, String)]
 getAllExtraData = toListT `fmap` gets configureState
 
+-- | 'unlessC' is entirely analogous to 'whenC'.
 unlessC :: Monoid a => C Bool -> C a -> C a
 unlessC predicate job = do doit <- predicate
                            if doit then return mempty else job
 
+-- | 'whenC' is an improvement on the Prelude's 'when', which allows
+-- you to return any monad type.  In fact, it has two distinct (and
+-- orthogonal) differences.  Firstly, its predicate is in the 'C'
+-- monad.  Secondly, the return value of the job can be any 'Monoid',
+-- which is usually either '()', '[a]', or 'Maybe a'.  If the
+-- predicate is 'False', then 'mempty' is returned.  This is commonly
+-- useful for lists, if defaulting to an empty list is handy.
 whenC :: Monoid a => C Bool -> C a -> C a
 whenC predicate job = do doit <- predicate
                          if doit then job else return mempty
@@ -177,6 +185,8 @@ isSep c = c `elem` "/\\"
 dirname :: FilePath -> FilePath
 dirname = reverse . drop 1 . dropWhile (not . isSep) . dropWhile isSep . reverse
 
+-- | Remove a file or a directory and its contents.  i.e. @rm -rf@
+
 rm_rf :: FilePath -> C ()
 rm_rf d0 = do d <- processFilePath d0
               rm_rf' d
@@ -237,6 +247,8 @@ data ErrorState = Err { failMsg :: String,
                         moduleMap :: Maybe (Trie [String]) }
 
 -- | The C monad is the monad in which you write your Setup.hs file.
+-- It keeps track of things like build targets and flags to be passed
+-- to compilers.
 
 newtype C a = C (TotalState -> IO (Either ErrorState (a,TotalState)))
 
@@ -281,6 +293,8 @@ cd :: String -> C ()
 cd d = C (\ts -> return $ Right ((), ts { currentSubDirectory = cdd $ currentSubDirectory ts }))
     where cdd Nothing = Just d
           cdd (Just oldd) = Just (oldd++"/"++d)
+
+-- | Run an action in a given directory.
 
 withDirectory :: String -> C a -> C a
 withDirectory d f = do oldd <- gets currentSubDirectory
@@ -379,10 +393,14 @@ setBuilt t = C $ \ts -> return $ Right ((), ts { built = addS t $ built ts })
 clearBuilt :: String -> C ()
 clearBuilt t = C $ \ts -> return $ Right ((), ts { built = delS t $ built ts })
 
+-- | You can run arbitrary Haskell IO in the 'C' monad using the 'io'
+-- function, which is a simple \'lift\' function.
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x
                      return $ Right (a,cs)
 
+-- | If you wish to catch exceptions, please do so using 'catchC',
+-- which converts all exceptions into user-presentable strings.
 catchC :: C a -> (String -> C a) -> C a
 catchC (C a) b = C $ \ts ->
                  do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
@@ -406,11 +424,17 @@ putSnoln str = whenC ((>= Normal) `fmap` getVerbosity) $
                do putMnoln Stdout str
                   putMnoln Logfile str
 
+-- | The 'putS' function prints a string to the screen and to the log
+-- file.  Note that it adds a trailing newline for your convenience.
 putS :: String -> C ()
 putS str = whenC ((>= Normal) `fmap` getVerbosity) $
            do putM Stdout str
               putM Logfile str
 
+-- | The 'putV' function is like 'putS', except that it only puts the
+-- string in the \"verbose\" location, which by default is the log
+-- file.  However, if the user runs with the --verbose flag, then
+-- verbose output is sent to stdout as well.
 putV :: String -> C ()
 putV str = do amv <- (> Normal) `fmap` getVerbosity
               if amv then putS str
@@ -422,6 +446,9 @@ putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
 getNoRemove :: C [()]
 getNoRemove = getExtra "noRemove"
 
+-- | 'putSV' is a mongrel of 'putS' and 'putV' which allows to specify
+-- separate \"verbose\" and \"normal\" output strings.  This allows
+-- you to avoid duplicate output.
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
                     case v of

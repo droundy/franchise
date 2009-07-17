@@ -42,8 +42,10 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Flags ( FranchiseFlag, configureFlagWithDefault )
 import Distribution.Franchise.Persistency ( requireWithPrereqWithFeedback )
 
--- throw exception on failure to find something
-findProgram :: String -> [String] -> C String
+-- | Look for the program.  On failure, throw an exception.
+findProgram :: String -- ^ program name (e.g. diff)
+            -> [String] -- ^ other possible names (e.g. gdiff)
+            -> C String -- ^ returns the found name of the program
 findProgram e xs = fe (e:xs)
     where fe [] = fail $ "Couldn't find executable "++e
           fe (y:ys) = do me <- io $ findExecutable y
@@ -51,9 +53,21 @@ findProgram e xs = fe (e:xs)
                            Just _ -> return y
                            Nothing -> fe ys
 
+-- | Look for a program, and do something with it if it is found.
+
 withProgram :: Monoid a => String -> [String] -> (String -> C a) -> C a
 withProgram pname alts j = (findProgram pname alts >>= j)
                            `catchC` \_ -> return mempty
+
+-- | Define a program that may be configured by the user.  Best
+-- demonstrated with an example (see also
+-- <../17-configured-program.html>).
+--
+-- @
+--     main = 'build' ['configurableProgram' \"shell\" \"bash\" [\"dash\", \"shsh\",\"sh\"]] $
+--            do sh <- 'configuredProgram' \"shell\"
+--               'system' sh [\"-c\", \"echo\", \"hello world\"]
+-- @
 
 configurableProgram :: String -> String -> [String] -> C FranchiseFlag
 configurableProgram humanName defaultProg options =
@@ -65,8 +79,14 @@ configurableProgram humanName defaultProg options =
         (\p -> do putExtra ("program-default-"++humanName) p
                   putExtra ("program-options-"++humanName) ([] :: [String]))
 
+-- | Find the value of a program that may have been configured by the
+-- user via 'configurableProgram'.
+
 configuredProgram :: String -> C String
 configuredProgram humanName = withConfiguredProgram humanName return
+
+-- | Use the result of a configured program, defined via
+-- 'configurableProgram'.
 
 withConfiguredProgram :: String -> (String -> C a) -> C a
 withConfiguredProgram humanName j =

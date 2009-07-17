@@ -76,6 +76,10 @@ patchLevel t = withRootdir $
            readL = do [(i,"")] <- reads `fmap` cat dotfile
                       return i
 
+-- | Determine the version based on a reversion control system.
+-- Currently only @git@ and @darcs@ are supported.  The 'ReleaseType'
+-- argument determines how the version is determined.
+
 autoVersion :: ReleaseType -> C String
 autoVersion t = do vers <- releaseName t
                    oldversion <- getVersion
@@ -83,6 +87,11 @@ autoVersion t = do vers <- releaseName t
                         do version vers
                            putS $ "version is now "++vers
                    return vers
+
+-- | This is like 'autoVersion', but the number of patches since the
+-- latest release is then added to the version, so if there have been
+-- 10 patches since the 1.0.0 release, this would give a version of
+-- 1.0.0.10.
 
 autoPatchVersion :: ReleaseType -> C String
 autoPatchVersion t = do r <- releaseName t
