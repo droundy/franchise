@@ -342,17 +342,29 @@ preprocessedTargets his haddockdir =
                                           do mkdir $ dirname preprocs
                                              compileit}
                           wd <- rememberDirectory
+                          let haddockname = haddockdir++"/"++s++".html"
                           scolor <- withProgram "HsColour" ["hscolour"] $ \hscolour ->
-                                    do addTarget $ [haddockdir++"/"++s++".html"] :< [s] :<-
+                                    do addTarget $ [haddockname] :< [s] :<-
                                                  defaultRule { make = const $ wd $
                                                                do mkdir $ dirname (haddockdir++"/"++s)
                                                                   ls $ dirname (haddockdir++"/"++s)
                                                                   system hscolour ["-html","-anchor",s,
-                                                                                          "-o"++haddockdir++"/"++s++".html"] }
+                                                                                   "-o"++haddockname]
+                                                                  xxx <- cat haddockname
+                                                                  writeF haddockname $ fixAnchors xxx }
                                        return [haddockdir++"/"++s++".html"]
                           return (s,scolor)
        (pp,cf) <- unzip `fmap` mapM preproc sources
        return (pp, concat cf)
+    where fixAnchors x@(c:cs) = case stripPrefix "name=\"" x of
+                                  Just x' -> "name=\"" ++ fixa (takeWhile (/= '"') x') ++
+                                             fixAnchors (dropWhile (/= '"') x')
+                                  Nothing -> c : fixAnchors cs
+          fixAnchors "" = ""
+          fixa ('<':cs) = '%':'3':'C': fixa cs
+          fixa ('|':cs) = '%':'7':'C': fixa cs
+          fixa (c:cs) = c : fixa cs
+          fixa "" = ""
 
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
