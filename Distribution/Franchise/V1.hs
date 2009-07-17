@@ -32,6 +32,9 @@ POSSIBILITY OF SUCH DAMAGE. -}
 -- | The module "Distribution.Franchise.V1" is the version 1 API of
 -- franchise, which will be supported for as long as franchise itself
 -- is supported.
+--
+-- Note that although this haddock documentation is comprehensive, the
+-- \'user-friendly\' manual is at <../index.html>.
 
 module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs to use
                                    build, phonyRule, executable, package, version,
@@ -91,7 +94,11 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- ** Environment-handling functions
                                    setEnv, getEnv, addToPath,
                                    -- ** Simplification of getopt data types
-                                   FranchiseFlag, flag, unlessFlag )
+                                   FranchiseFlag, flag, unlessFlag,
+                                   -- ** Test suite helpers
+                                   test, testOne,
+                                   -- ** Enforce coding style
+                                   enforceAllPrivacy, enforceModulePrivacy )
     where
 
 import Distribution.Franchise.Util
@@ -107,4 +114,6 @@ import Distribution.Franchise.Program
 import Distribution.Franchise.Env
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
-
+import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
+                                              enforceModulePrivacy )
+import Distribution.Franchise.Test ( test, testOne )

@@ -29,57 +29,54 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( -- * The recommended API is defined in the
-                                --   module Distribution.Franchise_1.
+module Distribution.Franchise ( -- * The recommended API is defined in the module Distribution.Franchise_1.
                                 module Distribution.Franchise.V1,
-                                -- * The rest of the API defined below is
-                                --   either deprecated or experimental!
+                                -- * The rest of the API defined below is either deprecated or experimental!
                                 buildWithArgs,
                                 buildTarget, privateExecutable,
                                 installBin, addTarget,
                                 csum,
-                                -- test suite helpers
-                                testy, test, testC, testOne, testOutput,
+                                -- | test suite helpers
+                                testy, testC, testOutput,
                                 testResultsFile,
                                 beginTestWith, prepareForTest,
                                 addToRule,
-                                enforceAllPrivacy, enforceModulePrivacy,
-                                -- The constructors are exported so users
+                                -- | The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 defaultRule,
-                                -- some handy utilities for writing checks
+                                -- | some handy utilities for writing checks
                                 cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce, checkOnce,
-                                -- Handy module-searching
+                                -- | Handy module-searching
                                 lookForModule, lookForModuleExporting,
-                                -- Searching for an executable
+                                -- | Searching for an executable
                                 lookForLib, checkHeader, withHeader,
                                 findPackagesFor,
                                 withLibOutput,
-                                -- defining package properties
+                                -- | defining package properties
                                 addExtraData, haveExtraData, installPackageInto,
-                                -- Various utilities for interfacing with darcs
+                                -- | Various utilities for interfacing with darcs
                                 darcsDist,
-                                -- generalized version control support
+                                -- | generalized version control support
                                 inDarcs, inGit,
                                 releaseDescription, releaseName,
-                                -- utilities for processing markdown files
+                                -- | utilities for processing markdown files
                                 splitMarkdown, markdownToHtml, markdownStringToHtmlString,
-                                -- utilities for autoheader files
+                                -- | utilities for autoheader files
                                 autoHeader,
-                                -- setting compile parameters
+                                -- | setting compile parameters
                                 rmGhcFlags, setOutputDirectory,
-                                -- utility for running external code
+                                -- | utility for running external code
                                 systemInOut,
                                 systemOutErrToFile,
                                 mkFile,
                                 rememberDirectory, splitPath,
-                                -- string-processing...
+                                -- | string-processing...
                                 stripPrefix,
-                                -- environment-handling functions
+                                -- | environment-handling functions
                                 addToGhcPath,
-                                -- for handy preprocessing...
+                                -- | for handy preprocessing...
                                 splitFile, mapDirectory,
                                 extraData )
     where
@@ -105,6 +102,3 @@ import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.Persistency ( cacheifC, require, requireWithFeedback, requireWithPrereq,
                                             setOnce, checkOnce )
-
-import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
-                                              enforceModulePrivacy )
