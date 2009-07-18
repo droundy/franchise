@@ -96,6 +96,9 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- ** Simplification of getopt data types
                                    FranchiseFlag, flag, unlessFlag,
                                    -- ** Test suite helpers
+                                   -- | For an example of the use of
+                                   -- the test suite code, see
+                                   -- <../07-test-suite.html>.
                                    test, testOne,
                                    -- ** Enforce coding style
                                    enforceAllPrivacy, enforceModulePrivacy )

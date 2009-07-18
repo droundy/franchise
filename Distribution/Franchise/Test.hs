@@ -81,7 +81,12 @@ testOutput n o j = testC n runtest
                          then putV $ nice out
                          else fail $ unlines [nice out,"differs from",nice o]
 
-testOne :: String -> String -> String -> C ()
+-- | Run a simple test with the given name, executable and argument.
+
+testOne :: String -- ^ name of test (technically this could be any phony target)
+        -> String -- ^ executable to run (commonly sh)
+        -> String -- ^ a single argument to be passed to the executable (commonly a script)
+        -> C ()
 testOne n r f = testC n runtest
     where runtest = do ec <- silently $ systemOutErrToFile r [f] (n++".out")
                        out <- cat (n++".out")
@@ -114,6 +119,8 @@ beginTestWith initialize =
                                          do putV "beginning test..."
                                             initialize
                                             addExtraData "began-test" "" }
+
+-- | Define a test suite by providing a list of test targets.
 
 test :: [String] -> C ()
 test = testy "test"

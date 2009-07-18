@@ -1,0 +1,128 @@
+Creating a test suite
+=====================
+
+Franchise has a handy test-suite framework built right in.  It's a bit
+of feature creep, but we needed one for franchise itself, and I wanted
+one for `darcs`, and Steve wanted one for `shsh`, so it seemed worth
+making the framework more generally available.
+
+Here is a simple program that we can use to write a test suite.
+
+~~~~ tests/test-suite/dups.hs
+import System.Environment ( getArgs )
+
+main = do x <- getArgs
+          case x of
+            [] -> fail "Need two arguments!"
+            x:xs -> if x `elem` xs
+                    then putStrLn x
+                    else fail $ unwords xs
+~~~~
+
+Here is a test script, `nodups.test`, that verifies that `dups` fails if given
+non-duplicate arguments.
+
+~~~~ tests/test-suite/nodups.test
+set -ev
+# fails if there are no dups
+./dups hello world 2> err && exit 1
+cat err
+grep world err
+~~~~
+
+Here is another test script, `single-arg.test`, that verifies that
+`dups` fails if given only one argument.
+
+~~~~ tests/test-suite/single-arg.test
+set -ev
+./dups hello && exit 1
+echo it failed as expected
+~~~~
+
+Finally, we have a test, `success.test`, that verifies
+that `dups` can handle a proper input...  except that this is a buggy
+test that fails (so we can demonstrate that the test suite actually
+does something).
+
+~~~~ tests/test-suite/success.test
+set -ev
+./dups hello world say hello please 2> err 1> out
+cat err
+grep error err && exit 1
+cat out
+grep hello out && exit 1
+grep world out
+~~~~
+
+Setup.hs
+--------
+
+The functions we use here to create the test suite are [test][] and
+[testOne][].  The former defines the `test` target, while the latter
+is a little utility that calls test scripts.
+
+[test]: haddock/Distribution-Franchise-V1.html#v%3Atest
+[testOne]: haddock/Distribution-Franchise-V1.html#v%3AtestOne
+
+~~~~ tests/test-suite/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [configurableProgram "shell" "shsh" ["bash","sh"]] $
+       do let mytests = ["nodups.test", "single-arg.test", "success.test"]
+          sh <- configuredProgram "shell"
+          mapM_ (\x -> testOne x sh x) mytests
+          test mytests
+          executable "dups" "dups.hs" []
+~~~~
+
+A better Setup.hs
+-----------------
+
+If you expect a test to fail, you can tell franchise about this by
+making the name of the test begin with "fail".  This is a bit hokey,
+but seems to work reasonably well.  Here is an example of a
+`BetterSetup.hs` that takes into account that the third test fails.
+
+~~~~ tests/test-suite/BetterSetup.hs
+import Distribution.Franchise.V1
+
+main = build [configurableProgram "shell" "shsh" ["bash","sh"]] $
+       do let passingtests = ["nodups.test", "single-arg.test"]
+              brokentests = ["success.test"]
+          sh <- configuredProgram "shell"
+          mapM (\x -> testOne x sh x) passingtests
+          mapM (\x -> testOne ("failing-"++x) sh x) brokentests
+          test (passingtests++map ("failing-"++) brokentests)
+          executable "dups" "dups.hs" []
+~~~~
+
+Now with the failing test marked as passing, everything should pass.
+
+Testing it out
+--------------
+
+Now let's verify that the test suite actually works as advertized.
+
+~~~~ tests/test-suite/test-suite.sh
+set -ev
+
+# the entire test suite should fail
+runghc Setup.hs test && exit 1
+runghc Setup.hs test > test.out && exit 1
+cat test.out
+# the failure should be success.test
+grep FAILED test.out | grep success.test
+
+# We can run the failing test individually and it fails...
+runghc Setup.hs success.test && exit 1
+
+# but we can successfully run the first two tests individually.
+runghc Setup.hs nodups.test
+runghc Setup.hs single-arg.test
+
+runghc BetterSetup.hs test
+runghc BetterSetup.hs failing-success.test && exit 1
+runghc BetterSetup.hs nodups.test
+runghc BetterSetup.hs single-arg.test
+~~~~
+

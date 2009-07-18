@@ -56,6 +56,7 @@ splitMarkdown fin fout =
     where splitf (x:r) =
             case tildesfn x of
               Nothing -> splitf r
+              Just ("",_) -> splitf r
               Just (fn,n) ->
                   case break (n `atleasttildes`) r of
                   (fc, rest) -> (fn, unlines fc) : splitf (drop 1 rest)
