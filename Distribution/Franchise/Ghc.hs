@@ -94,9 +94,6 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
                 addToRule "*clean*" (rm_rf tixdir)
 
 -- | The 'executable' function creates a haskell executable target.
--- Its return value is a list of targets suitable for including in the
--- return value of build.  This is needed in order to conveniently
--- handle Windows, where executables always end with \'.exe\'.
 --
 -- For a tutorial in the use of 'executables', see
 -- <../01-simple-executable.html>.
@@ -104,12 +101,11 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
 executable :: String -- ^ name of executable to be generated
            -> String -- ^ name of main file
            -> [String] -- ^ list of C source files to be included
-           -> C [String]
+           -> C ()
 executable exname src cfiles =
-    do exname' <- privateExecutable exname src cfiles
+    do privateExecutable exname src cfiles
        Just (x :< y :<- b) <- getBuildable exname
        addTarget $ x :< y :<- b { install = installBin }
-       return exname'
 
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
@@ -169,7 +165,7 @@ objectIsInPackage pn o =
          Nothing -> return False
          Just ps -> return (pn `elem` ps)
 
-privateExecutable :: String -> String -> [String] -> C [String]
+privateExecutable :: String -> String -> [String] -> C ()
 privateExecutable  simpleexname src0 cfiles =
     do maketixdir
        checkMinimumPackages
@@ -216,7 +212,7 @@ privateExecutable  simpleexname src0 cfiles =
                   :< (src:objs++cobjs++maybe [] (\x -> [libname x]) pn)
                   :<- defaultRule { make = mk, clean = \b -> depend : map (stubit "o") objs ++
                                                                       map (stubit "c") objs ++ cleanIt b }
-       return [exname, phony simpleexname]
+       addDependencies (phony "build") [exname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
@@ -233,7 +229,7 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
 package :: String -- ^ name of package to be generated
         -> [String] -- ^ list of modules to be exported
         -> [String] -- ^ list of C source files to be included
-        -> C [String] -- ^ target list suitable for inclusion in build output
+        -> C ()
 package pn modules cfiles =
     do maketixdir
        checkMinimumPackages -- ensure that we've got at least the prelude...
@@ -306,7 +302,7 @@ package pn modules cfiles =
                               : map (stubit "o") mods ++
                                 map (stubit "c") mods ++ cleanIt b}
        setOutputDirectory "."
-       return [phony pn, "lib"++pn++".a"]
+       addDependencies (phony "build") [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
 
 -- | Generate a cabal file describing a package.  The arguments are

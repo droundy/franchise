@@ -52,7 +52,7 @@ main = build [] $
                  package pn (words $ unlines ds) []
           withToken "main-is" $ \m ->
               executable (reverse $ drop 1 $ dropWhile (/='.') $ reverse m) m []
-          return []
+          return ()
     where extension2flag "CPP" = "-cpp"
           extension2flag x = "-X"++x
 

@@ -28,7 +28,6 @@ main = build [configurableProgram "shell" "bash" ["dash","shsh","sh"]] $
           -- we won't actually call the shell in the test script...
           -- system sh ["-c", "echo", "hello", sh]
           putS ("hello "++sh)
-          return [] -- this Setup.hs doesn't actually build anything!
 ~~~~
 
 With this `Setup.hs`, your user can specify the shell they want using

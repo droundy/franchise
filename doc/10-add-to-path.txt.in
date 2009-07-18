@@ -19,7 +19,7 @@ import Distribution.Franchise.V1
 main = build [] $
        do d <- pwd
           addToPath (d++"/out")
-          rule (phony "test") [] $
+          rule [phony "test"] [] $
                system "simple" [] -- test that "simple" can be run.
           executable "out/simple" "out/simple.hs" []
 ~~~~

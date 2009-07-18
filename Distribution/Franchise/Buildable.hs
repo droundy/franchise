@@ -35,12 +35,13 @@ module Distribution.Franchise.Buildable
       build, buildWithArgs, buildTarget,
       installBin,
       defaultRule, buildName, build', cleanIt, rm,
-      addToRule, addTarget, rule, simpleTarget, getBuildable, (|<-),
+      addToRule, addDependencies, addTarget,
+      rule, simpleTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
 
-import Data.List ( sort, isSuffixOf, (\\) )
+import Data.List ( nub, sort, isSuffixOf, (\\) )
 import System.Environment ( getArgs )
 import System.Directory ( doesFileExist, removeFile, copyFile,
                           getModificationTime )
@@ -116,7 +117,7 @@ buildName (d:<-_) = depName d
 -- a list of targets that are built as part of the default build
 -- target.
 
-build :: [C FranchiseFlag] -> C [String] -> IO ()
+build :: [C FranchiseFlag] -> C () -> IO ()
 build opts mkbuild =
     do args <- getArgs
        buildWithArgs args opts mkbuild
@@ -125,7 +126,7 @@ build opts mkbuild =
 #define FRANCHISE_VERSION "franchise (unknown)"
 #endif
 
-buildWithArgs :: [String] -> [C FranchiseFlag] -> C [String] -> IO ()
+buildWithArgs :: [String] -> [C FranchiseFlag] -> C () -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do putV $ "compiled with "++FRANCHISE_VERSION
           if "configure" `elem` args
@@ -138,8 +139,7 @@ buildWithArgs args opts mkbuild = runC $
           putExtra "commandLine" args
           targets <- handleArgs opts
           runHooks
-          b <- mkbuild
-          addTarget ([phony "build"]:<b:<-defaultRule)
+          mkbuild
           writeConfigureState "config.d"
           when ("configure" `elem` args) $ putS "configure successful!"
           mapM_ buildtarget targets
@@ -393,17 +393,16 @@ addTarget (ts :< ds :<- r) =
          Nothing -> return ()
        mapM_ addt ts''
 
--- | If you want to create a new target that is \'phony\' in the sense
--- used in makefiles, you can do this using 'rule', which creates a
--- build target with certain dependencies and a rule to do any extra
--- actual building.
+-- | If you want to create a new target, you can do this using 'rule',
+-- which creates a build target with certain dependencies and a rule
+-- to do any extra actual building.
 
-rule :: String -- ^ name of target
+rule :: [String] -- ^ list of targets built by this rule
      -> [String] -- ^ list of dependencies
-     -> C () -- ^ rule to build this (phony) target
+     -> C () -- ^ rule to build this target
      -> C ()
 rule n deps j =
-    addTarget $ [n] :< deps |<- defaultRule { make = const j }
+    addTarget $ n :< deps |<- defaultRule { make = const j }
 
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
@@ -412,3 +411,10 @@ addToRule targ j = do withd <- rememberDirectory
     where adjustT' t f m = case lookupT t m of
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m
+
+addDependencies :: String -> [String] -> C ()
+addDependencies t ds =
+    do bbb <- getBuildable t
+       case bbb of
+         Just (x :< y :<- b) -> addTarget $ x :< (nub $ y++ds) :<- b
+         Nothing -> addTarget $ [t] :< ds :<- defaultRule

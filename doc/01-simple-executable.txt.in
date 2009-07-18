@@ -29,8 +29,8 @@ number of flags by default, such as `--prefix`, `--disable-optimze` and
 
 [build]: haddock/Distribution-Franchise-V1.html#v%3Abuild
 
-The second argument of [build][] is the "configure" function, which returns
-a list of buildable targets, equivalent to "all" in make.
+The second argument of [build][] is the "configure/build" function,
+which describes the build targets.
 
 In our example, we build a single executable, using the [executable][]
 function, which accepts the name of the executable, the name of the "main"

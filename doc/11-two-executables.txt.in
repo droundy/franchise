@@ -23,7 +23,6 @@ import Distribution.Franchise.V1
 main = build [] $
        do executable "hello" "hello.hs" []
           executable "goodbye" "goodbye.hs" []
-          return ["hello","goodbye"]
 ~~~~
 
 Testing it out

@@ -47,7 +47,7 @@ import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
 testC :: String -> C () -> C ()
-testC n j = rule (phony n) [phony "build", phony "prepare-for-test"] runtest
+testC n j = rule [phony n] [phony "build", phony "prepare-for-test"] runtest
     where runtest =
               do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
                  (do begin

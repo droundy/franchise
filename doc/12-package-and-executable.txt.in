@@ -30,10 +30,8 @@ elements.
 ~~~~ tests/package-and-executable/Setup.hs
 import Distribution.Franchise.V1
 
-main = build [] $
-       do p <- package "hello" ["Hello"] []
-          e <- executable "hello" "hello-world.hs" []
-          return (p++e)
+main = build [] $ do package "hello" ["Hello"] []
+                     executable "hello" "hello-world.hs" []
 ~~~~
 
 Testing it out
