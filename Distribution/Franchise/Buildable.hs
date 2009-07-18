@@ -35,7 +35,7 @@ module Distribution.Franchise.Buildable
       build, buildWithArgs, buildTarget,
       installBin,
       defaultRule, buildName, build', cleanIt, rm,
-      addToRule, addTarget, simpleTarget, getBuildable, (|<-),
+      addToRule, addTarget, rule, simpleTarget, getBuildable, (|<-),
       getTarget, Target(..),
       phony, extraData )
     where
@@ -392,6 +392,18 @@ addTarget (ts :< ds :<- r) =
                       \ (Target a b c) -> Target a (addsS ts b) (c >> withd inst)
          Nothing -> return ()
        mapM_ addt ts''
+
+-- | If you want to create a new target that is \'phony\' in the sense
+-- used in makefiles, you can do this using 'rule', which creates a
+-- build target with certain dependencies and a rule to do any extra
+-- actual building.
+
+rule :: String -- ^ name of target
+     -> [String] -- ^ list of dependencies
+     -> C () -- ^ rule to build this (phony) target
+     -> C ()
+rule n deps j =
+    addTarget $ [n] :< deps |<- defaultRule { make = const j }
 
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()

@@ -41,7 +41,7 @@ module Distribution.Franchise.ConfigureState
       getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
       C, runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
-      cd, rm_rf, mkdir, writeF, splitPath,
+      cd, rm_rf, mkdir, writeF,
       dirname, basename,
       withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
       quietly, silently,
@@ -173,9 +173,6 @@ mkdir d0 = do d <- processFilePath d0
                                                        putV $ "mkdir "++d0
                                                        io $ createDirectory d
 
-splitPath :: FilePath -> (FilePath, FilePath)
-splitPath p = (dirname p, basename p)
-
 basename :: FilePath -> FilePath
 basename p = reverse (takeWhile isSep rp++ takeWhile (not.isSep) (dropWhile isSep rp))
     where rp = reverse p
@@ -210,7 +207,7 @@ data LogMessage = Stdout String | Logfile String
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
 data Target = Target { fellowTargets :: !StringSet,
                        dependencies :: !StringSet,
-                       rule :: !(C ()) }
+                       buildrule :: !(C ()) }
 instance Show Target where
     show (Target x y _) = show x++":\n\t"++show y
 

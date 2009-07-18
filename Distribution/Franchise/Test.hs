@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( phonyRule, testy, test, testC, testOne, testOutput,
+module Distribution.Franchise.Test ( testy, test, testC, testOne, testOutput,
                                      testResultsFile,
                                      prepareForTest, beginTestWith )
     where
@@ -46,22 +46,10 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
--- | If you want to create a target that is \'phony\' in the sense
--- used in makefiles, you can do this using 'phonyRule', which creates
--- a build target with certain dependencies and a rule to do any extra
--- actual building.
-
-phonyRule :: String -- ^ name of target
-          -> [String] -- ^ list of dependencies
-          -> C () -- ^ rule to build this (phony) target
-          -> C ()
-phonyRule n deps j =
-    addTarget $ [phony n] :< deps |<- defaultRule { make = const j }
-
 testC :: String -> C () -> C ()
-testC n j = phonyRule n [phony "build", phony "prepare-for-test"] runtest
+testC n j = rule (phony n) [phony "build", phony "prepare-for-test"] runtest
     where runtest =
-              do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+              do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
                  (do begin
                      j
                      if "fail" `isPrefixOf` n
@@ -127,7 +115,7 @@ test = testy "test"
 
 testy :: String -> [String] -> C ()
 testy tname ts0 =
-    do begin <- maybe (return ()) rule `fmap` getTarget "begin-test"
+    do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
        unlessC (isJust `fmap` getTarget "prepare-for-test") $
                addTarget $ [phony "prepare-for-test"] :< []
                    |<- defaultRule { make = const clearTestResults }

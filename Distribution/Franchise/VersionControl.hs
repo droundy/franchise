@@ -31,7 +31,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.VersionControl
-    ( patchLevel, autoVersion, autoPatchVersion,
+    ( patchLevel, autoVersion, autoPatchVersion, autoDist,
       releaseDescription, releaseName )
     where
 
@@ -41,7 +41,7 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..),
                                             releaseFile, releaseUnknown )
-import Distribution.Franchise.Darcs ( inDarcs, darcsRelease, darcsPatchLevel )
+import Distribution.Franchise.Darcs ( inDarcs, darcsRelease, darcsPatchLevel, darcsDist )
 import Distribution.Franchise.Git ( inGit, gitRelease, gitPatchLevel )
 import Distribution.Franchise.GhcState ( version, getVersion )
 
@@ -112,3 +112,14 @@ releaseDescription t = do r <- releaseName t
                                    0 -> r
                                    1 -> r++" + one patch"
                                    _ -> r++" + "++show l++" patches"
+
+-- | Create a 'distribution tarball'.  This currently only works in
+-- darcs repositories, but could be extended to also work under git or
+-- other revision control systems.
+
+autoDist :: String -> [String] -> C String
+autoDist dn tocopy =
+    withRootdir $ inVC $ VC (darcsDist dn tocopy)
+                            (fail "autoDist doesn't work in git.")
+                            (fail "autoDist requires version control.")
+                            (fail "autoDist requires darcs.")

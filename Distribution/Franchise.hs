@@ -37,7 +37,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 installBin, addTarget,
                                 csum,
                                 -- | test suite helpers
-                                testy, testC, testOutput,
+                                testy, testOutput,
                                 testResultsFile,
                                 beginTestWith, prepareForTest,
                                 addToRule,
@@ -61,8 +61,6 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 -- | generalized version control support
                                 inDarcs, inGit,
                                 releaseDescription, releaseName,
-                                -- | utilities for processing markdown files
-                                splitMarkdown, markdownToHtml, markdownStringToHtmlString,
                                 -- | utilities for autoheader files
                                 autoHeader,
                                 -- | setting compile parameters
@@ -71,7 +69,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 systemInOut,
                                 systemOutErrToFile,
                                 mkFile,
-                                rememberDirectory, splitPath,
+                                rememberDirectory,
                                 -- | string-processing...
                                 stripPrefix,
                                 -- | environment-handling functions
@@ -96,8 +94,6 @@ import Distribution.Franchise.SplitFile
 import Distribution.Franchise.Test
 import Distribution.Franchise.Program
 import Distribution.Franchise.ListUtils ( stripPrefix )
-import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
-                                         markdownStringToHtmlString )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.Persistency ( cacheifC, require, requireWithFeedback, requireWithPrereq,

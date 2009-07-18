@@ -37,7 +37,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 -- \'user-friendly\' manual is at <../index.html>.
 
 module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs to use
-                                   build, phonyRule, executable, package, version,
+                                   build, rule, phony, executable, package, version,
                                    -- ** A handy configuration monad
                                    C, io, catchC, whenC, unlessC,
                                    putS, putV, putSV,
@@ -73,11 +73,13 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    amInWindows, amLittleEndian,
                                    -- ** Generalized version control support
                                    ReleaseType(..),
-                                   autoVersion, autoPatchVersion,
+                                   autoVersion, autoPatchVersion, autoDist,
                                    -- ** Setting compile parameters
                                    ghcFlags, ldFlags, cFlags, pkgFlags,
                                    -- ** Utilities for running executables
                                    system, systemOut,
+                                   -- ** Utilities for processing markdown failes
+                                   splitMarkdown, markdownToHtml, markdownStringToHtmlString,
                                    -- ** Filesystem-handling utilities
                                    -- | Franchise has a slew of
                                    -- filesystem-handling utilities,
@@ -90,6 +92,7 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- concept when running parallel
                                    -- builds.
                                    cd, mkdir, pwd, ls, cat, rm_rf, mv,
+                                   basename, dirname,
                                    withDirectory,
                                    -- ** Environment-handling functions
                                    setEnv, getEnv, addToPath,
@@ -99,7 +102,7 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- | For an example of the use of
                                    -- the test suite code, see
                                    -- <../07-test-suite.html>.
-                                   test, testOne,
+                                   test, testOne, testC,
                                    -- ** Enforce coding style
                                    enforceAllPrivacy, enforceModulePrivacy )
     where
@@ -110,7 +113,6 @@ import Distribution.Franchise.Ghc
 import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian ( amLittleEndian )
-import Distribution.Franchise.Test ( phonyRule )
 import Distribution.Franchise.ReleaseType ( ReleaseType(..) )
 import Distribution.Franchise.VersionControl
 import Distribution.Franchise.Program
@@ -119,4 +121,6 @@ import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
                                               enforceModulePrivacy )
-import Distribution.Franchise.Test ( test, testOne )
+import Distribution.Franchise.Test ( test, testOne, testC )
+import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
+                                         markdownStringToHtmlString )

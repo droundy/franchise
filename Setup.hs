@@ -34,14 +34,14 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           let exported = ["Distribution.Franchise", "Distribution.Franchise.V1"]
           p <- package "franchise" exported []
           cabal "franchise" exported
-          darcsDist "franchise" ["franchise.cabal"]
+          autoDist "franchise" ["franchise.cabal"]
           e <- executable "enfranchise" "enfranchise.hs" []
           enforceAllPrivacy
           return (p++e++docs)
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"
-              addTarget $ ["*webpage*"] :< ["*manual*","index.html"] |<- defaultRule
+              rule (phony "webpage") [phony "manual","index.html"] (return ())
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
               here <- pwd
@@ -64,16 +64,17 @@ buildDoc = do rm_rf "doc/tests"
                                                     else putS "no broken links"
                                        htmls <- concat `fmap` mapM (\i -> markdownToHtml "../doc.css" i "")
                                                                    (concatMap fst alltests)
-                                       addTarget $ ["*manual*","*html*"] :<
-                                                     ("*haddock*":"manual/index.html":htmls) |<- defaultRule
-              return ["*webpage*"]
+                                       rule (phony "html") (phony "haddock":"manual/index.html":htmls) $ return ()
+                                       rule (phony "manual") [phony "html"] $ return ()
+              return [phony "webpage"]
     where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
           buildOneDoc f = do tests0@(txtf:_) <- splitMarkdown f ("manual/"++take (length f-3) f)
-                             let tests = map splitPath $
-                                         filter (".sh" `isSuffixOf`) $
+                             let tests = filter (".sh" `isSuffixOf`) $
                                          filter ("tests/" `isPrefixOf`) tests0
-                             let mktest (d,t) =
-                                     do withDirectory d $ testC t $
+                             let mktest dt =
+                                     do let d = dirname dt
+                                            t = basename dt
+                                        withDirectory d $ testC t $
                                             do sh <- configuredProgram "shell"
                                                ec <- systemOutErrToFile sh [t] (t++".out")
                                                out <- cat (t++".out")
@@ -89,11 +90,9 @@ buildDoc = do rm_rf "doc/tests"
                      let mklink mkdnf = do title <- (head . filter (not . null) . lines) `fmap` cat mkdnf
                                            return $ '[':title++"]("++
                                                   drop 7 (take (length mkdnf-4) mkdnf)++".html)\n"
-                         makeindex _ = withd $
-                                       do indhead <- cat "manual.txt"
-                                          links <- mapM mklink $ sort inps
-                                          html <- markdownStringToHtmlString "../doc.css" $
-                                                  indhead ++ "\n\n"++unlines links
-                                          mkFile "manual/index.html" html
-                     addTarget $ ["manual/index.html"] :< ("manual.txt":inps)
-                         |<- defaultRule { make = makeindex }
+                     rule "manual/index.html" ("manual.txt":inps) $
+                          withd $ do indhead <- cat "manual.txt"
+                                     links <- mapM mklink $ sort inps
+                                     html <- markdownStringToHtmlString "../doc.css" $
+                                             indhead ++ "\n\n"++unlines links
+                                     mkFile "manual/index.html" html
