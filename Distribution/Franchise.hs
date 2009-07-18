@@ -39,7 +39,6 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 -- | test suite helpers
                                 testOutput,
                                 testResultsFile,
-                                beginTestWith,
                                 addToRule,
                                 -- | The constructors are exported so users
                                 -- can construct arbitrarily complex build

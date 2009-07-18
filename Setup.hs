@@ -45,7 +45,7 @@ buildDoc = do rm_rf "doc/tests"
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
               here <- pwd
-              beginTestWith $ -- make a local install of franchise for test
+              setupTestEnvironment $ -- make a local install of franchise for test
                       do setEnv "HOME" (here++"/doc/tests")
                          setEnv "PREFIX" (here++"/doc/tests/local")
                          let pfile = here++"/doc/tests/local/ghc-package.conf"

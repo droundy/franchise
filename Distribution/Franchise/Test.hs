@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
                                      testResultsFile,
-                                     beginTestWith )
+                                     setupTestEnvironment )
     where
 
 import System.Exit ( ExitCode(..) )
@@ -94,8 +94,8 @@ pad x0 = if length x < 65
 
 data TestResult = Passed | Failed | Surprise | Expected deriving ( Eq )
 
-beginTestWith :: C () -> C ()
-beginTestWith initialize =
+setupTestEnvironment :: C () -> C ()
+setupTestEnvironment initialize =
     addTarget $ [phony "begin-test"] :< []
         |<- defaultRule { make = const $ unlessC (haveExtraData "began-test") $
                                          do putV "beginning test..."
