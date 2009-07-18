@@ -32,12 +32,11 @@ POSSIBILITY OF SUCH DAMAGE. -}
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
                                      testResultsFile,
-                                     prepareForTest, beginTestWith )
+                                     beginTestWith )
     where
 
 import System.Exit ( ExitCode(..) )
 import Data.List ( isPrefixOf )
-import Data.Maybe ( isJust )
 import Control.Monad ( when )
 
 import Distribution.Franchise.Buildable
@@ -47,7 +46,7 @@ import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
 testC :: String -> C () -> C ()
-testC n j = rule [phony n] [phony "build", phony "prepare-for-test"] runtest
+testC n j = rule [phony n] [phony "build"] runtest
     where runtest =
               do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
                  (do begin
@@ -95,11 +94,6 @@ pad x0 = if length x < 65
 
 data TestResult = Passed | Failed | Surprise | Expected deriving ( Eq )
 
-prepareForTest :: C () -> C ()
-prepareForTest initialize =
-    addTarget $ [phony "prepare-for-test"] :< []
-        |<- defaultRule { make = const (clearTestResults >> initialize) }
-
 beginTestWith :: C () -> C ()
 beginTestWith initialize =
     addTarget $ [phony "begin-test"] :< []
@@ -114,20 +108,17 @@ test :: String   -- ^ name of test suite
      -> C ()
 test tname ts0 =
     do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
-       unlessC (isJust `fmap` getTarget "prepare-for-test") $
-               addTarget $ [phony "prepare-for-test"] :< []
-                   |<- defaultRule { make = const clearTestResults }
-       addTarget $ [phony tname] :< [phony "is-testy", phony "build", phony "prepare-for-test"]
-           |<- defaultRule { make = const $ do begin
-                                               results <- mapC runSingleTest ts0
-                                               announceResults tname
-                                                               (length $ filter (==Passed) results)
-                                                               (length $ filter (==Surprise) results)
-                                                               (length $ filter (==Expected) results)
-                                                               (length $ filter (==Failed) results)
-                                               when (tname == "test") $
-                                                    summarizeTestsIfMoreThan (length results)
-                           }
+       clearTestResults
+       rule [phony tname] [phony "is-testy", phony "build"] $
+            do begin
+               results <- mapC runSingleTest ts0
+               announceResults tname
+                               (length $ filter (==Passed) results)
+                               (length $ filter (==Surprise) results)
+                               (length $ filter (==Expected) results)
+                               (length $ filter (==Failed) results)
+               when (tname == "test") $
+                    summarizeTestsIfMoreThan (length results)
     where runSingleTest t =
               do istest <- istesty t
                  if istest then build' CannotModifyState t
