@@ -118,7 +118,7 @@ htmlHead css x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict/
                           " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
                           "<html xml:lang=\"en-US\" lang=\"en-US\">",
                           "<head>",
-                          unwords ["<title>",head $ filter (not . null) $ lines x,"</title>"],
+                          unwords ["<title>",concat $ take 1 $ filter (not . null) $ lines x,"</title>"],
                           "<link rel=\"stylesheet\" type=\"text/css\" href=\""++css++"\" />",
                           "</head>",
                           "<body>"]
