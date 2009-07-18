@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( testy, test, testC, testOne, testOutput,
+module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
                                      testResultsFile,
                                      prepareForTest, beginTestWith )
     where
@@ -109,12 +109,10 @@ beginTestWith initialize =
                                             addExtraData "began-test" "" }
 
 -- | Define a test suite by providing a list of test targets.
-
-test :: [String] -> C ()
-test = testy "test"
-
-testy :: String -> [String] -> C ()
-testy tname ts0 =
+test :: String   -- ^ name of test suite
+     -> [String] -- ^ list of tests to include
+     -> C ()
+test tname ts0 =
     do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
        unlessC (isJust `fmap` getTarget "prepare-for-test") $
                addTarget $ [phony "prepare-for-test"] :< []

@@ -53,7 +53,7 @@ buildDoc = do rm_rf "doc/tests"
                          setEnv "FRANCHISE_GHC_PACKAGE_CONF" pfile
                          installPackageInto "franchise" (here++"/doc/tests/local/lib")
               linkcheck <- withProgram "linklint" [] $ const $ return ["check-links"]
-              test $ linkcheck ++ concatMap snd alltests
+              test "test" $ linkcheck ++ concatMap snd alltests
               withDirectory "doc" $ do buildIndex (concatMap fst alltests)
                                        testC "check-links" $
                                              do systemOutErrToFile "linklint" ["-xref", "-error", "/@"]

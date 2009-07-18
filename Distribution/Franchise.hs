@@ -37,7 +37,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 installBin, addTarget,
                                 csum,
                                 -- | test suite helpers
-                                testy, testOutput,
+                                testOutput,
                                 testResultsFile,
                                 beginTestWith, prepareForTest,
                                 addToRule,
