@@ -41,7 +41,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"
-              rule [phony "webpage"] [phony "manual","index.html"] (return ())
+              addDependencies "webpage" ["manual","index.html"]
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
               here <- pwd
@@ -64,9 +64,9 @@ buildDoc = do rm_rf "doc/tests"
                                                     else putS "no broken links"
                                        htmls <- concat `fmap` mapM (\i -> markdownToHtml "../doc.css" i "")
                                                                    (concatMap fst alltests)
-                                       rule [phony "html"] (phony "haddock":"manual/index.html":htmls) $ return ()
-                                       rule [phony "manual"] [phony "html"] $ return ()
-              addDependencies (phony "build") [phony "webpage"]
+                                       addDependencies "html" ("haddock":"manual/index.html":htmls)
+                                       addDependencies "manual" ["html"]
+              addDependencies "build" ["webpage"]
     where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
           buildOneDoc f = do tests0@(txtf:_) <- splitMarkdown f ("manual/"++take (length f-3) f)
                              let tests = filter (".sh" `isSuffixOf`) $

@@ -37,7 +37,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 -- \'user-friendly\' manual is at <../index.html>.
 
 module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs to use
-                                   build, rule, phony, addDependencies,
+                                   build, rule, addDependencies,
                                    executable, package, version,
                                    -- ** A handy configuration monad
                                    C, io, catchC, whenC, unlessC,

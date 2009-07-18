@@ -89,6 +89,7 @@ isPhony ('*':r) = case reverse r of ('*':_) -> True
 isPhony _ = False
 
 phony :: String -> String
+phony x | isPhony x = x
 phony x = '*':x++"*"
 
 unphony :: String -> String
@@ -417,4 +418,4 @@ addDependencies t ds =
     do bbb <- getBuildable t
        case bbb of
          Just (x :< y :<- b) -> addTarget $ x :< (nub $ y++ds) :<- b
-         Nothing -> addTarget $ [t] :< ds :<- defaultRule
+         Nothing -> addTarget $ [phony t] :< ds :<- defaultRule
