@@ -153,6 +153,7 @@ persistExtra v =
     C $ \ts -> return $ Right ((), ts { persistentThings = v : delete v (persistentThings ts) })
 
 writeF :: String -> String -> C ()
+writeF "" _ = fail "Cannot writeF file with empty filename!"
 writeF x0 y = do x <- processFilePath x0
                  mkdir $ dirname x0
                  y' <- io (readFile x) `catchC` \_ -> return ('x':y)
