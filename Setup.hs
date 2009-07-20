@@ -31,10 +31,10 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           setOnce "default ghc flags" $ ghcFlags ["-threaded","-O2","-Wall"]
           autoVersion Numbered >>= (defineAs "VERSION" . show)
           releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
-          buildDoc
           let exported = ["Distribution.Franchise", "Distribution.Franchise.V1"]
           p <- package "franchise" exported []
           cabal "franchise" exported
+          buildDoc
           autoDist "franchise" ["franchise.cabal"]
           executable "enfranchise" "enfranchise.hs" []
           enforceAllPrivacy
