@@ -1,0 +1,57 @@
+Creating phony targets
+======================
+
+You can create "phony" targets using [addDependencies][].
+
+[addDependencies]: haddock/Distribution-Franchise-V1.html#v%3AaddDependencies
+
+Setup.hs
+--------
+
+We create targets "foo" and "bar" which just print that they're being
+built, and a phony target "baz" that depends on both of them.  We then
+make "build" depend on "baz", so that build should depend on both
+"foo" and "bar".
+
+~~~~ tests/addDependencies/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $
+       do rule ["foo"] [] $ putS "making foo"
+          rule ["bar"] [] $ putS "making bar"
+          addDependencies "baz" ["foo","bar"]
+          addDependencies "build" ["baz"]
+          mkdir "dir"
+          cd "dir"
+          addDependencies "foobar" ["baz"]
+~~~~
+
+Testing it out
+--------------
+
+Now let's verify that the build targets work as requested.
+
+~~~~ tests/addDependencies/addDependencies.sh
+set -ev
+
+# bar should only make bar
+runghc Setup.hs bar
+runghc Setup.hs bar | grep 'making foo' && exit 1
+runghc Setup.hs bar | grep 'making bar'
+
+# baz should make foo and bar
+runghc Setup.hs baz
+runghc Setup.hs baz | grep 'making foo'
+runghc Setup.hs baz | grep 'making bar'
+
+# foobar should make foo and bar
+runghc Setup.hs foobar
+runghc Setup.hs foobar | grep 'making foo'
+runghc Setup.hs foobar | grep 'making bar'
+
+# build should make foo and bar
+runghc Setup.hs build
+runghc Setup.hs build | grep 'making foo'
+runghc Setup.hs build | grep 'making bar'
+~~~~
+

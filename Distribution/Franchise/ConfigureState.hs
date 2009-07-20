@@ -43,7 +43,8 @@ module Distribution.Franchise.ConfigureState
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF,
       dirname, basename,
-      withDirectory, withRootdir, rememberDirectory, getCurrentSubdir, processFilePath,
+      withDirectory, withRootdir, rememberDirectory, getCurrentSubdir,
+      processFilePath, processFilePathOrTarget,
       quietly, silently,
       unlessC, whenC, getNoRemove,
       putSnoln, putS, putV, putD, putSV, putL, setVerbose )
@@ -323,9 +324,18 @@ getCurrentSubdir = do sd <- gets currentSubDirectory
                       return sd
 
 processFilePath :: String -> C String
-processFilePath ('*':f) = return ('*':f) -- This is a phony target
 processFilePath ('/':f) = return ('/':f) -- This is an absolute path
 processFilePath f = do sd <- gets currentSubDirectory
+                       return $ maybe f (++('/':f)) sd
+
+processFilePathOrTarget :: String -> C String
+processFilePathOrTarget ('*':f) = return ('*':f) -- This is a phony target
+processFilePathOrTarget ('/':f) = return ('/':f) -- This is an absolute path
+processFilePathOrTarget f =
+    do ts <- getTargets
+       case ('*':f++"*") `lookupT` ts of
+         Just _ -> return ('*':f++"*")
+         Nothing -> do sd <- gets currentSubDirectory
                        return $ maybe f (++('/':f)) sd
 
 runC :: C a -> IO a

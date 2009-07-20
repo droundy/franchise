@@ -379,8 +379,8 @@ addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =
     do withd <- rememberDirectory
        mapM_ clearBuilt ts
-       ts' <- mapM processFilePath ts
-       ds' <- fromListS `fmap` mapM processFilePath ds
+       ts' <- mapM processFilePathOrTarget ts
+       ds' <- fromListS `fmap` mapM processFilePathOrTarget ds
        let fixt t = (t, delS t allts)
            allts = fromListS ts'
            ts'' = map fixt ts'
@@ -416,6 +416,8 @@ addToRule targ j = do withd <- rememberDirectory
 addDependencies :: String -> [String] -> C ()
 addDependencies t ds =
     do bbb <- getBuildable t
+       let locate d = maybe d (const $ phony d) `fmap` getTarget (phony d)
+       ds' <- mapM locate ds
        case bbb of
-         Just (x :< y :<- b) -> addTarget $ x :< (nub $ y++ds) :<- b
+         Just (x :< y :<- b) -> addTarget $ x :< (nub $ y++ds') :<- b
          Nothing -> addTarget $ [phony t] :< ds :<- defaultRule

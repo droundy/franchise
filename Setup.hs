@@ -41,7 +41,6 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
 
 buildDoc = do rm_rf "doc/tests"
               addExtraData "haddock-directory" "doc/manual/haddock"
-              addDependencies "webpage" ["manual","index.html"]
               markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
               alltests <- mapDirectory buildOneDoc "doc"
               here <- pwd
@@ -66,6 +65,7 @@ buildDoc = do rm_rf "doc/tests"
                                                                    (concatMap fst alltests)
                                        addDependencies "html" ("haddock":"manual/index.html":htmls)
                                        addDependencies "manual" ["html"]
+              addDependencies "webpage" ["manual","index.html"]
               addDependencies "build" ["webpage"]
     where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
           buildOneDoc f = do tests0@(txtf:_) <- splitMarkdown f ("manual/"++take (length f-3) f)
