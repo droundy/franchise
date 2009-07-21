@@ -88,14 +88,13 @@ buildDoc =
                ts <- mapM mktest tests
                return ([txtf],ts)
         buildIndex inps =
-            do withd <- rememberDirectory
-               let mklink mkdnf =
+            do let mklink mkdnf =
                        do title <- (head . filter (not . null) . lines) `fmap` cat mkdnf
                           return $ '[':title++"]("++
                                  drop 7 (take (length mkdnf-4) mkdnf)++".html)\n"
                rule ["manual/index.html"] ("manual.txt":inps) $
-                   withd $ do indhead <- cat "manual.txt"
-                              links <- mapM mklink $ sort inps
-                              html <- markdownStringToHtmlString "../doc.css" $
-                                      indhead ++ "\n\n"++unlines links
-                              mkFile "manual/index.html" html
+                   do indhead <- cat "manual.txt"
+                      links <- mapM mklink $ sort inps
+                      html <- markdownStringToHtmlString "../doc.css" $
+                              indhead ++ "\n\n"++unlines links
+                      mkFile "manual/index.html" html
