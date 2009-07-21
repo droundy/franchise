@@ -140,14 +140,14 @@ defineAs x y = do ds <- getDefinitions
 
 -- | Define the copyright field for a cabal file.
 copyright :: String -> C ()
-copyright = addExtraData "copyright"
+copyright = ("copyright" <<=)
 -- | Define the license field for a cabal file.
 license :: String -> C ()
-license = addExtraData "license"
+license = ("license" <<=)
 -- | Define the version, which affects any package or cabal file that
 -- is generated.
 version :: String -> C ()
-version v = do addExtraData "version" v
+version v = do "version" <<= v
                writeF "config.d/version" v
                       `catchC` \_ -> return ()
 
@@ -186,7 +186,7 @@ getMaintainer = do ema <- getEnv "EMAIL"
                    return $ maybe "???" id (mai `mplus` ema)
 
 packageName :: String -> C ()
-packageName = addExtraData "packageName"
+packageName nm = "packageName" <<= nm
 
 getPackageName :: C (Maybe String)
 getPackageName = getExtraData "packageName"

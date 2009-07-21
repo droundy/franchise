@@ -46,7 +46,7 @@ main = build [] $
           withTokens "extra-libraries" $ \libs -> ldFlags $ map ("-l"++) libs
           withField "exposed-modules" $ \ds ->
               do pn <- withToken "name" return
-                 withField "description" $ addExtraData "description" . unlines
+                 withField "description" $ ("description" <<=) . unlines
                  putS $ "found package "++pn++" exporting modules "++
                           (unwords $ words $ unlines ds)
                  package pn (words $ unlines ds) []

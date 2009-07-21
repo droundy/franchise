@@ -40,7 +40,9 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    build, rule, addDependencies,
                                    executable, package, version,
                                    -- ** A handy configuration monad
-                                   C, io, catchC, whenC, unlessC,
+                                   C, (<<=),
+                                   io, catchC,
+                                   whenC, unlessC,
                                    putS, putV, putSV,
                                    -- ** C preprocessor helpers
                                    -- | For a tutorial in the use of the

@@ -223,8 +223,19 @@ directoryPart f = case reverse $ drop 1 $ dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
 
--- | If you want to build a haskell package (i.e. library), you can
--- easily do so with the 'package' function.
+-- | Inform franchise that you wish to build a haskell package
+-- (i.e. library).  Some of the less important package properties,
+-- such as synopsis or description, must first be defined using the
+-- '<<=' operator.
+--
+-- Note that the 'package' function also introduces a \"haddock\"
+-- target providing documentation of the exposed API.  You may control
+-- where this documentation is built by defining \"haddock-directory\"
+-- with '<<='.
+--
+-- @
+--    \"haddock-directory\" <<= \"doc\/manual\/haddock\"
+-- @
 
 package :: String -- ^ name of package to be generated
         -> [String] -- ^ list of modules to be exported
@@ -306,13 +317,17 @@ package pn modules cfiles =
     where stubit c x = take (length x - 2) x ++ "_stub."++c
 
 -- | Generate a cabal file describing a package.  The arguments are
--- the same as those to 'package'.
+-- the same as those to 'package'.  The package properties which are
+-- least important in 'package' (such as synopsis or description) are
+-- important parts of the cabal file, since its contents are normally
+-- exposed to the user, and should be defined using the '<<='
+-- operator.
 
 cabal :: String -> [String] -> C [String]
 cabal pn modules =
     do checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
-       whenC (io $ doesFileExist "LICENSE") $ addExtraData "license-file" "LICENSE"
+       whenC (io $ doesFileExist "LICENSE") $ "license-file" <<= "LICENSE"
        getHscs -- to build any hsc files we need to.
        let depend = pn++"-package.depend"
        setOutputDirectory $ "dist/"++pn

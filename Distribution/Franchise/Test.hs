@@ -100,7 +100,7 @@ setupTestEnvironment initialize =
         |<- defaultRule { make = const $ unlessC (haveExtraData "began-test") $
                                          do putV "beginning test..."
                                             initialize
-                                            addExtraData "began-test" "" }
+                                            "began-test" <<= "" }
 
 -- | Define a test suite by providing a list of test targets.
 test :: String   -- ^ name of test suite

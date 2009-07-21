@@ -54,7 +54,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 findPackagesFor,
                                 withLibOutput,
                                 -- | defining package properties
-                                addExtraData, haveExtraData, installPackageInto,
+                                haveExtraData, installPackageInto,
                                 -- | Various utilities for interfacing with darcs
                                 darcsDist,
                                 -- | generalized version control support

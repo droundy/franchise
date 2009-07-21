@@ -96,7 +96,7 @@ withConfiguredProgram humanName j =
        requireWithPrereqWithFeedback ("for "++humanName) humanName
                                      (return $ def:opts) $
          do p <- findProgram def opts
-            addExtraData extraname p
+            extraname <<= p
             persistExtra extraname
             return (p, ())
        mp <- getExtraData extraname

@@ -43,7 +43,7 @@ import qualified System.Environment as E ( getEnv,
                                          )
 
 import Distribution.Franchise.ConfigureState
-    ( C, getAllExtraData, getExtraData, addExtraData, addExtra, getExtra, rmExtra,
+    ( C, getAllExtraData, getExtraData, (<<=), addExtra, getExtra, rmExtra,
       io, catchC, amInWindows )
 import Distribution.Franchise.ListUtils ( stripPrefix )
 
@@ -59,7 +59,7 @@ getEnv e =
 -- | Set the value of an environment variable.
 
 setEnv :: String -> String -> C ()
-setEnv e v = addExtraData ("env-"++e) v
+setEnv e v = ("env-"++e) <<= v
 
 unsetEnv :: String -> C ()
 unsetEnv e = rmExtra ("env-"++e)

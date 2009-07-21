@@ -116,9 +116,9 @@ handleArgs optsc =
        withEnv "PACKAGES" (addPackages . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
-       withEnv "LIBDIR" (addExtraData "libdir")
-       withEnv "BINDIR" (addExtraData "bindir")
-       withEnv "PREFIX" (addExtraData "prefix")
+       withEnv "LIBDIR" ("libdir" <<=)
+       withEnv "BINDIR" ("bindir" <<=)
+       withEnv "PREFIX" ("prefix" <<=)
        whenC amConfiguring $ addHook "disable-optimize" $ ghcFlags ["-O2"]
        opts <- map unFF `fmap` sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
@@ -138,16 +138,16 @@ handleArgs optsc =
                         Option [] ["no-remove"] (NoArg $ putExtra "noRemove" [()])
                           ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
-                          (ReqArg (addExtraData "prefix") "PATH")
+                          (ReqArg ("prefix" <<=) "PATH")
                           "install under prefix",
                         Option [] ["bindir"]
-                          (ReqArg (addExtraData "bindir") "PATH")
+                          (ReqArg ("bindir" <<=) "PATH")
                           "install in bindir",
                         Option [] ["libdir"]
-                          (ReqArg (addExtraData "libdir") "PATH")
+                          (ReqArg ("libdir" <<=) "PATH")
                           "install in libdir",
                         Option [] ["libsubdir"]
-                          (ReqArg (addExtraData "libsubdir") "PATH")
+                          (ReqArg ("libsubdir" <<=) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
                           (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")

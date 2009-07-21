@@ -33,7 +33,7 @@ module Distribution.Franchise.ConfigureState
     ( amInWindows,
       getModulePackageMap, setModulePackageMap,
       getExtra, addExtra, addExtraUnique, putExtra, persistExtra,
-      getExtraData, getAllExtraData, addExtraData, haveExtraData, rmExtra,
+      getExtraData, getAllExtraData, (<<=), haveExtraData, rmExtra,
       addHook, removeHook, runHooks,
       getNumJobs, setNumJobs, oneJob,
       CanModifyState(..),
@@ -72,7 +72,7 @@ import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
 
 putExtra :: Show a => String -> a -> C ()
-putExtra d v = addExtraData d $ show v
+putExtra d v = d <<= show v
 
 addExtraUnique :: (Eq a, Show a, Read a) => String -> [a] -> C ()
 addExtraUnique d v = do vold <- getExtra d
@@ -113,9 +113,12 @@ whenC predicate job = do doit <- predicate
 haveExtraData :: String -> C Bool
 haveExtraData d = isJust `fmap` getExtraData d
 
-addExtraData :: String -> String -> C ()
-addExtraData d v = do x <- gets configureState
-                      C $ \ts -> return $ Right ((), ts { configureState = insertT d v x })
+-- | Define a \"variable\".  This is used for various strings that are
+-- needed.  For examples, see 'package' or 'cabal'.
+
+(<<=) :: String -> String -> C ()
+d <<= v = do x <- gets configureState
+             C $ \ts -> return $ Right ((), ts { configureState = insertT d v x })
 
 rmExtra :: String -> C ()
 rmExtra d = do x <- gets configureState
