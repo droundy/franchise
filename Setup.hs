@@ -55,9 +55,7 @@ buildDoc =
       withDirectory "doc" $
           do buildIndex (concatMap fst alltests)
              testC "check-links" $
-                 do systemOutErrToFile "linklint"
-                           ["-xref", "-error", "/@"] ".link-errors"
-                    x <- cat ".link-errors"
+                 do x <- systemOut "linklint" ["-xref", "-error", "/@"]
                     if "ERROR" `elem` words x
                         then fail x
                         else putS "no broken links"
