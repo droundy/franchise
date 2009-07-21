@@ -416,7 +416,7 @@ addToRule targ j = do withd <- rememberDirectory
 -- | Add some dependencies to the specified target.  If the target
 -- does not exist, it is created as a phony target.  This is pretty
 -- simple, but you may care to see also the regression tests described
--- in <../addDependencies.html> for examples.
+-- in <../27-addDependencies.html> for examples.
 
 addDependencies :: String -- ^ target
                 -> [String] -- ^ new dependencies

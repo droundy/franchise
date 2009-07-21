@@ -394,6 +394,7 @@ preprocessedTargets his haddockdir =
                                   Nothing -> c : fixAnchors cs
           fixAnchors "" = ""
           fixa ('<':cs) = '%':'3':'C': fixa cs
+          fixa ('=':cs) = '%':'3':'D': fixa cs
           fixa ('|':cs) = '%':'7':'C': fixa cs
           fixa (c:cs) = c : fixa cs
           fixa "" = ""
