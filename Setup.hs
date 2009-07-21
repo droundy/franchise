@@ -26,7 +26,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
             system "runghc" ["testenv.hs"]
             define "GETENVIRONMENTWORKS"
      rm_rf "testenv.hs"
-     setOnce "default ghc flags" $ ghcFlags ["-threaded","-O2","-Wall"]
+     ghcFlags ["-threaded","-Wall"]
      autoVersion Numbered >>= (defineAs "VERSION" . show)
      releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
      let exported = ["Distribution.Franchise", "Distribution.Franchise.V1"]
