@@ -413,7 +413,14 @@ addToRule targ j = do withd <- rememberDirectory
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m
 
-addDependencies :: String -> [String] -> C ()
+-- | Add some dependencies to the specified target.  If the target
+-- does not exist, it is created as a phony target.  This is pretty
+-- simple, but you may care to see also the regression tests described
+-- in <../addDependencies.html> for examples.
+
+addDependencies :: String -- ^ target
+                -> [String] -- ^ new dependencies
+                -> C ()
 addDependencies t ds =
     do bbb <- getBuildable t
        let locate d = maybe d (const $ phony d) `fmap` getTarget (phony d)
