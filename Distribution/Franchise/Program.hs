@@ -68,6 +68,11 @@ withProgram pname alts j = (findProgram pname alts >>= j)
 --            do sh <- 'configuredProgram' \"shell\"
 --               'system' sh [\"-c\", \"echo\", \"hello world\"]
 -- @
+--
+-- Note that 'configurableProgram' is needed in order to use
+-- 'testScript', which delays the check for its interpreter until
+-- tests are actually run, so that you don't need the test script
+-- interpreter if you only want to build.
 
 configurableProgram :: String -> String -> [String] -> C FranchiseFlag
 configurableProgram humanName defaultProg options =

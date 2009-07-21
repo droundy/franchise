@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testC, testOne, testOutput,
+module Distribution.Franchise.Test ( test, testC, testScript, testOutput,
                                      testResultsFile,
                                      setupTestEnvironment )
     where
@@ -42,6 +42,7 @@ import Control.Monad ( when )
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.Program ( configuredProgram )
 import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
@@ -70,12 +71,13 @@ testOutput n o j = testC n runtest
 
 -- | Run a simple test with the given name, executable and argument.
 
-testOne :: String -- ^ name of test (technically this could be any phony target)
-        -> String -- ^ executable to run (commonly sh)
-        -> String -- ^ a single argument to be passed to the executable (commonly a script)
-        -> C ()
-testOne n r f = testC n runtest
-    where runtest = do ec <- silently $ systemOutErrToFile r [f] (n++".out")
+testScript :: String -- ^ name of test
+           -> String -- ^ name of 'configuredProgram' to run
+           -> String -- ^ a single argument to be passed to the executable (i.e. a script)
+           -> C ()
+testScript n r f = testC n runtest
+    where runtest = do sh <- configuredProgram r
+                       ec <- silently $ systemOutErrToFile sh [f] (n++".out")
                        out <- cat (n++".out")
                        case ec of
                          ExitSuccess ->

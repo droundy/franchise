@@ -105,7 +105,7 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- | For an example of the use of
                                    -- the test suite code, see
                                    -- <../07-test-suite.html>.
-                                   test, testOne, testC,
+                                   test, testScript, testC,
                                    setupTestEnvironment,
                                    -- ** Enforce coding style
                                    enforceAllPrivacy, enforceModulePrivacy )
@@ -125,7 +125,7 @@ import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
                                               enforceModulePrivacy )
-import Distribution.Franchise.Test ( test, testOne, testC,
+import Distribution.Franchise.Test ( test, testScript, testC,
                                      setupTestEnvironment )
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
