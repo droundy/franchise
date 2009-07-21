@@ -30,6 +30,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
      autoVersion Numbered >>= (defineAs "VERSION" . show)
      releaseDescription Numbered >>= (defineAs "FRANCHISE_VERSION" . show)
      let exported = ["Distribution.Franchise", "Distribution.Franchise.V1"]
+     "haddock-directory" <<= "doc/manual/haddock"
      p <- package "franchise" exported []
      cabal "franchise" exported
      buildDoc
@@ -39,7 +40,6 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
 
 buildDoc =
    do rm_rf "doc/tests"
-      "haddock-directory" <<= "doc/manual/haddock"
       markdownToHtml "doc/doc.css" "doc/home.txt" "index.html"
       alltests <- mapDirectory buildOneDoc "doc"
       here <- pwd
