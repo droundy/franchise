@@ -296,7 +296,7 @@ getNumJobs = C $ \ts -> return $ Right (numJobs ts, ts)
 oneJob :: C Bool
 oneJob = (==1) `fmap` getNumJobs
 
--- | Change current subdirectory
+-- | Change current subdirectory.
 cd :: String -> C ()
 cd d = C (\ts -> return $ Right ((), ts { currentSubDirectory = cdd $ currentSubDirectory ts }))
     where cdd Nothing = Just d

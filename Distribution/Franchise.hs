@@ -33,13 +33,12 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 module Distribution.Franchise.V1,
                                 -- * The rest of the API defined below is either deprecated or experimental!
                                 buildWithArgs,
-                                buildTarget, privateExecutable,
+                                buildTarget,
                                 installBin, addTarget,
                                 csum,
                                 -- | test suite helpers
                                 testOutput,
                                 testResultsFile,
-                                addToRule,
                                 -- | The constructors are exported so users
                                 -- can construct arbitrarily complex build
                                 -- systems, hopefully.

@@ -36,10 +36,10 @@ POSSIBILITY OF SUCH DAMAGE. -}
 -- Note that although this haddock documentation is comprehensive, the
 -- \'user-friendly\' manual is at <../index.html>.
 
-module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs to use
-                                   build, rule, addDependencies,
-                                   executable, package, version,
-                                   -- ** A handy configuration monad
+module Distribution.Franchise.V1 ( -- * Core stuff that almost everyone needs to use
+                                   build, rule, addToRule, addDependencies,
+                                   executable, privateExecutable, package, version,
+                                   -- * A handy configuration monad
                                    C, (<<=),
                                    io, catchC,
                                    whenC, unlessC,

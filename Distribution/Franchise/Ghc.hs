@@ -148,9 +148,6 @@ ghcDeps dname src announceme =
                            [_] -> putS $ "Added package "++ unwords x++"..."
                            _ -> putS $ "Added packages "++ unwords x++"..."
 
--- privateExecutable is used for executables used by the build system but
--- not to be installed.  It's also used internally by executable.
-
 hiIsInPackage :: [String] -> String -> C (Maybe String)
 hiIsInPackage pn hi =
     do mpm <- reallyGetModulePackageMap
@@ -164,6 +161,9 @@ objectIsInPackage pn o =
        case lookupT (objToModName o) mpm of
          Nothing -> return False
          Just ps -> return (pn `elem` ps)
+
+-- | Build a Haskell executable, but do not install it when running
+-- @.\/Setup.hs install@.
 
 privateExecutable :: String -> String -> [String] -> C ()
 privateExecutable  simpleexname src0 cfiles =

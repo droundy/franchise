@@ -405,6 +405,10 @@ rule :: [String] -- ^ list of targets built by this rule
 rule n deps j =
     addTarget $ n :< deps |<- defaultRule { make = const j }
 
+-- | Add a bit more work to be done when building target.  This will
+-- be done /before/ the function that is already present, and thus may
+-- be used to prepare the environment in some way.
+
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
 addToRule targ j = do withd <- rememberDirectory
