@@ -36,84 +36,76 @@ POSSIBILITY OF SUCH DAMAGE. -}
 -- Note that although this haddock documentation is comprehensive, the
 -- \'user-friendly\' manual is at <../index.html>.
 
-module Distribution.Franchise.V1 ( -- * Core stuff that almost everyone needs to use
-                                   build, rule, addToRule, addDependencies,
-                                   executable, privateExecutable, package, version,
-                                   -- * A handy configuration monad
-                                   C, (<<=),
-                                   io, catchC,
-                                   whenC, unlessC,
-                                   putS, putV, putSV,
-                                   -- ** C preprocessor helpers
-                                   -- | For a tutorial in the use of the
-                                   -- C preprocessor, see
-                                   -- <../02-cpp.html>.
-                                   define, defineAs, isDefined,
-                                   -- ** Generation of source files
-                                   -- | For a tutorial on generating
-                                   -- source files, see
-                                   -- <../08-replace.html>.
-                                   createFile, replace, replaceLiteral,
-                                   -- ** Handy module searching
-                                   -- | Note that you don't need to
-                                   -- use these functions for most
-                                   -- modules you use, since franchise
-                                   -- will automatically require any
-                                   -- modules that you actually use.
-                                   -- It's only when you want to do
-                                   -- something tricky that you're
-                                   -- likely to need them.
-                                   requireModule, withModule,
-                                   requireModuleExporting, withModuleExporting,
-                                   -- ** Searching for an executable
-                                   findProgram, withProgram,
-                                   configurableProgram, configuredProgram, withConfiguredProgram,
-                                   -- ** Using C libraries
-                                   requireLib, withLib,
-                                   -- ** Utilities for writing your own checks
-                                   checkOnce,
-                                   -- ** Creating cabal files
-                                   cabal, copyright, license,
-                                   -- ** Some common platform tests
-                                   amInWindows, amLittleEndian,
-                                   -- ** Generalized version control support
-                                   ReleaseType(..),
-                                   autoVersion, autoPatchVersion, autoDist,
-                                   releaseDescription, releaseName,
-                                   -- ** Setting compile parameters
-                                   ghcFlags, ldFlags, cFlags, pkgFlags,
-                                   -- ** Utilities for running executables
-                                   system, systemOut,
-                                   -- ** Utilities for processing markdown failes
-                                   splitMarkdown, markdownToHtml, markdownStringToHtmlString,
-                                   -- ** Filesystem-handling utilities
-                                   -- | Franchise has a slew of
-                                   -- filesystem-handling utilities,
-                                   -- with the goal that your build
-                                   -- rules can look a lot like
-                                   -- makefile rules.  Using these
-                                   -- utilities is greatly prefered,
-                                   -- as the true 'current working
-                                   -- directory' is not a useful
-                                   -- concept when running parallel
-                                   -- builds.
-                                   cd, mkdir, pwd, ls, cat, rm_rf, mv,
-                                   mkFile, withDirectory, mapDirectory,
-                                   basename, dirname,
-                                   -- ** Environment-handling functions
-                                   setEnv, getEnv,
-                                   addToPath, addToGhcPath,
-                                   -- ** Simplification of getopt data types
-                                   FranchiseFlag, flag, unlessFlag,
-                                   -- ** Test suite helpers
-                                   -- | For an example of the use of
-                                   -- the test suite code, see
-                                   -- <../07-test-suite.html>.
-                                   test, testScript, testSuite,
-                                   setupTestEnvironment, installPackageInto,
-                                   -- ** Enforce coding style
-                                   enforceAllPrivacy, enforceModulePrivacy )
-    where
+module Distribution.Franchise.V1
+    ( -- * Introduction
+      build, C, whenC, unlessC,
+      -- * Defining build targets
+      -- ** Compiling Haskell code
+      executable, privateExecutable, package, version, installPackageInto,
+      -- ** Creating cabal files
+      cabal, copyright, license,
+      -- ** Processing markdown files
+      splitMarkdown, markdownToHtml, markdownStringToHtmlString,
+      -- ** Defining your own build rules and phony targets
+      rule, addToRule, addDependencies,
+      -- * Tools to configure your build
+      -- ** Setting compile parameters
+      ghcFlags, ldFlags, cFlags, pkgFlags,
+      -- ** C preprocessor helpers
+      -- | For a tutorial in the use of the C preprocessor, see
+      -- <../02-cpp.html>.
+      define, defineAs, isDefined,
+      -- ** Generation of source files
+      -- | For a tutorial on generating source files, see
+      -- <../08-replace.html>.
+      createFile, replace, replaceLiteral,
+      -- ** Environment-handling functions
+      setEnv, getEnv, addToPath, addToGhcPath,
+      -- ** Accepting command-line flags
+      FranchiseFlag, flag, unlessFlag,
+      -- * Tools for checking for build dependencies
+      -- ** Checking for Haskell modules
+      -- | Note that you don't need to use these functions for most
+      -- modules you use, since franchise will automatically require
+      -- any modules that you actually use.  It's only when you want
+      -- to do something tricky that you're likely to need them.
+      requireModule, withModule,
+      requireModuleExporting, withModuleExporting,
+      -- ** Checking for C libraries
+      requireLib, withLib,
+      -- ** Checking for an executable program
+      findProgram, withProgram,
+      configurableProgram, configuredProgram, withConfiguredProgram,
+      -- ** Utilities for writing your own checks
+      checkOnce,
+      -- * Tools for querying the system
+      -- ** Some common platform tests
+      amInWindows, amLittleEndian,
+      -- ** Generalized version control support
+      ReleaseType(..), autoVersion, autoPatchVersion, autoDist,
+      releaseDescription, releaseName,
+      -- * Scripting utilities
+      -- ** Functions for running executables
+      system, systemOut,
+      -- ** Filesystem-handling utilities
+      -- | Franchise has a slew of filesystem-handling utilities, with
+      -- the goal that your build rules can look a lot like makefile
+      -- rules.  Using these utilities is greatly prefered, as the
+      -- true 'current working directory' is not a useful concept when
+      -- running parallel builds.
+      cd, mkdir, pwd, ls, cat, rm_rf, mv, mkFile,
+      withDirectory, mapDirectory, basename, dirname,
+      -- * Quality-control features
+      -- ** Test suite helpers
+      -- | For an example of the use of the test suite code, see
+      -- <../07-test-suite.html>.
+      test, testScript, testSuite,
+      setupTestEnvironment,
+      -- ** Enforcing coding style
+      enforceAllPrivacy, enforceModulePrivacy,
+      -- * C monad utility functions
+      (<<=), io, catchC, putS, putV, putSV
+    ) where
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
