@@ -46,7 +46,7 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 Dependency(..), Buildable, (|<-), BuildRule(..),
                                 defaultRule,
                                 -- | some handy utilities for writing checks
-                                cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce, checkOnce,
+                                cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce,
                                 -- | Handy module-searching
                                 lookForModule, lookForModuleExporting,
                                 -- | Searching for an executable
@@ -54,12 +54,11 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 findPackagesFor,
                                 withLibOutput,
                                 -- | defining package properties
-                                haveExtraData, installPackageInto,
+                                haveExtraData,
                                 -- | Various utilities for interfacing with darcs
                                 darcsDist,
                                 -- | generalized version control support
                                 inDarcs, inGit,
-                                releaseDescription, releaseName,
                                 -- | utilities for autoheader files
                                 autoHeader,
                                 -- | setting compile parameters
@@ -67,14 +66,11 @@ module Distribution.Franchise ( -- * The recommended API is defined in the modul
                                 -- | utility for running external code
                                 systemInOut,
                                 systemOutErrToFile,
-                                mkFile,
                                 rememberDirectory,
                                 -- | string-processing...
                                 stripPrefix,
-                                -- | environment-handling functions
-                                addToGhcPath,
                                 -- | for handy preprocessing...
-                                splitFile, mapDirectory,
+                                splitFile,
                                 extraData )
     where
 
@@ -95,5 +91,6 @@ import Distribution.Franchise.Program
 import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
-import Distribution.Franchise.Persistency ( cacheifC, require, requireWithFeedback, requireWithPrereq,
-                                            setOnce, checkOnce )
+import Distribution.Franchise.Persistency ( cacheifC, require,
+                                            requireWithFeedback, requireWithPrereq,
+                                            setOnce )

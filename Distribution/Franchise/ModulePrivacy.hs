@@ -42,7 +42,7 @@ import Distribution.Franchise.Trie ( keysT )
 import Distribution.Franchise.Buildable ( getTarget )
 import Distribution.Franchise.StringSet ( toListS )
 
--- | 'enforceAllPrivacy' is described in the manual in
+-- | Enforce module privacy.  For details, see
 --   <../13-enforcePrivacy.html>
 
 enforceAllPrivacy :: C ()
@@ -51,7 +51,7 @@ enforceAllPrivacy =
        let ms = catMaybes $ map sourceToModule $ toListS $ keysT ts
        enforceModulePrivacy ms
 
--- | 'enforceModulePrivacy' is described in the manual in
+-- | Enforce the privacy of some modules.  For details, see
 --   <../13-enforcePrivacy.html>
 
 enforceModulePrivacy :: [String] -> C ()

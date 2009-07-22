@@ -177,12 +177,18 @@ mkdir d0 = do d <- processFilePath d0
                                                        putV $ "mkdir "++d0
                                                        io $ createDirectory d
 
+-- | Same as the POSIX @basename(1)@.  Returns the name of a file
+-- without its directory.
+
 basename :: FilePath -> FilePath
 basename p = reverse (takeWhile isSep rp++ takeWhile (not.isSep) (dropWhile isSep rp))
     where rp = reverse p
 
 isSep :: Char -> Bool
 isSep c = c `elem` "/\\"
+
+-- | Same as the POSIX @dirname(1)@.  Returns the directory a file is
+-- in.
 
 dirname :: FilePath -> FilePath
 dirname = reverse . drop 1 . dropWhile (not . isSep) . dropWhile isSep . reverse

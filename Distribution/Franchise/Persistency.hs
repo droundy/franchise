@@ -67,7 +67,16 @@ setOnce name j = requireWithPrereqActionWithFeedback "setting" name name
                  (return ["SET"]) $ do x <- j
                                        return ("done",x)
 
-checkOnce :: (Read a, Show a, Monoid a) => String -> C a -> C a
+-- | Perform the provided test once.  The string provided is a unique
+-- human-visible name.  The test must store its own result.  Upon
+-- failure (due to an exception or an explicit call to 'fail'),
+-- franchise will report the test as failed (i.e. it will write
+-- \"no\").  The result is cached, and the test is not performed
+-- again.
+
+checkOnce :: (Read a, Show a, Monoid a) => String -- ^ name of test
+          -> C a -- ^ action to perform
+          -> C a
 checkOnce name check = require name check `catchC` \_ -> return mempty
 
 requireWithFeedback :: String -> C String -> C ()

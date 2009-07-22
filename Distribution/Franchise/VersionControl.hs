@@ -58,6 +58,10 @@ inVC j = do ind <- inDarcs
                                   else donone
     where donone = none j `catchC` \_ -> return $ panic j
 
+-- | Return the version name that would be set by 'autoVersion'.
+-- Useful if you want to use 'defineAs' to create the output of
+-- --version.
+
 releaseName :: ReleaseType -> C String
 releaseName t = withRootdir $
                do x <- inVC $ VC (darcsRelease t) (gitRelease t) readV (releaseUnknown t)
@@ -104,6 +108,11 @@ autoPatchVersion t = do r <- releaseName t
                              do version vers
                                 putS $ "version is now "++vers
                         return vers
+
+-- | Return a user-friendly name of the release, similar to the output
+-- of 'autoPatchVersion', but with the number of patches since release
+-- written in English instead of as a number.  Its use is similar to
+-- 'releaseName'.
 
 releaseDescription :: ReleaseType -> C String
 releaseDescription t = do r <- releaseName t

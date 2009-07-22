@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Test ( test, testC, testScript, testOutput,
+module Distribution.Franchise.Test ( test, testSuite, testScript, testOutput,
                                      testResultsFile,
                                      setupTestEnvironment )
     where
@@ -46,8 +46,13 @@ import Distribution.Franchise.Program ( configuredProgram )
 import Distribution.Franchise.StringSet ( elemS )
 import Distribution.Franchise.Parallel ( mapC )
 
-testC :: String -> C () -> C ()
-testC n j = rule [phony n] [phony "build"] runtest
+-- | Define a single test with a given name.  The test passes unless
+-- it exits with an exception or with 'fail'.  It depends on the
+-- @build@ target, and more dependencies may be added using
+-- 'addDependency'.
+
+test :: String -> C () -> C ()
+test n j = rule [phony n] [phony "build"] runtest
     where runtest =
               do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
                  (do begin
@@ -61,7 +66,7 @@ testC n j = rule [phony n] [phony "build"] runtest
                           fail e
 
 testOutput :: String -> String -> C String -> C ()
-testOutput n o j = testC n runtest
+testOutput n o j = test n runtest
     where runtest = do out <- j
                        --let nice = show
                        let nice = unlines . map (\l->('|':' ':l)) . lines
@@ -75,7 +80,7 @@ testScript :: String -- ^ name of test
            -> String -- ^ name of 'configuredProgram' to run
            -> String -- ^ a single argument to be passed to the executable (i.e. a script)
            -> C ()
-testScript n r f = testC n runtest
+testScript n r f = test n runtest
     where runtest = do sh <- configuredProgram r
                        ec <- silently $ systemOutErrToFile sh [f] (n++".out")
                        out <- cat (n++".out")
@@ -96,6 +101,14 @@ pad x0 = if length x < 65
 
 data TestResult = Passed | Failed | Surprise | Expected deriving ( Eq )
 
+-- | Define a function that sets up the test environment.  This
+-- function generally should do things like set environment variables
+-- and create files or directories in which to run the tests.  It is
+-- run as seldom as franchise can determine is safe.  The environment
+-- variables that are set will not affect anything but the tests
+-- themselves.  (e.g. you can change the @$PATH@ without affecting
+-- your build rules.)
+
 setupTestEnvironment :: C () -> C ()
 setupTestEnvironment initialize =
     addTarget $ [phony "begin-test"] :< []
@@ -105,10 +118,10 @@ setupTestEnvironment initialize =
                                             "began-test" <<= "" }
 
 -- | Define a test suite by providing a list of test targets.
-test :: String   -- ^ name of test suite
-     -> [String] -- ^ list of tests to include
-     -> C ()
-test tname ts0 =
+testSuite :: String   -- ^ name of test suite
+          -> [String] -- ^ list of tests to include
+          -> C ()
+testSuite tname ts0 =
     do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
        clearTestResults
        rule [phony tname] [phony "is-testy", phony "build"] $

@@ -71,6 +71,8 @@ splitFile fn splitfun =
                             [(y,"")] -> return y
                             _ -> fail $ "unable to read "++fnsplits
 
+-- | Run the provided action on each file in the specified directory.
+
 mapDirectory :: (FilePath -> C a) -> FilePath -> C [a]
 mapDirectory f d = withDirectory d $ do xs <- ls "."
                                         mapM f xs

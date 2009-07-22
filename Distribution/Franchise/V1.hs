@@ -70,6 +70,8 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    configurableProgram, configuredProgram, withConfiguredProgram,
                                    -- ** Using C libraries
                                    requireLib, withLib,
+                                   -- ** Utilities for writing your own checks
+                                   checkOnce,
                                    -- ** Creating cabal files
                                    cabal, copyright, license,
                                    -- ** Some common platform tests
@@ -77,6 +79,7 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- ** Generalized version control support
                                    ReleaseType(..),
                                    autoVersion, autoPatchVersion, autoDist,
+                                   releaseDescription, releaseName,
                                    -- ** Setting compile parameters
                                    ghcFlags, ldFlags, cFlags, pkgFlags,
                                    -- ** Utilities for running executables
@@ -95,18 +98,19 @@ module Distribution.Franchise.V1 ( -- ** Core stuff that almost everyone needs t
                                    -- concept when running parallel
                                    -- builds.
                                    cd, mkdir, pwd, ls, cat, rm_rf, mv,
+                                   mkFile, withDirectory, mapDirectory,
                                    basename, dirname,
-                                   withDirectory,
                                    -- ** Environment-handling functions
-                                   setEnv, getEnv, addToPath,
+                                   setEnv, getEnv,
+                                   addToPath, addToGhcPath,
                                    -- ** Simplification of getopt data types
                                    FranchiseFlag, flag, unlessFlag,
                                    -- ** Test suite helpers
                                    -- | For an example of the use of
                                    -- the test suite code, see
                                    -- <../07-test-suite.html>.
-                                   test, testScript, testC,
-                                   setupTestEnvironment,
+                                   test, testScript, testSuite,
+                                   setupTestEnvironment, installPackageInto,
                                    -- ** Enforce coding style
                                    enforceAllPrivacy, enforceModulePrivacy )
     where
@@ -121,11 +125,14 @@ import Distribution.Franchise.ReleaseType ( ReleaseType(..) )
 import Distribution.Franchise.VersionControl
 import Distribution.Franchise.Program
 import Distribution.Franchise.Env
+import Distribution.Franchise.SplitFile ( mapDirectory )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
 import Distribution.Franchise.ModulePrivacy ( enforceAllPrivacy,
                                               enforceModulePrivacy )
-import Distribution.Franchise.Test ( test, testScript, testC,
+import Distribution.Franchise.Test ( test, testScript, testSuite,
                                      setupTestEnvironment )
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
                                          markdownStringToHtmlString )
+import Distribution.Franchise.Persistency ( checkOnce )
+import Distribution.Franchise.GhcPkg ( addToGhcPath )

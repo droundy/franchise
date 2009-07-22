@@ -1,5 +1,5 @@
 #!/usr/bin/runhaskell
-import Distribution.Franchise
+import Distribution.Franchise.V1
 import Data.List ( sort, isSuffixOf, isPrefixOf )
 import System.Exit ( ExitCode(..) )
 
@@ -51,10 +51,10 @@ buildDoc =
                  setEnv "FRANCHISE_GHC_PACKAGE_CONF" pfile
                  installPackageInto "franchise" (here++"/doc/tests/local/lib")
       linkcheck <- withProgram "linklint" [] $ const $ return ["check-links"]
-      test "test" $ linkcheck ++ concatMap snd alltests
+      testSuite "test" $ linkcheck ++ concatMap snd alltests
       withDirectory "doc" $
           do buildIndex (concatMap fst alltests)
-             testC "check-links" $
+             test "check-links" $
                  do x <- systemOut "linklint" ["-xref", "-error", "/@"]
                     if "ERROR" `elem` words x
                         then fail x

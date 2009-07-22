@@ -399,6 +399,10 @@ preprocessedTargets his haddockdir =
           fixa (c:cs) = c : fixa cs
           fixa "" = ""
 
+-- | Install the specified package into a given ghc config file.  This
+-- is essentially only useful for test suites, when you want to test
+-- a package by installing it, but without /really/ installing it.
+
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
     do ver <- getVersion

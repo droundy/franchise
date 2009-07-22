@@ -226,6 +226,10 @@ systemInOut g args inp = do sd <- getCurrentSubdir
                     indent' (x:xs) = x : indent' xs
                     indent' "" = ""
 
+-- | Create a file.  This also logs the contents of the file to
+-- @franchise.log@, so it's helpful if you want to make debugging
+-- easier (but also leads to lots of verbosity.
+
 mkFile :: FilePath -> String -> C ()
 mkFile f s = do f' <- processFilePath f
                 io $ writeFile f' s
