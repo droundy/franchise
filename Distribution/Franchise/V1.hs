@@ -93,7 +93,7 @@ module Distribution.Franchise.V1
       -- rules.  Using these utilities is greatly prefered, as the
       -- true 'current working directory' is not a useful concept when
       -- running parallel builds.
-      cd, mkdir, pwd, ls, cat, rm_rf, mv, mkFile,
+      cd, mkdir, pwd, ls, cat, rm_rf, mv, cp, mkFile,
       withDirectory, mapDirectory, basename, dirname,
       -- * Quality-control features
       -- ** Test suite helpers

@@ -33,14 +33,15 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
-                                     mkFile, cat, pwd, ls, mv,
+                                     mkFile, cat, pwd, ls, mv, cp,
                                      isFile, isDirectory, takeExtension,
                                      bracketC, csum, finallyC, bracketC_ )
     where
 
 import System.Exit ( ExitCode(..) )
 import System.Directory ( getCurrentDirectory, getDirectoryContents,
-                          doesFileExist, doesDirectoryExist, renameFile )
+                          doesFileExist, doesDirectoryExist, renameFile,
+                          copyFile )
 import System.Process ( ProcessHandle, runInteractiveProcess, runProcess,
                         waitForProcess, getProcessExitCode )
 import Control.Concurrent ( threadDelay, rtsSupportsBoundThreads, forkIO )
@@ -269,6 +270,13 @@ mv :: String -> String -> C ()
 mv a b = do a' <- processFilePath a
             b' <- processFilePath b
             io $ renameFile a' b'
+
+-- | Copy a file.
+
+cp :: String -> String -> C ()
+cp a b = do a' <- processFilePath a
+            b' <- processFilePath b
+            io $ copyFile a' b'
 
 isFile :: String -> C Bool
 isFile f = do f' <- processFilePath f
