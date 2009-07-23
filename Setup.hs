@@ -37,6 +37,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
      autoDist "franchise" ["franchise.cabal"]
      executable "enfranchise" "enfranchise.hs" []
      enforceAllPrivacy
+     enforceNoTabs
 
 buildDoc =
    do rm_rf "doc/tests"

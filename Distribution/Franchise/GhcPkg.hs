@@ -110,35 +110,35 @@ fixIPI ipi = InstalledPackageInfo { package = fixPI $ package ipi,
 
 data InstalledPackageInfo pn
    = InstalledPackageInfo {
-	package           :: PackageIdentifier pn,
+        package           :: PackageIdentifier pn,
         license           :: License,
         copyright         :: String,
         maintainer        :: String,
-	author            :: String,
+        author            :: String,
         stability         :: String,
-	homepage          :: String,
-	pkgUrl            :: String,
-	description       :: String,
-	category          :: String,
-	-- these parts are required by an installed package only:
+        homepage          :: String,
+        pkgUrl            :: String,
+        description       :: String,
+        category          :: String,
+        -- these parts are required by an installed package only:
         exposed           :: Bool,
-	exposedModules	  :: [String],
-	hiddenModules     :: [String],
+        exposedModules    :: [String],
+        hiddenModules     :: [String],
         importDirs        :: [FilePath],
         libraryDirs       :: [FilePath],
         hsLibraries       :: [String],
         extraLibraries    :: [String],
-	extraGHCiLibraries:: [String],
+        extraGHCiLibraries:: [String],
         includeDirs       :: [FilePath],
         includes          :: [String],
         depends           :: [PackageIdentifier pn],
-        hugsOptions	  :: [String],
-        ccOptions	  :: [String],
-        ldOptions	  :: [String],
+        hugsOptions       :: [String],
+        ccOptions         :: [String],
+        ldOptions         :: [String],
         frameworkDirs     :: [FilePath],
-        frameworks	  :: [String],
-	haddockInterfaces :: [FilePath],
-	haddockHTMLs      :: [FilePath]
+        frameworks        :: [String],
+        haddockInterfaces :: [FilePath],
+        haddockHTMLs      :: [FilePath]
     } deriving (Read, Show)
 
 data PackageName = PackageName String deriving ( Read, Show, Eq, Ord )

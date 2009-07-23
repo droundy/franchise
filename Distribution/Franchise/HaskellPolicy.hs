@@ -31,16 +31,37 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 
-module Distribution.Franchise.ModulePrivacy
-    ( enforceAllPrivacy, enforceModulePrivacy ) where
+module Distribution.Franchise.HaskellPolicy
+    ( enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy ) where
 
 import Data.Maybe ( catMaybes )
-import Data.List ( isPrefixOf )
+import Data.List ( isPrefixOf, isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Trie ( keysT )
 import Distribution.Franchise.Buildable ( getTarget )
 import Distribution.Franchise.StringSet ( toListS )
+import Distribution.Franchise.Util ( cat )
+
+-- | Enforce a policy of no-tabs-in-haskell-source.  I highly
+-- recommend this.  Of course, you may only wish to check this in your
+-- test suite, to reduce the overhead on each compile.
+
+enforceNoTabs :: C ()
+enforceNoTabs =
+    do ts <- getTargets
+       badfs <- mapM checkTabs $ filter isHaskell $ toListS $ keysT ts
+       case concat badfs of
+         [] -> return ()
+         [f] -> fail ("Tabs found in "++f)
+         fs -> fail ("Tabs found in files "++unwords fs)
+    where checkTabs :: FilePath -> C [String]
+          checkTabs f = do x <- cat f `catchC` \_ -> return ""
+                           if '\t' `elem` x
+                              then return [f]
+                              else return []
+          isHaskell x = "hs" `isSuffixOf` x || ".hsc" `isSuffixOf` x ||
+                        "hs.in" `isSuffixOf` x
 
 -- | Enforce module privacy.  For details, see
 --   <../13-enforcePrivacy.html>
