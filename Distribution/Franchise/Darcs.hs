@@ -48,7 +48,8 @@ inDarcs = io $ doesDirectoryExist "_darcs"
 
 darcsPatchLevel :: ReleaseType -> C Int
 darcsPatchLevel t =
-           do patches' <- systemOut "darcs" ["changes","--from-tag",releaseRegexp t,"--count"]
+           do patches' <- systemOut "darcs" ["changes","--from-tag",
+                                             releaseRegexp t,"--count"]
               ((patches'',_):_) <- return $ reads patches'
               return $  max 0 (patches'' - 1)
 
@@ -65,23 +66,27 @@ darcsDist dn tocopy = withRootdir $
        simpleTarget ".releaseVersion" $ whenC inDarcs $ darcsRelease Numbered
        simpleTarget ".latestRelease" $ whenC inDarcs $ darcsRelease NumberedPreRc
        simpleTarget ".lastTag" $ whenC inDarcs $ darcsRelease AnyTag
-       simpleTarget ".releaseVersionPatchLevel" $ whenC inDarcs (darcsPatchLevel Numbered >> return ())
-       simpleTarget ".latestReleasePatchLevel" $ whenC inDarcs (darcsPatchLevel NumberedPreRc >> return ())
-       simpleTarget ".lastTagPatchLevel" $ whenC inDarcs (darcsPatchLevel AnyTag >> return ())
+       simpleTarget ".releaseVersionPatchLevel" $
+                    whenC inDarcs (darcsPatchLevel Numbered >> return ())
+       simpleTarget ".latestReleasePatchLevel" $
+                    whenC inDarcs (darcsPatchLevel NumberedPreRc >> return ())
+       simpleTarget ".lastTagPatchLevel" $
+                    whenC inDarcs (darcsPatchLevel AnyTag >> return ())
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
            mkdist = do putS $ "making tarball as "++tarname
                        system "darcs" ["dist","--dist-name",distname]
                        rm_rf distname
                        system "tar" ["zxf",tarname]
-                       withDirectory distname $ do dist ".releaseVersion"
-                                                   dist ".latestRelease"
-                                                   dist ".lastTag"
-                                                   dist ".releaseVersionPatchLevel"
-                                                   dist ".latestReleasePatchLevel"
-                                                   dist ".lastTagPatchLevel"
-                                                   mapM_ dist tocopy
-                                                   setExecutable "Setup.hs" `catchC` \_ -> return ()
+                       withDirectory distname $
+                           do dist ".releaseVersion"
+                              dist ".latestRelease"
+                              dist ".lastTag"
+                              dist ".releaseVersionPatchLevel"
+                              dist ".latestReleasePatchLevel"
+                              dist ".lastTagPatchLevel"
+                              mapM_ dist tocopy
+                              setExecutable "Setup.hs" `catchC` \_ -> return ()
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
        addTarget $ ["sdist",tarname] :< tocopy

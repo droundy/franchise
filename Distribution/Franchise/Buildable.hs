@@ -169,17 +169,20 @@ needsWork t =
          Just (Target _ ds _)
              | nullS ds -> return True -- no dependencies means it always needs work!
          Just (Target ts ds _) ->
-           do mmt <- (Just `fmap` io (mapM getModificationTime $ filter (not . isPhony) $ t:toListS ts))
+           do mmt <- (Just `fmap` io (mapM getModificationTime $
+                                      filter (not . isPhony) $ t:toListS ts))
                      `catchC` \_ -> return Nothing
               case mmt of
-                Nothing -> do putD $ "need work because " ++ t ++ " doesn't exist (or a friend)"
+                Nothing -> do putD $ "need work because "++t++" doesn't exist (or a friend)"
                               return True
                 Just [] -> do putD $ "need work because "++ t ++ " is a phony target."
                               return True
                 Just mt -> do anylater <- anyM latertime $ toListS ds
                               if anylater then return ()
-                                          else do putD $ "Marking "++t++" as built since it's older than "
-                                                       ++unwords (toListS ds)
+                                          else do putD $ unwords $
+                                                      "Marking":t:
+                                                      "as built since it's older than":
+                                                      toListS ds
                                                   setBuilt t
                               return anylater
                       where latertime y = do ye <- io $ doesFileExist y
@@ -243,7 +246,8 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                              if stillneedswork
                                then do putD $ unlines
                                                 ["I am making "++ ttt,
-                                                 "  This depends on "++ unwords (toListS xs0)]
+                                                 "  This depends on "++
+                                                 unwords (toListS xs0)]
                                        makettt `catchC`
                                          \e -> do putV $ errorBuilding e ttt
                                                   io $ writeChan chan $ Left e
@@ -356,8 +360,10 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                 if any (`elemS` nwds) ds0
                                    then return $ addS t nwds
                                    else do tooold <- needsWork t
-                                           --putD$"These need work: "++unwords(toListS$keysT$filterT id nwds)
-                                           --putD$"These are FINE!: "++unwords(toListS$keysT$filterT not nwds)
+                                           --putD$"These need work: "
+                                           --   ++unwords(toListS$keysT$filterT id nwds)
+                                           --putD$"These are FINE!: "
+                                           --   ++unwords(toListS$keysT$filterT not nwds)
                                            if tooold then return $ addS t nwds
                                                      else return nwds
                              where lookAtDeps nw' [] = return nw'
@@ -384,7 +390,8 @@ addTarget (ts :< ds :<- r) =
        let fixt t = (t, delS t allts)
            allts = fromListS ts'
            ts'' = map fixt ts'
-           addt (t,otherTs) = modifyTargets $ insertT t (Target otherTs ds' $ withd $ make r (ts:<ds))
+           addt (t,otherTs) = modifyTargets $
+                              insertT t (Target otherTs ds' $ withd $ make r (ts:<ds))
        case clean r (ts:<ds) of
          [] -> return ()
          toclean -> addToRule (phony "clean") (mapM_ rm toclean)
@@ -412,7 +419,8 @@ rule n deps j =
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
 addToRule targ j = do withd <- rememberDirectory
-                      modifyTargets $ adjustT' targ $ \ (Target a b c) -> Target a b (withd j >> c)
+                      modifyTargets $ adjustT' targ $
+                                        \ (Target a b c) -> Target a b (withd j >> c)
     where adjustT' t f m = case lookupT t m of
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m

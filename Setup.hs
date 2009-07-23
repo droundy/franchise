@@ -38,6 +38,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
      executable "enfranchise" "enfranchise.hs" []
      enforceAllPrivacy
      enforceNoTabs
+     enforceLineLength 105
 
 buildDoc =
    do rm_rf "doc/tests"

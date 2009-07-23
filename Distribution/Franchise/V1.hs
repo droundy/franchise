@@ -102,7 +102,7 @@ module Distribution.Franchise.V1
       test, testScript, testSuite,
       setupTestEnvironment,
       -- ** Enforcing coding style
-      enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy,
+      enforceLineLength, enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy,
       -- * C monad utility functions
       (<<=), io, catchC, putS, putV, putSV
     ) where
@@ -120,8 +120,8 @@ import Distribution.Franchise.Env
 import Distribution.Franchise.SplitFile ( mapDirectory )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
-import Distribution.Franchise.HaskellPolicy ( enforceNoTabs, enforceAllPrivacy,
-                                              enforceModulePrivacy )
+import Distribution.Franchise.HaskellPolicy ( enforceNoTabs, enforceLineLength,
+                                              enforceAllPrivacy, enforceModulePrivacy )
 import Distribution.Franchise.Test ( test, testScript, testSuite,
                                      setupTestEnvironment )
 import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,

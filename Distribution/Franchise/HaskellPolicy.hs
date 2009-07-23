@@ -32,16 +32,46 @@ POSSIBILITY OF SUCH DAMAGE. -}
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 
 module Distribution.Franchise.HaskellPolicy
-    ( enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy ) where
+    ( enforceLineLength, enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy ) where
 
 import Data.Maybe ( catMaybes )
 import Data.List ( isPrefixOf, isSuffixOf )
 
 import Distribution.Franchise.ConfigureState
-import Distribution.Franchise.Trie ( keysT )
+import Distribution.Franchise.Trie ( keysT, toListT )
 import Distribution.Franchise.Buildable ( getTarget )
-import Distribution.Franchise.StringSet ( toListS )
+import Distribution.Franchise.StringSet ( toListS, unionallS )
 import Distribution.Franchise.Util ( cat )
+
+
+-- | Enforce a line-length policy.
+
+enforceLineLength :: Int -> C ()
+enforceLineLength l =
+    do badfs <- haskellSource >>= mapM checkLength
+       case concat badfs of
+         [] -> return ()
+         [f] -> fail ("Long lines found in "++f)
+         fs -> fail ("Long lines found in files "++unwords fs)
+    where checkLength :: FilePath -> C [String]
+          checkLength f =
+              do x <- cat f `catchC` \_ -> return []
+                 if any (> l) $ map length $ lines x
+                   then return [f]
+                   else return []
+
+sources :: C [FilePath]
+sources = (toListS . unionallS . map dependencies . map snd . toListT) `fmap` getTargets
+
+haskellSource :: C [FilePath]
+haskellSource = filter isHaskell `fmap` sources
+                   
+
+isHaskell :: FilePath -> Bool
+isHaskell x | ".preproc/" `isPrefixOf` x = False
+isHaskell x = "hs" `isSuffixOf` x || ".hsc" `isSuffixOf` x ||
+              "hs.in" `isSuffixOf` x
+
 
 -- | Enforce a policy of no-tabs-in-haskell-source.  I highly
 -- recommend this.  Of course, you may only wish to check this in your
@@ -49,8 +79,7 @@ import Distribution.Franchise.Util ( cat )
 
 enforceNoTabs :: C ()
 enforceNoTabs =
-    do ts <- getTargets
-       badfs <- mapM checkTabs $ filter isHaskell $ toListS $ keysT ts
+    do badfs <- haskellSource >>= mapM checkTabs
        case concat badfs of
          [] -> return ()
          [f] -> fail ("Tabs found in "++f)
@@ -60,8 +89,6 @@ enforceNoTabs =
                            if '\t' `elem` x
                               then return [f]
                               else return []
-          isHaskell x = "hs" `isSuffixOf` x || ".hsc" `isSuffixOf` x ||
-                        "hs.in" `isSuffixOf` x
 
 -- | Enforce module privacy.  For details, see
 --   <../13-enforcePrivacy.html>

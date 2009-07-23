@@ -277,7 +277,8 @@ instance Monad C where
                                                                  (packageModuleMap ts'))
     return x = C (\ts -> return $ Right (x, ts))
     fail e = do putV $ "failure: "++ e
-                C (\ts -> return $ Left $ Err e (getPersistentStuff ts) (packageModuleMap ts))
+                C (\ts -> return $ Left $ Err e (getPersistentStuff ts)
+                                                (packageModuleMap ts))
 
 getPersistentStuff :: TotalState -> [(String,String)]
 getPersistentStuff ts = catMaybes $ map lookupone $ persistentThings ts
@@ -298,7 +299,8 @@ oneJob = (==1) `fmap` getNumJobs
 
 -- | Change current subdirectory.
 cd :: String -> C ()
-cd d = C (\ts -> return $ Right ((), ts { currentSubDirectory = cdd $ currentSubDirectory ts }))
+cd d = C (\ts -> return $ Right ((), ts { currentSubDirectory =
+                                              cdd $ currentSubDirectory ts }))
     where cdd Nothing = Just d
           cdd (Just oldd) = Just (oldd++"/"++d)
 
@@ -426,7 +428,8 @@ catchC (C a) b = C $ \ts ->
                       Right (Left err) ->
                           unC (b $ failMsg err) $
                           ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
-                               configureState = insertSeveralT (persistentExtras err) $ configureState ts }
+                               configureState = insertSeveralT (persistentExtras err) $
+                                                               configureState ts }
                       Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()

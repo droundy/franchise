@@ -74,10 +74,12 @@ setOutputDirectory odir =
            oldodirs = filter (/=".") $ filter (not.null) $
                       catMaybes $ map (stripPrefix "-odir") fs
            rmoldodirs [] x = x
-           rmoldodirs (o:os) x = rmoldodirs os (x \\ ["-odir"++o, "-hidir"++o,"-stubdir"++o, "-i"++o])
+           rmoldodirs (o:os) x = rmoldodirs os
+                                 (x \\ ["-odir"++o, "-hidir"++o,"-stubdir"++o, "-i"++o])
        if odir == "."
          then putExtra "ghcFlags" fs'
-         else putExtra "ghcFlags" $ ["-odir"++odir,"-hidir"++odir,"-stubdir"++odir,"-i"++odir]++fs'
+         else putExtra "ghcFlags" $ ["-odir"++odir,"-hidir"++odir,
+                                     "-stubdir"++odir,"-i"++odir]++fs'
 
 -- | Add the specified flags to the list of flags passed to ghc for
 -- compiling C files.
@@ -207,7 +209,8 @@ getPrefix =
                        if "--user" `elem` pkgflgs
                          then io $ getAppUserDataDirectory "cabal"
                          else if amwindows
-                              then maybe "C:\\Program Files\\Haskell" (++ "\\Haskell") `fmap` getEnv "ProgramFiles"
+                              then maybe "C:\\Program Files\\Haskell"
+                                       (++ "\\Haskell") `fmap` getEnv "ProgramFiles"
                               else return "/usr/local"
 
 getLibDir :: C String

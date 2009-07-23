@@ -129,24 +129,23 @@ ghcDeps dname src announceme =
                        filter notcomment . lines
            notcomment ('#':_) = False
            notcomment _ = True
-       addTarget $ [dname] :< (ghcRelatedConfig++cleandeps x++map init hscs)
-                  :<- defaultRule { make = builddeps }
-  where builddeps _ = do announceme
-                         rm dname
-                         unlessC (io $ doesFileExist ".package.conf") $
-                                 io $ writeFile ".package.conf" "[]"
-                         x <- seekPackages (run $ ghc Nothing systemErr $
+       rule [dname] (ghcRelatedConfig++cleandeps x++map init hscs) builddeps
+  where builddeps = do announceme
+                       rm dname
+                       unlessC (io $ doesFileExist ".package.conf") $
+                               io $ writeFile ".package.conf" "[]"
+                       x <- seekPackages (run $ ghc Nothing systemErr $
                                                     ["-M"
 #if __GLASGOW_HASKELL__ >= 610
-                                                            ,"-dep-makefile"
+                                                    ,"-dep-makefile"
 #else
-                                                            ,"-optdep-f"
+                                                    ,"-optdep-f"
 #endif
-                                                            ,"-optdep"++dname] ++ src)
-                         case x of
-                           [] -> return ()
-                           [_] -> putS $ "Added package "++ unwords x++"..."
-                           _ -> putS $ "Added packages "++ unwords x++"..."
+                                                    ,"-optdep"++dname] ++ src)
+                       case x of
+                         [] -> return ()
+                         [_] -> putS $ "Added package "++ unwords x++"..."
+                         _ -> putS $ "Added packages "++ unwords x++"..."
 
 hiIsInPackage :: [String] -> String -> C (Maybe String)
 hiIsInPackage pn hi =
@@ -171,7 +170,8 @@ privateExecutable  simpleexname src0 cfiles =
        checkMinimumPackages
        aminwin <- amInWindows
        exname <- if aminwin
-                 then do putV $ "calling the executable "++simpleexname++" "++simpleexname++".exe"
+                 then do putV $ unwords $ "calling the executable":
+                                          simpleexname:simpleexname:[".exe"]
                          return (simpleexname++".exe")
                  else return simpleexname
        whenJust (directoryPart src0) $ \d -> ghcFlags ["-i"++d, "-I"++d]
@@ -210,8 +210,9 @@ privateExecutable  simpleexname src0 cfiles =
 
        addTarget $ [exname, phony simpleexname]
                   :< (src:objs++cobjs++maybe [] (\x -> [libname x]) pn)
-                  :<- defaultRule { make = mk, clean = \b -> depend : map (stubit "o") objs ++
-                                                                      map (stubit "c") objs ++ cleanIt b }
+                  :<- defaultRule { make = mk,
+                                    clean = \b -> depend : map (stubit "o") objs ++
+                                                  map (stubit "c") objs ++ cleanIt b }
        addDependencies (phony "build") [exname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
@@ -257,35 +258,34 @@ package pn modules cfiles =
        packageProvidesModules (maybe pn id xpn) (map objToModName mods)
        deps <- packages
        let hiddenmodules = map objToModName mods \\ modules
-           makeconfig _ =do mai <- getMaintainer
-                            mkFile (pn++".config") $ unlines
-                                          ["name: "++pn,
-                                           "version: "++ver,
-                                           "maintainer: "++mai,
-                                           "exposed-modules: "++unwords modules,
-                                           "hidden-modules: "++unwords hiddenmodules,
-                                           "hs-libraries: "++pn,
-                                           "extra-libraries: "++unwords libs,
-                                           "extra-lib-dirs: "++unwords libdirs,
-                                           "exposed: True",
-                                           "depends: "++commaWords deps]
+           makeconfig = do mai <- getMaintainer
+                           mkFile (pn++".config") $ unlines
+                                         ["name: "++pn,
+                                          "version: "++ver,
+                                          "maintainer: "++mai,
+                                          "exposed-modules: "++unwords modules,
+                                          "hidden-modules: "++unwords hiddenmodules,
+                                          "hs-libraries: "++pn,
+                                          "extra-libraries: "++unwords libs,
+                                          "extra-lib-dirs: "++unwords libdirs,
+                                          "exposed: True",
+                                          "depends: "++commaWords deps]
        mhaddockdir <- getExtraData "haddock-directory"
        let haddockdir = maybe "haddock" id mhaddockdir
        (preprocsources, coloredfiles) <- preprocessedTargets his haddockdir
-       addTarget $ [phony "haddock", haddockdir++"/index.html"] :<
-                     (map (".preproc/"++) preprocsources ++ coloredfiles)
-           :<- defaultRule { make = const $
-                               do -- rm_rf haddockdir
-                                  mkdir haddockdir
-                                  mcss <- getExtraData "css"
-                                  let cssflag = maybe [] (\f -> ["--css",f]) mcss
-                                  cd ".preproc"
-                                  sourceflags <- withProgram "HsColour" ["hscolour"] $ const $
-                                                 return ["--source-module", "%F.html",
-                                                         "--source-entity", "%F.html#%{NAME}"]
-                                  system "haddock" ("-h":preprocsources++
-                                                    concatMap (\hm -> ["--hide",hm]) hiddenmodules++
-                                                    cssflag++sourceflags++["-o","../"++haddockdir]) }
+       rule [phony "haddock", haddockdir++"/index.html"]
+            (map (".preproc/"++) preprocsources ++ coloredfiles) $
+            do -- rm_rf haddockdir
+               mkdir haddockdir
+               mcss <- getExtraData "css"
+               let cssflag = maybe [] (\f -> ["--css",f]) mcss
+               cd ".preproc"
+               sourceflags <- withProgram "HsColour" ["hscolour"] $ const $
+                              return ["--source-module", "%F.html",
+                                      "--source-entity", "%F.html#%{NAME}"]
+               system "haddock" ("-h":preprocsources++
+                                 concatMap (\hm -> ["--hide",hm]) hiddenmodules++
+                                 cssflag++sourceflags++["-o","../"++haddockdir])
        let ccompile f | takeWhile (/='.') (reverse f) == "c" =
                           do let o = "dist/"++pn++"/"++takeAllBut 2 f++".o"
                              compile_C o f >>= addTarget
@@ -296,8 +296,7 @@ package pn modules cfiles =
                              return o
                       | otherwise = return f
        cobjs <- mapM ccompile cfiles
-       addTarget $ [pn++".config"] :< [depend, extraData "version"]
-                    :<- defaultRule { make = makeconfig }
+       rule [pn++".config"] [depend, extraData "version"] makeconfig
        libdir <- getLibDir
        addTarget $ ["lib"++pn++".a", phony (pn++"-package")]
                   :< ((pn++".config"):mods++his++cobjs)
@@ -342,21 +341,22 @@ cabal pn modules =
                                 case mval of
                                   Nothing -> return ()
                                   Just v -> io $ appendFile f $ d++": "++v++"\n"
-           makecabal  _ =do mai <- getMaintainer
-                            mkFile (pn++".cabal") $ unlines
-                                          ["name: "++pn,
-                                           "version: "++ver,
-                                           "maintainer: "++mai,
-                                           "exposed-modules: "++unwords modules,
-                                           "extra-libraries: "++unwords libs,
-                                           "build-type: Custom",
-                                           "build-depends: "++commaWords (map guessVersion deps)]
-                            mapM_ (appendExtra (pn++".cabal"))
-                                  ["author", "license", "copyright", "homepage", "bug-reports",
-                                   "stability", "package-url", "tested-with", "license-file",
-                                   "category", "synopsis", "description"]
-       addTarget $ [pn++".cabal"] :< [depend, extraData "version"]
-                    :<- defaultRule { make = makecabal }
+           makecabal = do mai <- getMaintainer
+                          mkFile (pn++".cabal") $ unlines
+                                 ["name: "++pn,
+                                  "version: "++ver,
+                                  "maintainer: "++mai,
+                                  "exposed-modules: "++unwords modules,
+                                  "extra-libraries: "++unwords libs,
+                                  "build-type: Custom",
+                                  "build-depends: "++commaWords (map guessVersion deps)]
+                          mapM_ (appendExtra (pn++".cabal"))
+                                ["author", "license", "copyright", "homepage",
+                                 "bug-reports",
+                                 "stability", "package-url", "tested-with",
+                                 "license-file",
+                                 "category", "synopsis", "description"]
+       rule [pn++".cabal"] [depend, extraData "version"] makecabal
        setOutputDirectory "."
        return [pn++".cabal"]
 
@@ -369,21 +369,17 @@ preprocessedTargets his haddockdir =
                           compileit <- ghc Nothing system
                                        ["-cpp","-E","-optP-P","-D__HADDOCK__",
                                         s, "-o", preprocs]
-                          addTarget $ [preprocs] :< [s] :<-
-                            defaultRule { make = const $
-                                          do mkdir $ dirname preprocs
-                                             compileit}
-                          wd <- rememberDirectory
+                          rule [preprocs] [s] $ do mkdir $ dirname preprocs
+                                                   compileit
                           let haddockname = haddockdir++"/"++s++".html"
                           scolor <- withProgram "HsColour" ["hscolour"] $ \hscolour ->
-                                    do addTarget $ [haddockname] :< [s] :<-
-                                                 defaultRule { make = const $ wd $
-                                                               do mkdir $ dirname (haddockdir++"/"++s)
-                                                                  ls $ dirname (haddockdir++"/"++s)
-                                                                  system hscolour ["-html","-anchor",s,
-                                                                                   "-o"++haddockname]
-                                                                  xxx <- cat haddockname
-                                                                  writeF haddockname $ fixAnchors xxx }
+                                    do rule [haddockname] [s] $
+                                            do mkdir $ dirname (haddockdir++"/"++s)
+                                               ls $ dirname (haddockdir++"/"++s)
+                                               system hscolour ["-html","-anchor",s,
+                                                                "-o"++haddockname]
+                                               xxx <- cat haddockname
+                                               writeF haddockname $ fixAnchors xxx
                                        return [haddockdir++"/"++s++".html"]
                           return (s,scolor)
        (pp,cf) <- unzip `fmap` mapM preproc sources
@@ -406,7 +402,8 @@ preprocessedTargets his haddockdir =
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
     do ver <- getVersion
-       let destination = libdir++"/"++pn++"-"++ver++"/"++compilerName++concatMap (('.':) . show) (versionBranch compilerVersion)
+       let destination = libdir++"/"++pn++"-"++ver++"/"++compilerName
+                         ++concatMap (('.':) . show) (versionBranch compilerVersion)
        config <- cat (pn++".config")
        mkFile (pn++".cfg") $ unlines [config,
                                       "import-dirs: "++ show destination,
@@ -432,15 +429,18 @@ installPackageInto pn libdir =
                 mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
                 case mpf of
                   Nothing -> do x <- getEnv "GHC_PACKAGE_PATH"
-                                case x of -- clear GHC_PACKAGE_PATH, which might not contain ~/.ghc/...
+                                case x of -- clear GHC_PACKAGE_PATH,
+                                          -- which might not contain ~/.ghc/...
                                   Just _ -> unsetEnv "GHC_PACKAGE_PATH"
                                   Nothing -> return ()
-                                system "ghc-pkg" $ pkgflags ++ ["update","--auto-ghci-libs",pn++".cfg"]
+                                system "ghc-pkg" $ pkgflags++
+                                           ["update","--auto-ghci-libs",pn++".cfg"]
                                 case x of
                                   Just xx -> setEnv "GHC_PACKAGE_PATH" xx
                                   Nothing -> return ()
                   Just pf -> system "ghc-pkg" $ filter (/="--user") pkgflags ++
-                             ["update","--auto-ghci-libs",pn++".cfg", "--package-conf="++pf]
+                             ["update", "--auto-ghci-libs",
+                              pn++".cfg", "--package-conf="++pf]
 
 objToModName :: String -> String
 objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap . breakDirs . takeAllBut 2
@@ -496,7 +496,8 @@ parseDeps ops pn extradeps x =
 
 hsc2hs :: (String -> [String] -> C a) -> [String] -> C a
 hsc2hs sys args = do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
-                     defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v)) `fmap` getDefinitions
+                     defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v))
+                             `fmap` getDefinitions
                      cf <- map ("--cflag="++) `fmap` getCFlags
                      ld <- map ("--lflag="++) `fmap` getLdFlags
                      let opts = fl ++ defs ++ ld ++ cf
@@ -681,15 +682,17 @@ lookForModuleExporting m i c =
 -- of the functions you're checking to see exported.  See also
 -- <../99-requireExporting.html>
 
-requireModuleExporting :: String -- ^ module name, e.g. System.Exit
-                       -> String -- ^ export list, e.g. ExitCode, exitWith
-                       -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
-                       -> C ()
-requireModuleExporting m i c = requireWithPrereq ("module "++m++" exporting "++i)
-                                                 ("module "++m++" exporting "++i++" with code "++c)
-                                                 packages $
-                               unlessC (lookForModuleExporting m i c) $
-                                   fail $ "can't use module "++m :: C ()
+requireModuleExporting
+    :: String -- ^ module name, e.g. System.Exit
+    -> String -- ^ export list, e.g. ExitCode, exitWith
+    -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
+    -> C ()
+requireModuleExporting m i c =
+    requireWithPrereq ("module "++m++" exporting "++i)
+                      ("module "++m++" exporting "++i++" with code "++c)
+                      packages $
+                      unlessC (lookForModuleExporting m i c) $
+                               fail $ "can't use module "++m :: C ()
 
 -- | If the specified module is available (and exports the right stuff), do something.
 
@@ -715,11 +718,12 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
           lookForPackages x@(_,e) =
               csum [case mungeMissingModule e of
                       Nothing -> fail e
-                      Just m -> do mrule <- findRuleForModule m
-                                   case mrule of
-                                     Just rulename -> do putV $ "found "++rulename
-                                                         runghcErr >>= lookForPackages
-                                     Nothing -> fail $ "we don't seem to have any source for "++m,
+                      Just m ->
+                          do mrule <- findRuleForModule m
+                             case mrule of
+                               Just rulename -> do putV $ "found "++rulename
+                                                   runghcErr >>= lookForPackages
+                               Nothing -> fail $ "we don't seem to have any source for "++m,
                     case mungePackage e of
                       Nothing -> fail e
                       Just p -> do addPackages [p]
@@ -736,35 +740,36 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                                       tryThesePackages m ps
           tryThesePackages m [] = fail $ "couldn't find package for module "++m++"!"
           tryThesePackages m [p] =
-                        do putV $ "looking for module "++m++" in package "++p++"..."
-                           addPackages [p]
-                           x2 <- runghcErr
-                           case x2 of
-                             (ExitSuccess,_) -> return [p]
-                             (z,e) ->
-                                 case mungeMissingModule e of
-                                   Just m' | m' /= m -> (p:) `fmap` lookForPackages (z,e)
-                                   _ -> fail $ "couldn't use package "++p++" for module "++m++"!"
+               do putV $ "looking for module "++m++" in package "++p++"..."
+                  addPackages [p]
+                  x2 <- runghcErr
+                  case x2 of
+                    (ExitSuccess,_) -> return [p]
+                    (z,e) ->
+                        case mungeMissingModule e of
+                          Just m' | m' /= m -> (p:) `fmap` lookForPackages (z,e)
+                          _ -> fail $ "couldn't use package "++p++" for module "++m++"!"
           tryThesePackages m (p:ps) =
-                        do putV $ "looking for module "++m++" in package "++p++"..."
-                           addPackages [p]
-                           x2 <- runghcErr
-                           case x2 of
-                             (ExitSuccess,_) -> return [p]
-                             (z,e) ->
-                                 case mungeMissingModule e of
-                                   Just m' | m' /= m -> csum [do ps' <- lookForPackages (z,e)
-                                                                 return (p:ps')
-                                                             ,tryagain]
-                                   _ -> tryagain
-                       where tryagain = do removePackages [p]
-                                           tryThesePackages m ps
+               do putV $ "looking for module "++m++" in package "++p++"..."
+                  addPackages [p]
+                  x2 <- runghcErr
+                  case x2 of
+                    (ExitSuccess,_) -> return [p]
+                    (z,e) ->
+                        case mungeMissingModule e of
+                          Just m' | m' /= m -> csum [do ps' <- lookForPackages (z,e)
+                                                        return (p:ps')
+                                                    ,tryagain]
+                          _ -> tryagain
+              where tryagain = do removePackages [p]
+                                  tryThesePackages m ps
 
 mungeMissingModule :: String -> Maybe String
 mungeMissingModule [] = Nothing
-mungeMissingModule x@(_:r) = msum [takeWhile (/='\'') `fmap` stripPrefix "load interface for `" x,
-                                   takeWhile (/='\'') `fmap` stripPrefix "not find module `" x,
-                                   mungeMissingModule r]
+mungeMissingModule x@(_:r) =
+    msum [takeWhile (/='\'') `fmap` stripPrefix "load interface for `" x,
+          takeWhile (/='\'') `fmap` stripPrefix "not find module `" x,
+          mungeMissingModule r]
 
 mungePackage :: String -> Maybe String
 mungePackage [] = Nothing
@@ -790,7 +795,8 @@ findRuleForModule m =
            topath x = x
            comb "." ('/':x) = x
            comb d x = d ++ x
-       haverule <- filterM (fmap isJust . getTarget) $ concatMap (\p -> [comb p hsname,comb p lhsname]) ps
+       haverule <- filterM (fmap isJust . getTarget) $
+                   concatMap (\p -> [comb p hsname,comb p lhsname]) ps
        x <- filterM (io . doesFileExist) $ map (++hscname) ps
        case haverule of
          (hs:_) -> do build' CanModifyState hs
@@ -803,13 +809,13 @@ addHsc :: String -> C ()
 addHsc hsc = do hscs <- getHscs
                 putExtra "hsc2hs" $ nub (hsc:hscs)
                 let hscit = hsc2hs system [hsc]
-                addTarget $ [init hsc] :< [hsc] :<- defaultRule { make = const hscit }
+                rule [init hsc] [hsc] hscit
                 hscit
 
 getHscs :: C [String]
 getHscs = do hscs <- getExtra "hsc2hs"
-             mapM_ (\hsc -> addTarget $ [dropdotslash $ init hsc] :< [dropdotslash hsc]
-                            :<- defaultRule { make = const $ hsc2hs system [hsc] }) hscs
+             mapM_ (\hsc -> rule [dropdotslash $ init hsc] [dropdotslash hsc]
+                                 $ hsc2hs system [hsc]) hscs
              return hscs
     where dropdotslash ('.':'/':r) = dropdotslash $ dropWhile (=='/') r
           dropdotslash x = x

@@ -29,48 +29,49 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise ( -- * The recommended API is defined in the module Distribution.Franchise_1.
-                                module Distribution.Franchise.V1,
-                                -- * The rest of the API defined below is either deprecated or experimental!
-                                buildWithArgs,
-                                buildTarget,
-                                installBin, addTarget,
-                                csum,
-                                -- | test suite helpers
-                                testOutput,
-                                testResultsFile,
-                                -- | The constructors are exported so users
-                                -- can construct arbitrarily complex build
-                                -- systems, hopefully.
-                                Dependency(..), Buildable, (|<-), BuildRule(..),
-                                defaultRule,
-                                -- | some handy utilities for writing checks
-                                cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce,
-                                -- | Handy module-searching
-                                lookForModule, lookForModuleExporting,
-                                -- | Searching for an executable
-                                lookForLib, checkHeader, withHeader,
-                                findPackagesFor,
-                                withLibOutput,
-                                -- | defining package properties
-                                haveExtraData,
-                                -- | Various utilities for interfacing with darcs
-                                darcsDist,
-                                -- | generalized version control support
-                                inDarcs, inGit,
-                                -- | utilities for autoheader files
-                                autoHeader,
-                                -- | setting compile parameters
-                                rmGhcFlags, setOutputDirectory,
-                                -- | utility for running external code
-                                systemInOut,
-                                systemOutErrToFile,
-                                rememberDirectory,
-                                -- | string-processing...
-                                stripPrefix,
-                                -- | for handy preprocessing...
-                                splitFile,
-                                extraData )
+module Distribution.Franchise
+    ( -- * The recommended API is defined in the module Distribution.Franchise_1.
+      module Distribution.Franchise.V1,
+      -- * The rest of the API defined below is either deprecated or experimental!
+      buildWithArgs,
+      buildTarget,
+      installBin, addTarget,
+      csum,
+      -- | test suite helpers
+      testOutput,
+      testResultsFile,
+      -- | The constructors are exported so users
+      -- can construct arbitrarily complex build
+      -- systems, hopefully.
+      Dependency(..), Buildable, (|<-), BuildRule(..),
+      defaultRule,
+      -- | some handy utilities for writing checks
+      cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce,
+      -- | Handy module-searching
+      lookForModule, lookForModuleExporting,
+      -- | Searching for an executable
+      lookForLib, checkHeader, withHeader,
+      findPackagesFor,
+      withLibOutput,
+      -- | defining package properties
+      haveExtraData,
+      -- | Various utilities for interfacing with darcs
+      darcsDist,
+      -- | generalized version control support
+      inDarcs, inGit,
+      -- | utilities for autoheader files
+      autoHeader,
+      -- | setting compile parameters
+      rmGhcFlags, setOutputDirectory,
+      -- | utility for running external code
+      systemInOut,
+      systemOutErrToFile,
+      rememberDirectory,
+      -- | string-processing...
+      stripPrefix,
+      -- | for handy preprocessing...
+      splitFile,
+      extraData )
     where
 
 import Distribution.Franchise.V1

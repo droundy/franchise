@@ -57,7 +57,8 @@ readPkgMappings = do x <- getPackageConfs
                          addmods ((m,p):r) trie = addmods r $ alterT m (mycons p) trie
                              where mycons pp Nothing = Just [pp]
                                    mycons pp (Just ps) = Just (pp:ps)
-                     -- putS $ unlines $ ("HERE ARE THE MAPS" :) $ map show $ toListT $ addmods (concatMap mods $ concat pinfos) emptyT
+                     -- putS $ unlines $ ("HERE ARE THE MAPS" :) $ map show $
+                     --    toListT $ addmods (concatMap mods $ concat pinfos) emptyT
                      return $ addmods (concatMap mods $ concat pinfos) emptyT
 
 getPackageConfs :: C [String]
