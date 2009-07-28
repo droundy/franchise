@@ -96,13 +96,15 @@ flag n h j = return $ FF $ Option [] [n] (NoArg j') h
 --
 -- @
 -- main = 'build' ['unlessFlag' \"no-foo\"
---                 \"do not define FOO environment variable\" $ 'define' \"FOO\"]
+--                 \"do not define FOO environment variable\" $
+--                 'define' \"FOO\"]
 -- @
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag
 unlessFlag n h j = do addHook n j'
                       flag n h (addExtra flagn "here")
-    where j' = unlessC (haveExtraData flagn) (putD ("handling missing flag --"++n) >> j)
+    where j' = unlessC (haveExtraData flagn)
+                 (putD ("handling missing flag --"++n) >> j)
           flagn = "flag-"++n
 
 withEnv :: String -> (String -> C ()) -> C ()
@@ -124,20 +126,22 @@ handleArgs optsc =
        whenC amConfiguring $ addHook "disable-optimize" $ ghcFlags ["-O2"]
        opts <- map unFF `fmap` sequence optsc
        let header = unwords (myname:map inbrackets validCommands) ++" OPTIONS"
-           validCommands = ["configure","build","clean","install"] -- should be in monad
+           validCommands = ["configure","build","clean","install"]
            inbrackets x = "["++x++"]"
            defaults = [ Option ['h'] ["help"] (NoArg showUsage)
                                    "show usage info",
                         Option [] ["user"]
                           (NoArg $ pkgFlags ["--user"]) "install as user",
                         Option [] ["disable-optimization","disable-optimize"]
-                          (NoArg $ addHook "disable-optimize" $ rmGhcFlags ["-O2","-O"])
+                          (NoArg $ addHook "disable-optimize" $
+                                 rmGhcFlags ["-O2","-O"])
                           "disable optimization",
                         Option [] ["verbose"] (OptArg setVerbose "VERBOSITY")
                           ("Control verbosity (default verbosity level is 1)"),
                         Option [] ["debug"] (NoArg $ setVerbose $ Just "3")
                           ("Enable debug output (verbosity level 3)"),
-                        Option [] ["no-remove"] (NoArg $ putExtra "noRemove" [()])
+                        Option [] ["no-remove"]
+                                   (NoArg $ putExtra "noRemove" [()])
                           ("Prevent deletion of temporary files"),
                         Option [] ["prefix"]
                           (ReqArg ("prefix" <<=) "PATH")
@@ -152,7 +156,8 @@ handleArgs optsc =
                           (ReqArg ("libsubdir" <<=) "PATH")
                           "install in libsubdir",
                         Option ['j'] ["jobs"]
-                          (OptArg (\v -> setNumJobs $ maybe 1000 id (v >>= readM) ) "N")
+                          (OptArg (\v -> setNumJobs $
+                                         maybe 1000 id (v >>= readM) ) "N")
                           "run N jobs in parallel; infinite jobs with no arg.",
                         Option [] ["package"]
                                  (ReqArg (\p -> addPackages [p]) "PACKAGE-NAME")

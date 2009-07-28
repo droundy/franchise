@@ -32,7 +32,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.StringSet ( StringSet(..), nullS, emptyS, elemS,
                                           fromListS, toListS, foreachS,
                                           unionS, unionallS,
-                                          addS, addsS, delS, delsS, lengthS ) where
+                                          addS, addsS, delS, delsS,
+                                          lengthS ) where
 
 import Data.Maybe ( catMaybes )
 
@@ -104,7 +105,7 @@ addsS :: [String] -> StringSet -> StringSet
 addsS [] x = x
 addsS (s:ss) x = addsS ss $ addS s x
 
-delsS :: [String] -> StringSet -> StringSet                      
+delsS :: [String] -> StringSet -> StringSet
 delsS [] x = x
 delsS (s:ss) x = delsS ss $ delS s x
 

@@ -107,10 +107,11 @@ requireWithPrereqActionWithFeedback action name longname prereq check =
        checkval <- getExtra checkname
        case checkval of
          ("FAIL":e:v') | v' == v -> fail e
-         (('P':'A':'S':'S':rest): v') | v' == v && isJust aval -> return (fromJust aval)
-                     where aval = case reads $ dropWhile (`elem` "\r\n\t ") rest of
-                                    ((r,_):_) -> Just r
-                                    _ -> Nothing
+         (('P':'A':'S':'S':rest): v')
+             | v' == v && isJust aval -> return (fromJust aval)
+             where aval = case reads $ dropWhile (`elem` "\r\n\t ") rest of
+                            ((r,_):_) -> Just r
+                            _ -> Nothing
          z -> do putD $ "found confirmation "++ show z ++ " on "++ name
                  putSnoln $ action++" "++name++" ... "
                  (out,x) <- quietly check
@@ -136,5 +137,6 @@ cleanName "" = ""
 cleanName ('(':r) = cleanName $ drop 1 $ dropWhile (/= ')') r
 cleanName ('\'':r) = cleanName r
 cleanName ('"':r) = cleanName r
-cleanName (c:r) | c `elem` "/\\\n\t \r><," = '-' : dropWhile (=='-') (cleanName r)
+cleanName (c:r) | c `elem` "/\\\n\t \r><," =
+                    '-' : dropWhile (=='-') (cleanName r)
                 | otherwise = c : cleanName r

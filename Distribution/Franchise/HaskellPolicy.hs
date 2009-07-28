@@ -32,7 +32,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 
 module Distribution.Franchise.HaskellPolicy
-    ( enforceLineLength, enforceNoTabs, enforceAllPrivacy, enforceModulePrivacy ) where
+    ( enforceLineLength, enforceNoTabs,
+      enforceAllPrivacy, enforceModulePrivacy ) where
 
 import Data.Maybe ( catMaybes )
 import Data.List ( isPrefixOf, isSuffixOf )
@@ -61,11 +62,11 @@ enforceLineLength l =
                    else return []
 
 sources :: C [FilePath]
-sources = (toListS . unionallS . map dependencies . map snd . toListT) `fmap` getTargets
+sources = (toListS . unionallS . map dependencies . map snd . toListT)
+          `fmap` getTargets
 
 haskellSource :: C [FilePath]
 haskellSource = filter isHaskell `fmap` sources
-                   
 
 isHaskell :: FilePath -> Bool
 isHaskell x | ".preproc/" `isPrefixOf` x = False
@@ -124,7 +125,7 @@ enforceModulePrivacy modules =
                                  unwords bad)
               | otherwise = do --putS $ m ++ " is prefix of "++x
                                checkM x ms ds
-       
+
 sourceToModule :: FilePath -> Maybe String
 sourceToModule "" = Nothing
 sourceToModule (x:xs)

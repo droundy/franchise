@@ -118,7 +118,8 @@ haveExtraData d = isJust `fmap` getExtraData d
 
 (<<=) :: String -> String -> C ()
 d <<= v = do x <- gets configureState
-             C $ \ts -> return $ Right ((), ts { configureState = insertT d v x })
+             C $ \ts -> return $ Right ((),
+                                        ts { configureState = insertT d v x })
 
 rmExtra :: String -> C ()
 rmExtra d = do x <- gets configureState
@@ -135,7 +136,8 @@ readConfigureState d =
     do alles <- readDirectory d'
        let es = filter ((/= '.') . head) alles
        vs <- mapM (\e -> io $ readFile' (d'++e)) es
-       C $ \ts -> return $ Right ((),ts { configureState=fromListT (zip es vs) })
+       C $ \ts -> return $ Right ((),
+                                  ts { configureState=fromListT (zip es vs) })
       where d' = case reverse d of ('/':_) -> d
                                    _ -> d++"/"
             readFile' f = do x <- readFile f
@@ -155,14 +157,16 @@ writeConfigureState d =
 persistExtra :: String -> C ()
 persistExtra v =
     C $ \ts ->
-    return $ Right ((), ts { persistentThings = v : delete v (persistentThings ts) })
+    return $ Right ((), ts { persistentThings =
+                                 v : delete v (persistentThings ts) })
 
 writeF :: String -> String -> C ()
 writeF "" _ = fail "Cannot writeF file with empty filename!"
 writeF x0 y = do x <- processFilePath x0
                  mkdir $ dirname x0
                  y' <- io (readFile x) `catchC` \_ -> return ('x':y)
-                 whenC (return $ length y /= length y' || y /= y') $ io $ writeFile x y
+                 whenC (return $ length y /= length y' || y /= y') $
+                       io $ writeFile x y
 
 readDirectory :: String -> C [String]
 readDirectory d =
@@ -182,7 +186,8 @@ mkdir d0 = do d <- processFilePath d0
 -- without its directory.
 
 basename :: FilePath -> FilePath
-basename p = reverse (takeWhile isSep rp++ takeWhile (not.isSep) (dropWhile isSep rp))
+basename p = reverse (takeWhile isSep rp ++
+                      takeWhile (not.isSep) (dropWhile isSep rp))
     where rp = reverse p
 
 isSep :: Char -> Bool
@@ -273,9 +278,10 @@ instance Monad C where
            case mats' of
              Left e -> return (Left e)
              Right (a,ts') -> unC (g a) ts'
-                              `catch` \err -> return (Left $ Err (show err)
-                                                                 (getPersistentStuff ts')
-                                                                 (packageModuleMap ts'))
+                              `catch` \err ->
+                                  return (Left $ Err (show err)
+                                                     (getPersistentStuff ts')
+                                                     (packageModuleMap ts'))
     return x = C (\ts -> return $ Right (x, ts))
     fail e = do putV $ "failure: "++ e
                 C (\ts -> return $ Left $ Err e (getPersistentStuff ts)
@@ -311,14 +317,17 @@ withDirectory :: String -> C a -> C a
 withDirectory d f = do oldd <- gets currentSubDirectory
                        cd d
                        x <- f
-                       C $ \ts -> return $ Right ((), ts { currentSubDirectory = oldd })
+                       C $ \ts -> return $
+                                  Right ((), ts { currentSubDirectory = oldd })
                        return x
 
 withRootdir :: C a -> C a
 withRootdir f = do oldd <- gets currentSubDirectory
-                   C $ \ts -> return $ Right ((), ts { currentSubDirectory = Nothing })
+                   C $ \ts ->
+                       return $ Right ((), ts { currentSubDirectory = Nothing })
                    x <- f
-                   C $ \ts -> return $ Right ((), ts { currentSubDirectory = oldd })
+                   C $ \ts ->
+                       return $ Right ((), ts { currentSubDirectory = oldd })
                    return x
 
 rememberDirectory :: C (C a -> C a)
@@ -387,7 +396,8 @@ runC (C a) =
 defaultTargets :: Trie Target
 defaultTargets =
     insertT "*clean*" (Target emptyS emptyS $ putS "cleaning...") $
-    insertT "*install*" (Target emptyS (fromListS ["*build*"]) $ putS "installing...") $
+    insertT "*install*" (Target emptyS (fromListS ["*build*"]) $
+                                putS "installing...") $
     insertT "*build*" (Target emptyS emptyS $ putS "finished building.") $
     emptyT
 
@@ -395,7 +405,8 @@ getTargets :: C (Trie Target)
 getTargets = gets targets
 
 modifyTargets :: (Trie Target -> Trie Target) -> C ()
-modifyTargets f = C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
+modifyTargets f =
+    C $ \ts -> return $ Right ((), ts { targets = f $ targets ts })
 
 getModulePackageMap :: C (Maybe (Trie [String]))
 getModulePackageMap = gets packageModuleMap
@@ -525,7 +536,8 @@ silently (C j) =
          Left x -> return $ Left x
 
 setVerbose :: Maybe String -> C ()
-setVerbose v = C $ \ts -> return $ Right ((), ts { verbosity = readVerbosity Verbose v })
+setVerbose v = C $ \ts ->
+               return $ Right ((), ts { verbosity = readVerbosity Verbose v })
 
 readVerbosity :: Verbosity -> Maybe String -> Verbosity
 readVerbosity defaultV s = case (reads `fmap` s) :: Maybe [(Int,String)] of

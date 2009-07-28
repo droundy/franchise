@@ -30,9 +30,11 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise
-    ( -- * The recommended API is defined in the module Distribution.Franchise_1.
+    ( -- * The recommended API is defined in the module
+      -- Distribution.Franchise_1.
       module Distribution.Franchise.V1,
-      -- * The rest of the API defined below is either deprecated or experimental!
+      -- * The rest of the API defined below is either deprecated or
+      -- * experimental!
       buildWithArgs,
       buildTarget,
       installBin, addTarget,
@@ -91,6 +93,6 @@ import Distribution.Franchise.Program
 import Distribution.Franchise.ListUtils ( stripPrefix )
 import Distribution.Franchise.Replace ( replace, replaceLiteral, createFile )
 import Distribution.Franchise.Flags ( FranchiseFlag, flag, unlessFlag )
-import Distribution.Franchise.Persistency ( cacheifC, require,
-                                            requireWithFeedback, requireWithPrereq,
-                                            setOnce )
+import Distribution.Franchise.Persistency
+    ( cacheifC, require,
+      requireWithFeedback, requireWithPrereq, setOnce )

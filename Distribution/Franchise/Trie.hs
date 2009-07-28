@@ -64,14 +64,16 @@ takeOne x (y:ys) | x == y = Just ys
 takeOne _ [] = Nothing
 
 toListT :: Trie a -> [(String, a)]
-toListT (Trie b ls) = (case b of Just a -> [("",a)]; _ -> []) ++ concatMap toL ls
+toListT (Trie b ls) = (case b of Just a -> [("",a)]; _ -> [])
+                      ++ concatMap toL ls
     where toL (c,ss) = map (\(s,a) -> (c:s,a)) $ toListT ss
 
 fromListT :: [(String,a)] -> Trie a
 fromListT x = insertSeveralT x emptyT
 
 lengthT :: Trie a -> Int
-lengthT (Trie b ls) = sum (map (lengthT . snd) ls) + (case b of Just _ -> 1; _ -> 0)
+lengthT (Trie b ls) = sum (map (lengthT . snd) ls)
+                      + (case b of Just _ -> 1; _ -> 0)
 
 emptyT :: Trie a
 emptyT = Trie Nothing []
@@ -84,9 +86,10 @@ lookupT (c:cs) (Trie _ ls) = do ls' <- lookup c ls
 sloppyLookupKey :: String -> Trie a -> [String]
 sloppyLookupKey "" (Trie (Just _) _) = [""]
 sloppyLookupKey "" t = map fst $ toListT t
-sloppyLookupKey (c:cs) (Trie _ ls) = case lookup c ls of
-                                     Nothing -> []
-                                     Just ls' -> map (c:) $ sloppyLookupKey cs ls'
+sloppyLookupKey (c:cs) (Trie _ ls) =
+    case lookup c ls of
+    Nothing -> []
+    Just ls' -> map (c:) $ sloppyLookupKey cs ls'
 
 alterT :: String -> (Maybe a -> Maybe a) -> Trie a -> Trie a
 alterT "" f (Trie mv ls) = Trie (f mv) ls

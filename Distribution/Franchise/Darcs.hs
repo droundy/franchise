@@ -30,8 +30,9 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Darcs ( inDarcs, darcsDist, darcsRelease, darcsPatchLevel )
-    where
+module Distribution.Franchise.Darcs
+    ( inDarcs, darcsDist, darcsRelease, darcsPatchLevel )
+        where
 
 import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
                           getDirectoryContents )
@@ -64,7 +65,8 @@ darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
        simpleTarget ".releaseVersion" $ whenC inDarcs $ darcsRelease Numbered
-       simpleTarget ".latestRelease" $ whenC inDarcs $ darcsRelease NumberedPreRc
+       simpleTarget ".latestRelease" $
+                    whenC inDarcs $ darcsRelease NumberedPreRc
        simpleTarget ".lastTag" $ whenC inDarcs $ darcsRelease AnyTag
        simpleTarget ".releaseVersionPatchLevel" $
                     whenC inDarcs (darcsPatchLevel Numbered >> return ())

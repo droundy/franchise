@@ -30,10 +30,9 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Program ( findProgram, withProgram,
-                                        configurableProgram, withConfiguredProgram,
-                                        configuredProgram )
-    where
+module Distribution.Franchise.Program
+    ( findProgram, withProgram, configurableProgram, withConfiguredProgram,
+      configuredProgram ) where
 
 import System.Directory ( findExecutable )
 import Data.Monoid ( Monoid, mempty )
@@ -64,7 +63,8 @@ withProgram pname alts j = (findProgram pname alts >>= j)
 -- <../17-configured-program.html>).
 --
 -- @
---     main = 'build' ['configurableProgram' \"shell\" \"bash\" [\"dash\", \"shsh\",\"sh\"]] $
+--     main = 'build' ['configurableProgram'
+--                     \"shell\" \"bash\" [\"dash\", \"shsh\",\"sh\"]] $
 --            do sh <- 'configuredProgram' \"shell\"
 --               'system' sh [\"-c\", \"echo\", \"hello world\"]
 -- @

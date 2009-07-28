@@ -54,7 +54,8 @@ import Distribution.Franchise.Parallel ( mapC )
 test :: String -> C () -> C ()
 test n j = rule [phony n] [phony "build"] runtest
     where runtest =
-              do begin <- maybe (return ()) buildrule `fmap` getTarget "begin-test"
+              do begin <- maybe (return ()) buildrule
+                          `fmap` getTarget "begin-test"
                  (do begin
                      j
                      if "fail" `isPrefixOf` n
@@ -78,7 +79,8 @@ testOutput n o j = test n runtest
 
 testScript :: String -- ^ name of test
            -> String -- ^ name of 'configuredProgram' to run
-           -> String -- ^ a single argument to be passed to the executable (i.e. a script)
+           -> String -- ^ a single argument to be passed to the executable
+                     --   (i.e. a script)
            -> C ()
 testScript n r f = test n runtest
     where runtest = do sh <- configuredProgram r
@@ -140,25 +142,28 @@ testSuite tname ts0 =
                            else do whenC oneJob $ putSnoln $ pad t
                                    silently $ build' CannotModifyState t
                  if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
-                   then do unlessC (istesty t) $ announceResult " unexpectedly succeeded!"
+                   then do unlessC (istesty t) $
+                                   announceResult "unexpectedly succeeded!"
                            saveResult "pass-unexpected" t
                            return Surprise
-                   else do unlessC (istesty t) $ announceResult " ok"
+                   else do unlessC (istesty t) $ announceResult "ok"
                            saveResult "passed" t
                            return Passed
              `catchC` \e ->
                  do if "fail" `isPrefixOf` t || "*fail" `isPrefixOf` t
-                      then do unlessC (istesty t) $ announceResult " failed as expected."
+                      then do unlessC (istesty t) $
+                                      announceResult "failed as expected."
                               saveResult "failure-expected" t
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Expected
-                      else do unlessC (istesty t) $ announceResult " FAILED!"
+                      else do unlessC (istesty t) $ announceResult "FAILED!"
                               saveResult "failed" t
                               putV $ unlines $ map (\l->('|':' ':l)) $ lines e
                               return Failed
-            where announceResult r = do whenC oneJob $ putS r
-                                        unlessC oneJob $ putS $ pad t++r
-          istesty t = maybe False (elemS "*is-testy*" . dependencies) `fmap` getTarget t
+            where announceResult r = do whenC oneJob $ putS $ ' ':r
+                                        unlessC oneJob $ putS $ pad t++' ':r
+          istesty t = maybe False (elemS "*is-testy*" . dependencies)
+                      `fmap` getTarget t
 
 announceResults :: String -> Int -> Int -> Int -> Int -> C ()
 announceResults tname npassed 0 0 0 = putAll npassed tname "passed!"
@@ -177,14 +182,17 @@ announceResults tname npassed oddpass expectedfail nfailed =
 summarizeTestsIfMoreThan :: Int -> C ()
 summarizeTestsIfMoreThan n = do f <- getResultsFile
                                 failures <- lines `fmap` cat (f++"-failed")
-                                unepected <- lines `fmap` cat (f++"-pass-unexpected")
+                                unepected <- lines `fmap`
+                                             cat (f++"-pass-unexpected")
                                 passes <- lines `fmap` cat (f++"-passed")
-                                expected <- lines `fmap` cat (f++"-failure-expected")
+                                expected <- lines `fmap`
+                                            cat (f++"-failure-expected")
                                 when (length failures + length passes +
                                       length expected + length unepected > n) $
                                   do putS "\nIn summary:\n"
-                                     announceResults "test" (length passes) (length unepected)
-                                                            (length expected) (length failures)
+                                     announceResults "test"
+                                             (length passes) (length unepected)
+                                             (length expected) (length failures)
 
 getResultsFile :: C String
 getResultsFile = do x <- getExtra "test-results-file"

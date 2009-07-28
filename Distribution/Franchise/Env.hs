@@ -31,8 +31,9 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Env ( setEnv, getEnv, unsetEnv, addToPath, extraPath,
-                                    getEnvironment, getPrivateEnvironment ) where
+module Distribution.Franchise.Env
+    ( setEnv, getEnv, unsetEnv, addToPath, extraPath,
+      getEnvironment, getPrivateEnvironment ) where
 
 import Data.Maybe ( catMaybes )
 import Control.Monad ( msum )
@@ -94,10 +95,12 @@ getEnvironment = do pe <- getPrivateEnvironment
 addToPath :: FilePath -> C ()
 addToPath d = do amw <- amInWindows
                  if amw
-                     then do -- environment variables are case-insensitive on windows
-                             Just oldpath <- msum `fmap` sequence [getEnv "PATH",
-                                                                   getEnv "Path",
-                                                                   return $ Just ""]
+                     then do -- environment variables are
+                             -- case-insensitive on windows
+                             Just oldpath <- msum `fmap`
+                                             sequence [getEnv "PATH",
+                                                       getEnv "Path",
+                                                       return $ Just ""]
                              rmExtra "env-Path"
                              setEnv "PATH" $ d++';':oldpath
                      else do oldpath <- maybe "" id `fmap` getEnv "PATH"

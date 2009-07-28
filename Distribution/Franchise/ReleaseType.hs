@@ -31,7 +31,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.ReleaseType
-    ( ReleaseType(..), releaseRegexp, releaseFile, releasePredicate, releaseUnknown )
+    ( ReleaseType(..), releaseRegexp, releaseFile,
+      releasePredicate, releaseUnknown )
         where
 
 data ReleaseType = Numbered -- ^ consider the latest tag matching

@@ -27,7 +27,8 @@ main = build [] $
                                             return mempty
                               Just v -> case reads $ unlines v of
                                         (x,_):_ -> j x
-                                        _ -> j $ takeWhile (`notElem` "\r\n") $ unlines v
+                                        _ -> j $ takeWhile (`notElem` "\r\n")
+                                               $ unlines v
               withTokens :: Monoid a => String -> ([String] -> C a) -> C a
               withTokens d j =
                   case lookupField d of

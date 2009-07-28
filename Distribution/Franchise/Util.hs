@@ -66,9 +66,10 @@ waitForProcessNonBlocking = if rtsSupportsBoundThreads
     where wfp n pid = do mec <- io $ getProcessExitCode pid
                          case mec of
                            Just ec -> return ec
-                           Nothing -> do io $ threadDelay n
-                                         putD $ "Waiting for process... " ++ show n
-                                         wfp (min 100000 (n+1+n`div`4)) pid
+                           Nothing ->
+                               do io $ threadDelay n
+                                  putD $ "Waiting for process... " ++ show n
+                                  wfp (min 100000 (n+1+n`div`4)) pid
 
 findCommandInExtraPath :: String -> C String
 findCommandInExtraPath c = do ds <- extraPath
@@ -76,10 +77,13 @@ findCommandInExtraPath c = do ds <- extraPath
     where fcip d = do amw <- amInWindows
                       if amw
                          then do ise <- isExecutable (d++"/"++c)
-                                 if ise then return (d++"/"++c)
-                                        else do ise2 <- isExecutable (d++"/"++c++".exe")
-                                                if ise2 then return (d++"/"++c++".exe")
-                                                        else fail $ "not "++(d++"/"++c)
+                                 if ise
+                                   then return (d++"/"++c)
+                                   else do ise2 <- isExecutable
+                                                   (d++"/"++c++".exe")
+                                           if ise2
+                                             then return (d++"/"++c++".exe")
+                                             else fail $ "not "++(d++"/"++c)
                          else do ise <- isExecutable (d++"/"++c)
                                  if ise then return (d++"/"++c)
                                         else fail $ "not "++(d++"/"++c)
@@ -104,7 +108,8 @@ system g args = do sd <- getCurrentSubdir
                    io $ forkIO $ seq (length out) $ return ()
                    io $ forkIO $ seq (length err) $ return ()
                    whenC oneJob $ putS $ out++err
-                   unlessC oneJob $ putSV (cl++'\n':out++err) (clv++'\n':out++err)
+                   unlessC oneJob $
+                           putSV (cl++'\n':out++err) (clv++'\n':out++err)
                    ec <- waitForProcessNonBlocking pid
                    case ec of
                      ExitSuccess -> return ()
@@ -173,7 +178,8 @@ systemOutErrToFile g args outf0 =
        pid <- io $ runProcess c args sd env Nothing (Just h) (Just h)
        io $ waitForProcess pid
 
--- | Run a process with a list of arguments and get the resulting output from stdout.
+-- | Run a process with a list of arguments and get the resulting
+-- output from stdout.
 systemOut :: String   -- ^ Program name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
@@ -194,8 +200,9 @@ systemOut g args = do sd <- getCurrentSubdir
                       case ec of
                         ExitSuccess -> return out
                         ExitFailure 127 -> fail $ c ++ ": command not found"
-                        ExitFailure ecode -> fail $ c ++ " failed with exit code "++
-                                             show ecode++"\n"++indent "\t*" err
+                        ExitFailure ecode ->
+                            fail $ c ++ " failed with exit code "++
+                                 show ecode++"\n"++indent "\t*" err
     where indent ind s = ind ++ indent' s
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs
@@ -211,7 +218,8 @@ systemInOut g args inp = do sd <- getCurrentSubdir
                             c <- findCommandInExtraPath g
                             env <- Just `fmap` getEnvironment
                             whenC oneJob $ putV $ unwords (c:args)
-                            (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
+                            (i,o,e,pid) <-
+                                io $ runInteractiveProcess c args sd env
                             out <- io $ hGetContents o
                             err <- io $ hGetContents e
                             io $ forkIO $ do hPutStr i inp
@@ -224,9 +232,9 @@ systemInOut g args inp = do sd <- getCurrentSubdir
                             ec <- waitForProcessNonBlocking pid
                             case ec of
                               ExitSuccess -> return out
-                              ExitFailure 127 -> fail $ c ++ ": command not found"
-                              ExitFailure ecode -> fail $ c ++
-                                                   " failed with exit code "++show ecode
+                              ExitFailure 127 -> fail $ c++": command not found"
+                              ExitFailure ecode ->
+                                 fail $ c++" failed with exit code "++show ecode
     where indent ind s = ind ++ indent' s
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs

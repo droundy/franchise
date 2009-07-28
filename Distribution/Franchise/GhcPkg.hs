@@ -30,12 +30,13 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath,
-                                       -- we don't really want to export
-                                       -- the following, but it stops ghc
-                                       -- from displaying warnings.
-                                       InstalledPackageInfo(..), PackageIdentifier(..),
-                                       Version(..), License(..) )
+module Distribution.Franchise.GhcPkg
+    ( readPkgMappings, addToGhcPath,
+      -- we don't really want to export
+      -- the following, but it stops ghc
+      -- from displaying warnings.
+      InstalledPackageInfo(..), PackageIdentifier(..),
+      Version(..), License(..) )
     where
 
 import System.Directory ( doesFileExist, createDirectoryIfMissing )
@@ -53,7 +54,8 @@ readPkgMappings =
                           [(y,_)] -> y
                           _ -> []
            mods :: InstalledPackageInfo String -> [(String,String)]
-           mods ipi = zip (exposedModules ipi) (repeat $ showPackage $ package ipi)
+           mods ipi = zip (exposedModules ipi)
+                      (repeat $ showPackage $ package ipi)
            addmods [] trie = trie
            addmods ((m,p):r) trie = addmods r $ alterT m (mycons p) trie
                where mycons pp Nothing = Just [pp]
@@ -63,9 +65,10 @@ readPkgMappings =
        return $ addmods (concatMap mods $ concat pinfos) emptyT
 
 getPackageConfs :: C [String]
-getPackageConfs = do list <- systemOut "ghc-pkg" ["list"]
-                     return $ map (init . filter (/='\r')) $ filter ((/= ' ') . head) $
-                            filter (not . null) $ lines list
+getPackageConfs =
+    do list <- systemOut "ghc-pkg" ["list"]
+       return $ map (init . filter (/='\r')) $ filter ((/= ' ') . head) $
+              filter (not . null) $ lines list
 
 addToGhcPath :: FilePath -> C ()
 addToGhcPath d = do amw <- amInWindows
@@ -151,7 +154,8 @@ pnToString (PackageName n) = n
 fixPI :: PackageIdentifier PackageName -> PackageIdentifier String
 fixPI (PackageIdentifier pn v) = PackageIdentifier (pnToString pn) v
 
-data PackageIdentifier pn = PackageIdentifier { pkgName :: pn, pkgVersion :: Version }
+data PackageIdentifier pn =
+    PackageIdentifier { pkgName :: pn, pkgVersion :: Version }
      deriving (Read, Show, Eq, Ord)
 
 data License = GPL | LGPL | BSD3 | BSD4 | PublicDomain | AllRightsReserved
@@ -166,7 +170,8 @@ showPackage :: PackageIdentifier String -> String
 showPackage (PackageIdentifier n v) = n ++ '-': showVersion v
 
 showVersion :: Version -> String
-showVersion (Version branch tags) = dotsBetween (map show branch)++concatMap ('-':) tags
+showVersion (Version branch tags) =
+    dotsBetween (map show branch)++concatMap ('-':) tags
     where dotsBetween [x] = x
           dotsBetween (x:xs) = x++'.':dotsBetween xs
           dotsBetween [] = ""

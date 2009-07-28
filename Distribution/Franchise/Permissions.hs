@@ -41,4 +41,5 @@ setExecutable f = io $ do p <- getPermissions f
                           setPermissions f $ p { executable = True }
 
 isExecutable :: FilePath -> C Bool
-isExecutable f = io (executable `fmap` getPermissions f) `catchC` \_ -> return False
+isExecutable f = io (executable `fmap` getPermissions f)
+                 `catchC` \_ -> return False

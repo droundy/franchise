@@ -48,7 +48,7 @@ splitFile fn _ | "~" `isSuffixOf` fn = return []
 splitFile fn splitfun =
     whenC (isFile fn) $
     do withd <- rememberDirectory
-       addTarget $ [fnsplits] :< [fn] |<- defaultRule { make = const $ withd $ splitf }
+       rule [fnsplits] [fn] $ withd splitf
        processFilePath fnsplits >>= build' CannotModifyState
        ss <- readSplits
        case ss of

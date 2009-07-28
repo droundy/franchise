@@ -33,7 +33,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Parallel ( mapC, sequenceC )
     where
 
-import Control.Concurrent ( newChan, readChan, writeChan, getChanContents, writeList2Chan )
+import Control.Concurrent ( newChan, readChan, writeChan,
+                            getChanContents, writeList2Chan )
 
 import Distribution.Franchise.ConfigureState
 
@@ -51,5 +52,6 @@ sequenceC js0 =
                   let startworker = do j <- io $ readChan avail
                                        j >>= io . writeChan done
                                        startworker
-                  sequence_ $ take njobs $ repeat $ forkC CannotModifyState startworker
+                  sequence_ $ take njobs $
+                            repeat $ forkC CannotModifyState startworker
                   take (length js0) `fmap` io (getChanContents done)

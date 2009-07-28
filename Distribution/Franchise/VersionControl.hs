@@ -41,7 +41,8 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.ReleaseType ( ReleaseType(..),
                                             releaseFile, releaseUnknown )
-import Distribution.Franchise.Darcs ( inDarcs, darcsRelease, darcsPatchLevel, darcsDist )
+import Distribution.Franchise.Darcs ( inDarcs, darcsRelease,
+                                      darcsPatchLevel, darcsDist )
 import Distribution.Franchise.Git ( inGit, gitRelease, gitPatchLevel )
 import Distribution.Franchise.GhcState ( version, getVersion )
 
@@ -64,7 +65,8 @@ inVC j = do ind <- inDarcs
 
 releaseName :: ReleaseType -> C String
 releaseName t = withRootdir $
-               do x <- inVC $ VC (darcsRelease t) (gitRelease t) readV (releaseUnknown t)
+               do x <- inVC $ VC (darcsRelease t) (gitRelease t)
+                                 readV (releaseUnknown t)
                   when (x /= releaseUnknown t) $
                        writeF (releaseFile t) x `catchC` \_ -> return ()
                   return x
@@ -73,7 +75,8 @@ releaseName t = withRootdir $
 
 patchLevel :: ReleaseType -> C Int
 patchLevel t = withRootdir $
-               do level <- inVC $ VC (darcsPatchLevel t) (gitPatchLevel t) readL (-1)
+               do level <- inVC $ VC (darcsPatchLevel t) (gitPatchLevel t)
+                                      readL (-1)
                   writeF dotfile (show level) `catchC` \_ -> return ()
                   return level
      where dotfile = releaseFile t++"PatchLevel"

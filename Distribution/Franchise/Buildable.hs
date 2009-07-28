@@ -144,14 +144,15 @@ buildWithArgs args opts mkbuild = runC $
           writeConfigureState "config.d"
           when ("configure" `elem` args) $ putS "configure successful!"
           mapM_ buildtarget targets
-    where buildtarget t = do mt <- sloppyTarget t
-                             case mt of
-                               [] -> fail $ "No such target: "++t
-                               [tt] -> do putS $ "["++unphony tt++"]"
-                                          build' CannotModifyState tt
-                               ts -> fail $ unlines ["No such target: "++t,
-                                                     "Perhaps you meant one of "++
-                                                     unwords (map unphony ts)++"?"]
+    where buildtarget t =
+              do mt <- sloppyTarget t
+                 case mt of
+                   [] -> fail $ "No such target: "++t
+                   [tt] -> do putS $ "["++unphony tt++"]"
+                              build' CannotModifyState tt
+                   ts -> fail $ unlines ["No such target: "++t,
+                                         "Perhaps you meant one of "++
+                                         unwords (map unphony ts)++"?"]
 
 needsWork :: String -> C Bool
 needsWork t =
@@ -167,7 +168,8 @@ needsWork t =
                        setBuilt t
                        return False
          Just (Target _ ds _)
-             | nullS ds -> return True -- no dependencies means it always needs work!
+             | nullS ds ->
+                 return True -- no dependencies means it always needs work!
          Just (Target ts ds _) ->
            do mmt <- (Just `fmap` io (mapM getModificationTime $
                                       filter (not . isPhony) $ t:toListS ts))
@@ -176,26 +178,29 @@ needsWork t =
                 Nothing -> do putD $ "need work because "++t++
                                        " doesn't exist (or a friend)"
                               return True
-                Just [] -> do putD $ "need work because "++ t ++ " is a phony target."
-                              return True
+                Just [] ->
+                    do putD $ "need work because "++ t ++ " is a phony target."
+                       return True
                 Just mt -> do anylater <- anyM (latertime mt) $ toListS ds
-                              if anylater then return ()
-                                          else do putD $ unwords $
-                                                      "Marking":t:
-                                                      "as built since it's older than":
-                                                      toListS ds
-                                                  setBuilt t
+                              if anylater
+                                then return ()
+                                else do putD $ unwords $
+                                               "Marking":t:
+                                               "as built since it's older than":
+                                               toListS ds
+                                        setBuilt t
                               return anylater
- where latertime mt y = do ye <- io $ doesFileExist y
-                           if not ye
-                               then do putD $ "Need work cuz "++y++" don't exist"
-                                       return True
-                               else do mty <- io $ getModificationTime y
-                                       if mty > maximum mt
-                                           then putD $ "I need work since "++y++
-                                                       " is newer than " ++ t
-                                           else return ()
-                                       return (mty > maximum mt)
+ where latertime mt y =
+           do ye <- io $ doesFileExist y
+              if not ye
+                  then do putD $ "Need work cuz "++y++" don't exist"
+                          return True
+                  else do mty <- io $ getModificationTime y
+                          if mty > maximum mt
+                              then putD $ "I need work since "++y++
+                                          " is newer than " ++ t
+                              else return ()
+                          return (mty > maximum mt)
        anyM _ [] = return False
        anyM f (z:zs) = do b <- f z
                           if b then return True else anyM f zs
@@ -224,14 +229,17 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                                 _ -> 0.0
                     fixNumJobs nj =
                         if nj > 1 && loadavg >= 0.5+fromIntegral nj
-                        then do putV $ "Throttling jobs with load "++show loadavg
+                        then do putV $ "Throttling jobs with load "++
+                                     show loadavg
                                 return 1
                         else return nj
                 njobs <- getNumJobs >>= fixNumJobs
-                (canb'',depb') <- partitionM (canBuildNow (w `addsS` inprogress)) w
+                (canb'',depb') <-
+                    partitionM (canBuildNow (w `addsS` inprogress)) w
                 canb' <- if njobs > 1
                          then filterDupTargets $ map snd $ sort $
-                              map (\t -> (maybe 0 negate$lookupT t tis,t)) canb''
+                              map (\t -> (maybe 0 negate$lookupT t tis,t))
+                                  canb''
                          else filterDupTargets canb''
                 putD $ unwords $ "I can now build: ": canb'
                 let jobs = max 0 (njobs - lengthS inprogress)
@@ -240,10 +248,11 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                     buildone ttt =
                         forkC cms $
                           do Just (Target ts xs0 makettt) <- getTarget ttt
-                             stillneedswork <- if any (`elemS` ts) $ toListS inprogress
-                                               then do putD "Already in progress..."
-                                                       return False
-                                               else needsWork ttt
+                             stillneedswork <-
+                                 if any (`elemS` ts) $ toListS inprogress
+                                 then do putD "Already in progress..."
+                                         return False
+                                 else needsWork ttt
                              if stillneedswork
                                then do putD $ unlines
                                                 ["I am making "++ ttt,
@@ -266,8 +275,9 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
                                fail $ errorBuilding e b
                   Right (d,ts) -> do putD $ "Done building "++ show d
                                      mapM_ setBuilt $ d : toListS ts
-                                     buildthem (delS d (addsS canb $ inprogress))
-                                                   (depb \\ toListS ts)
+                                     buildthem
+                                         (delS d (addsS canb $ inprogress))
+                                         (depb \\ toListS ts)
          errorBuilding e "config.d/commandLine" = "configure failed:\n"++e
          errorBuilding e f | ".depend" `isSuffixOf` f = e
          errorBuilding e bn = "Error building "++unphony bn++'\n':e
@@ -281,7 +291,7 @@ build' cms b = unlessC (isBuilt b) $ -- short circuit if we're already built!
 targetImportances :: C (Trie Int)
 targetImportances = do ts <- getTargets
                        let invertedDeps = foldl invertDep emptyT $ toListT ts
-                           invertDep ideps (t,Target _ dd _) = inv (toListS dd) ideps
+                           invertDep ids (t,Target _ dd _) =inv (toListS dd) ids
                                where inv [] x = x
                                      inv (d:ds) x = inv ds $ alterT d addit x
                                      addit (Just ss) = Just $ addS t ss
@@ -290,12 +300,14 @@ targetImportances = do ts <- getTargets
                            gti ti (t:rest) =
                                case lookupT t ti of
                                Just _ -> gti ti rest
-                               _ -> case toListS `fmap` lookupT t invertedDeps of
+                               _ -> case toListS `fmap`
+                                         lookupT t invertedDeps of
                                     Nothing -> gti (insertT t 0 ti) rest
                                     Just ds ->
                                         case mapM (`lookupT` ti) ds of
-                                        Just dsv -> gti (insertT t
-                                                         (1+maximum (0:dsv)) ti) rest
+                                        Just dsv ->
+                                            gti (insertT t
+                                                 (1+maximum (0:dsv)) ti) rest
                                         Nothing -> gti ti (ds++t:rest)
                        return $ gti emptyT $ toListS $ keysT ts
 
@@ -308,7 +320,8 @@ partitionM f (x:xs) = do amok <- f x
 canBuildNow :: StringSet -> String -> C Bool
 canBuildNow needwork t = do mt <- getTarget t
                             case dependencies `fmap` mt of
-                              Just d -> return $ not $ any (`elemS` needwork) $ toListS d
+                              Just d -> return $ not $
+                                        any (`elemS` needwork) $ toListS d
                               _ -> return True
 
 getBuildable :: String -> C (Maybe Buildable)
@@ -322,7 +335,7 @@ getBuildable t = do allts <- getTargets
                           Nothing -> return Nothing
                           Just (Target ts ds how) ->
                               return $ Just (phony t:toListS ts :< toListS ds
-                                             :<- defaultRule { make = const how })
+                                           :<- defaultRule { make = const how })
 
 getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
@@ -353,18 +366,15 @@ findWork zzz = do putD $ "findWork called on "++zzz
                        case mt of
                          Nothing -> return nw
                          Just (Target _ ds _)
-                             | nullS ds -> -- no dependencies means it always needs work!
-                                           return $ addS t nw
+                             | nullS ds ->
+                                 -- no dependencies means it always needs work!
+                                 return $ addS t nw
                          Just (Target _ ds00 _) ->
                              do let ds0 = toListS ds00
                                 nwds <- lookAtDeps nw ds0
                                 if any (`elemS` nwds) ds0
                                    then return $ addS t nwds
                                    else do tooold <- needsWork t
-                                           --putD$"These need work: "
-                                           --   ++unwords(toListS$keysT$filterT id nwds)
-                                           --putD$"These are FINE!: "
-                                           --   ++unwords(toListS$keysT$filterT not nwds)
                                            if tooold then return $ addS t nwds
                                                      else return nwds
                              where lookAtDeps nw' [] = return nw'
@@ -380,7 +390,8 @@ installBin (xs:<_) = Just $ do pref <- getBinDir
 
 simpleTarget :: String -> C a -> C ()
 simpleTarget outname myrule =
-    addTarget $ [outname] :< [] :<- defaultRule { make = const (myrule >> return ()) }
+    addTarget $ [outname] :< []
+                  :<- defaultRule { make = const (myrule >> return ()) }
 
 addTarget :: Buildable -> C ()
 addTarget (ts :< ds :<- r) =
@@ -392,13 +403,15 @@ addTarget (ts :< ds :<- r) =
            allts = fromListS ts'
            ts'' = map fixt ts'
            addt (t,otherTs) = modifyTargets $
-                              insertT t (Target otherTs ds' $ withd $ make r (ts:<ds))
+                              insertT t (Target otherTs ds' $
+                                                withd $ make r (ts:<ds))
        case clean r (ts:<ds) of
          [] -> return ()
          toclean -> addToRule (phony "clean") (mapM_ rm toclean)
        case install r (ts:<ds) of
          Just inst -> modifyTargets $ adjustT (phony "install") $
-                      \ (Target a b c) -> Target a (addsS ts b) (c >> withd inst)
+                      \ (Target a b c) ->
+                          Target a (addsS ts b) (c >> withd inst)
          Nothing -> return ()
        mapM_ addt ts''
 
@@ -421,7 +434,7 @@ rule n deps j =
 addToRule :: String -> C () -> C ()
 addToRule targ j = do withd <- rememberDirectory
                       modifyTargets $ adjustT' targ $
-                                        \ (Target a b c) -> Target a b (withd j >> c)
+                            \ (Target a b c) -> Target a b (withd j >> c)
     where adjustT' t f m = case lookupT t m of
                            Just _ -> adjustT t f m
                            Nothing -> adjustT (phony t) f m

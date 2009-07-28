@@ -30,13 +30,15 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
-module Distribution.Franchise.Replace ( replace, replaceLiteral, createFile ) where
+module Distribution.Franchise.Replace
+    ( replace, replaceLiteral, createFile ) where
 
 import Data.List ( isPrefixOf )
 
 import Distribution.Franchise.ConfigureState ( C, getExtra, addExtra, writeF )
 import Distribution.Franchise.Util ( cat )
-import Distribution.Franchise.Buildable ( addTarget, Buildable(..), Dependency(..),
+import Distribution.Franchise.Buildable ( addTarget, Buildable(..),
+                                          Dependency(..),
                                           BuildRule(..), defaultRule )
 
 -- | The 'replace' function allows you to make replacement based on

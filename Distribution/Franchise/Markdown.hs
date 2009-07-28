@@ -52,7 +52,8 @@ splitMarkdown :: String -- ^ input filename
               -> String -- ^ output filename
               -> C [String] -- ^ returns list of files generated
 splitMarkdown fin fout =
-    splitFile fin (\x -> (fout, unlines $ cleanMarkdown $ lines x):splitf (lines x))
+    splitFile fin (\x -> (fout, unlines $ cleanMarkdown $ lines x)
+                         : splitf (lines x))
     where splitf (x:r) =
             case tildesfn x of
               Nothing -> splitf r
@@ -93,10 +94,12 @@ markdownToHtml cssfile fin fout =
        let makehtml = withd $ do putS $ "["++markdown++"] "++fin
                                  html <- systemOut markdown [fin]
                                  mkFile htmlname $
-                                        unlines [htmlHead cssfile x,html,htmlTail]
+                                        unlines [htmlHead cssfile x,
+                                                 html,htmlTail]
            htmlname = case fout of
                       "" -> if '.' `elem` fin
-                            then reverse (dropWhile (/='.') $ reverse fin) ++ "html"
+                            then reverse (dropWhile (/='.') $ reverse fin)
+                                     ++ "html"
                             else fin++".html"
                       _ -> fout
        addTarget $ [htmlname] :< [fin]
@@ -114,16 +117,17 @@ markdownStringToHtmlString cssfile mkdn =
        return $ unlines [htmlHead cssfile mkdn,html,htmlTail]
 
 htmlHead :: String -> String -> String
-htmlHead css x = unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
-                          " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
-                          "<html xml:lang=\"en-US\" lang=\"en-US\">",
-                          "<head>",
-                          unwords ["<title>",
-                                   concat $ take 1 $ filter (not . null) $ lines x,
-                                   "</title>"],
-                          "<link rel=\"stylesheet\" type=\"text/css\" href=\""++css++"\" />",
-                          "</head>",
-                          "<body>"]
+htmlHead css x =
+    unlines ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"",
+             " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n",
+             "<html xml:lang=\"en-US\" lang=\"en-US\">",
+             "<head>",
+             unwords ["<title>",
+                      concat $ take 1 $ filter (not . null) $ lines x,
+                      "</title>"],
+             "<link rel=\"stylesheet\" type=\"text/css\" href=\""++css++"\" />",
+             "</head>",
+             "<body>"]
 
 htmlTail :: String
 htmlTail = unlines ["</body>",
