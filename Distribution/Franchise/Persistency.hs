@@ -87,7 +87,8 @@ requireWithFeedback name check =
 require :: (Read a, Show a, Monoid a) => String -> C a -> C a
 require name check = requireWithPrereq name name (return ["TEST"]) check
 
-requireWithPrereq :: (Read a, Show a, Monoid a) => String -> String -> C [String] -> C a -> C a
+requireWithPrereq :: (Read a, Show a, Monoid a) => String -> String
+                  -> C [String] -> C a -> C a
 requireWithPrereq name longname prereq check =
     requireWithPrereqWithFeedback name longname prereq $ do x <- check
                                                             return ("yes",x)
@@ -97,7 +98,8 @@ requireWithPrereqWithFeedback :: (Read a, Show a, Monoid a) => String -> String
 requireWithPrereqWithFeedback name longname prereq check =
     requireWithPrereqActionWithFeedback "checking" name longname prereq check
 
-requireWithPrereqActionWithFeedback :: (Read a, Show a, Monoid a) => String -> String -> String
+requireWithPrereqActionWithFeedback :: (Read a, Show a, Monoid a) =>
+                                       String -> String -> String
                                     -> C [String] -> C (String,a) -> C a
 requireWithPrereqActionWithFeedback action name longname prereq check =
     do let checkname = cleanName $ action++"-"++longname
@@ -120,7 +122,8 @@ requireWithPrereqActionWithFeedback action name longname prereq check =
                                failWithPrereq checkname prereq e
 
 satisfyWithPrereq :: Show a => a -> String -> C [String] -> C ()
-satisfyWithPrereq a checkname prereq = ((("PASS\n"++show a):) `fmap` prereq) >>= putExtra checkname
+satisfyWithPrereq a checkname prereq =
+    ((("PASS\n"++show a):) `fmap` prereq) >>= putExtra checkname
 
 failWithPrereq :: String -> C [String] -> String -> C a
 failWithPrereq checkname prereq e = do v <- prereq

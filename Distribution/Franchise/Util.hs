@@ -109,7 +109,8 @@ system g args = do sd <- getCurrentSubdir
                    case ec of
                      ExitSuccess -> return ()
                      ExitFailure 127 -> fail $ c ++ ": command not found"
-                     ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+                     ExitFailure ecode -> fail $ c ++
+                                          " failed with exit code "++show ecode
 
 -- | Run a command silently, unless we're verbose
 systemV :: String   -- ^ Command
@@ -134,7 +135,8 @@ systemV g args = do sd <- getCurrentSubdir
                     case ec of
                       ExitSuccess -> return ()
                       ExitFailure 127 -> fail $ c ++ ": command not found"
-                      ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+                      ExitFailure ecode -> fail $ c ++
+                                           " failed with exit code "++show ecode
 
 -- | Run a process with a list of arguments and return anything from /stderr/
 systemErr :: String -> [String] -> C (ExitCode, String)
@@ -186,7 +188,8 @@ systemOut g args = do sd <- getCurrentSubdir
                       io $ forkIO $ seq (length out) $ return ()
                       io $ forkIO $ seq (length err) $ return ()
                       whenC oneJob $ putV $ indent "\t" (out++err)
-                      unlessC oneJob $ putV $ unwords (c:args)++'\n': indent "\t" (out++err)
+                      unlessC oneJob $ putV $ unwords (c:args)++
+                                              '\n':indent "\t" (out++err)
                       ec <- waitForProcessNonBlocking pid
                       case ec of
                         ExitSuccess -> return out
@@ -216,12 +219,14 @@ systemInOut g args inp = do sd <- getCurrentSubdir
                             io $ forkIO $ seq (length out) $ return ()
                             io $ forkIO $ seq (length err) $ return ()
                             whenC oneJob $ putV $ indent "\t" (out++err)
-                            unlessC oneJob $ putV $ unwords (c:args)++'\n': indent "\t" (out++err)
+                            unlessC oneJob $ putV $ unwords (c:args)++
+                                                    '\n': indent "\t" (out++err)
                             ec <- waitForProcessNonBlocking pid
                             case ec of
                               ExitSuccess -> return out
                               ExitFailure 127 -> fail $ c ++ ": command not found"
-                              ExitFailure ecode -> fail $ c ++ " failed with exit code "++show ecode
+                              ExitFailure ecode -> fail $ c ++
+                                                   " failed with exit code "++show ecode
     where indent ind s = ind ++ indent' s
               where indent' ('\n':r) = '\n':ind++ indent' r
                     indent' (x:xs) = x : indent' xs

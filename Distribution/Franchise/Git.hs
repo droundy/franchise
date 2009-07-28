@@ -43,7 +43,8 @@ inGit = io $ doesDirectoryExist ".git"
 
 gitPatchLevel :: ReleaseType -> C Int
 gitPatchLevel t = do ver <- gitRelease t
-                     (length . lines) `fmap` systemOut "git" ["log",ver++"..","--pretty=oneline"]
+                     (length . lines) `fmap`
+                           systemOut "git" ["log",ver++"..","--pretty=oneline"]
 
 gitTags :: C [String]
 gitTags = (reverse . lines) `fmap` systemOut "git" ["tag"]

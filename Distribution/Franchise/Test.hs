@@ -180,7 +180,8 @@ summarizeTestsIfMoreThan n = do f <- getResultsFile
                                 unepected <- lines `fmap` cat (f++"-pass-unexpected")
                                 passes <- lines `fmap` cat (f++"-passed")
                                 expected <- lines `fmap` cat (f++"-failure-expected")
-                                when (length failures+length passes+length expected+length unepected>n) $
+                                when (length failures + length passes +
+                                      length expected + length unepected > n) $
                                   do putS "\nIn summary:\n"
                                      announceResults "test" (length passes) (length unepected)
                                                             (length expected) (length failures)

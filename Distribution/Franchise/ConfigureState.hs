@@ -154,7 +154,8 @@ writeConfigureState d =
 
 persistExtra :: String -> C ()
 persistExtra v =
-    C $ \ts -> return $ Right ((), ts { persistentThings = v : delete v (persistentThings ts) })
+    C $ \ts ->
+    return $ Right ((), ts { persistentThings = v : delete v (persistentThings ts) })
 
 writeF :: String -> String -> C ()
 writeF "" _ = fail "Cannot writeF file with empty filename!"
@@ -422,15 +423,15 @@ io x = C $ \cs -> do a <- x
 -- which converts all exceptions into user-presentable strings.
 catchC :: C a -> (String -> C a) -> C a
 catchC (C a) b = C $ \ts ->
-                 do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
-                    case out of
-                      Left e -> unC (b e) ts
-                      Right (Left err) ->
-                          unC (b $ failMsg err) $
-                          ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
-                               configureState = insertSeveralT (persistentExtras err) $
-                                                               configureState ts }
-                      Right x -> return x
+    do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
+       case out of
+         Left e -> unC (b e) ts
+         Right (Left err) ->
+             unC (b $ failMsg err) $
+             ts { packageModuleMap = moduleMap err `mplus` packageModuleMap ts,
+                  configureState = insertSeveralT (persistentExtras err) $
+                                   configureState ts }
+         Right x -> return x
 
 forkC :: CanModifyState -> C () -> C ()
 forkC CannotModifyState (C j) = C (\ts -> do forkIO (j ts >> return())

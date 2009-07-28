@@ -173,11 +173,12 @@ needsWork t =
                                       filter (not . isPhony) $ t:toListS ts))
                      `catchC` \_ -> return Nothing
               case mmt of
-                Nothing -> do putD $ "need work because "++t++" doesn't exist (or a friend)"
+                Nothing -> do putD $ "need work because "++t++
+                                       " doesn't exist (or a friend)"
                               return True
                 Just [] -> do putD $ "need work because "++ t ++ " is a phony target."
                               return True
-                Just mt -> do anylater <- anyM latertime $ toListS ds
+                Just mt -> do anylater <- anyM (latertime mt) $ toListS ds
                               if anylater then return ()
                                           else do putD $ unwords $
                                                       "Marking":t:
@@ -185,19 +186,19 @@ needsWork t =
                                                       toListS ds
                                                   setBuilt t
                               return anylater
-                      where latertime y = do ye <- io $ doesFileExist y
-                                             if not ye
-                                               then do putD $ "Need work cuz "++y++" don't exist"
-                                                       return True
-                                               else do mty <- io $ getModificationTime y
-                                                       if mty > maximum mt
-                                                         then putD $ "I need work since "++ y ++
-                                                                  " is newer than " ++ t
-                                                         else return ()
-                                                       return (mty > maximum mt)
-                            anyM _ [] = return False
-                            anyM f (z:zs) = do b <- f z
-                                               if b then return True else anyM f zs
+ where latertime mt y = do ye <- io $ doesFileExist y
+                           if not ye
+                               then do putD $ "Need work cuz "++y++" don't exist"
+                                       return True
+                               else do mty <- io $ getModificationTime y
+                                       if mty > maximum mt
+                                           then putD $ "I need work since "++y++
+                                                       " is newer than " ++ t
+                                           else return ()
+                                       return (mty > maximum mt)
+       anyM _ [] = return False
+       anyM f (z:zs) = do b <- f z
+                          if b then return True else anyM f zs
 
 buildTarget :: String -> C ()
 buildTarget = build' CannotModifyState

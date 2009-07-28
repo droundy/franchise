@@ -80,7 +80,8 @@ configureFlagWithDefault n argname h defaultaction j =
 -- very simple example would be:
 --
 -- @
--- main = 'build' ['flag' \"define-foo\" \"defines FOO environment variable\" $ 'define' \"FOO\"]
+-- main = 'build' ['flag' \"define-foo\"
+--                 \"defines FOO environment variable\" $ 'define' \"FOO\"]
 -- @
 
 flag :: String -- ^ flag name (without the preceeding \'--\'
@@ -94,7 +95,8 @@ flag n h j = return $ FF $ Option [] [n] (NoArg j') h
 -- when the flag is not passed while configuring.
 --
 -- @
--- main = 'build' ['unlessFlag' \"no-foo\" \"do not define FOO environment variable\" $ 'define' \"FOO\"]
+-- main = 'build' ['unlessFlag' \"no-foo\"
+--                 \"do not define FOO environment variable\" $ 'define' \"FOO\"]
 -- @
 
 unlessFlag :: String -> String -> C () -> C FranchiseFlag

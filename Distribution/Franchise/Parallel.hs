@@ -41,14 +41,15 @@ mapC :: (a -> C b) -> [a] -> C [b]
 mapC f xs = sequenceC $ map f xs
 
 sequenceC :: [C b] -> C [b]
-sequenceC js0 = do njobs <- getNumJobs
-                   if njobs < 1
-                      then sequence js0
-                      else do done <- io $ newChan
-                              avail <- io $ newChan
-                              forkC CannotModifyState $ io $ writeList2Chan avail js0
-                              let startworker = do j <- io $ readChan avail
-                                                   j >>= io . writeChan done
-                                                   startworker
-                              sequence_ $ take njobs $ repeat $ forkC CannotModifyState startworker
-                              take (length js0) `fmap` io (getChanContents done)
+sequenceC js0 =
+    do njobs <- getNumJobs
+       if njobs < 1
+          then sequence js0
+          else do done <- io $ newChan
+                  avail <- io $ newChan
+                  forkC CannotModifyState $ io $ writeList2Chan avail js0
+                  let startworker = do j <- io $ readChan avail
+                                       j >>= io . writeChan done
+                                       startworker
+                  sequence_ $ take njobs $ repeat $ forkC CannotModifyState startworker
+                  take (length js0) `fmap` io (getChanContents done)

@@ -36,8 +36,8 @@ import Data.List ( isPrefixOf )
 
 import Distribution.Franchise.ConfigureState ( C, getExtra, addExtra, writeF )
 import Distribution.Franchise.Util ( cat )
-import Distribution.Franchise.Buildable ( addTarget,
-                                          Buildable(..), Dependency(..), BuildRule(..), defaultRule )
+import Distribution.Franchise.Buildable ( addTarget, Buildable(..), Dependency(..),
+                                          BuildRule(..), defaultRule )
 
 -- | The 'replace' function allows you to make replacement based on
 -- actual Haskell values, and works great if you are generating
