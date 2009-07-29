@@ -59,8 +59,7 @@ buildDoc =
                     if "ERROR" `elem` words x
                         then fail x
                         else putS "no broken links"
-             htmls <- concat `fmap`
-                      mapM (\i -> markdownToHtml "../doc.css" i "")
+             htmls <- mapM (\i -> markdownToHtml "../doc.css" i "")
                            (concatMap fst alltests)
              addDependencies "html" ("haddock":"manual/index.html":htmls)
              addDependencies "manual" ["html"]

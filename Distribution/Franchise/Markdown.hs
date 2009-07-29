@@ -49,7 +49,7 @@ import Distribution.Franchise.SplitFile ( splitFile )
 -- generated from the input filename.
 
 splitMarkdown :: String -- ^ input filename
-              -> String -- ^ output filename
+              -> String -- ^ name of output HTML file (or empty string)
               -> C [String] -- ^ returns list of files generated
 splitMarkdown fin fout =
     splitFile fin (\x -> (fout, unlines $ cleanMarkdown $ lines x)
@@ -86,7 +86,10 @@ splitMarkdown fin fout =
 -- | markdownToHtml defines a rule for converting a markdown file into an
 -- html file.
 
-markdownToHtml :: String -> String -> String -> C [String]
+markdownToHtml :: String -- ^ name of CSS file
+               -> String -- ^ name of markdown file
+               -> String -- ^ name of HTML output file (or empty string)
+               -> C String -- ^ returns name of output file
 markdownToHtml cssfile fin fout =
     withProgram "markdown" ["hsmarkdown"] $ \markdown ->
     do withd <- rememberDirectory
@@ -104,13 +107,15 @@ markdownToHtml cssfile fin fout =
                       _ -> fout
        addTarget $ [htmlname] :< [fin]
            |<- defaultRule { make = const makehtml }
-       return [htmlname]
+       return htmlname
 
 -- | markdownStringToHtml accepts the actual markdown content as a string
 -- intput, rather than a filename, and it returns the html contents, rather
 -- than creating a file, but is otherwise quite similar to markdownToHtml.
 
-markdownStringToHtmlString :: String -> String -> C String
+markdownStringToHtmlString :: String -- ^ name of CSS file
+                           -> String -- ^ markdown content
+                           -> C String -- ^ HTML content
 markdownStringToHtmlString cssfile mkdn =
     withProgram "markdown" ["hsmarkdown"] $ \markdown ->
     do html <- systemInOut markdown [] mkdn
