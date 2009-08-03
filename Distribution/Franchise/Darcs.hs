@@ -68,18 +68,16 @@ darcsDist dn tocopy = withRootdir $
            mkdist = do putS $ "making tarball as "++tarname
                        rm_rf distname
                        system "darcs" ["get","-t",v,".",distname]
-                       cd distname
-                       setExecutable "Setup.hs" `catchC` \_ -> return ()
-                       system "runghc" ("Setup.hs":".releaseVersion":
-                                        ".latestRelease":".lastTag":
+                       withDirectory distname $
+                         do setExecutable "Setup.hs" `catchC` \_ -> return ()
+                            system "./Setup.hs"
+                                       (".releaseVersion":".latestRelease":
+                                        ".lastTag":".lastTagPatchLevel":
                                         ".releaseVersionPatchLevel":
-                                        ".lastTagPatchLevel":
                                         ".latestReleasePatchLevel":tocopy
                                         ++["distclean"])
-                       rm_rf "_darcs"
-                       rm_rf ".arcs-prefs"
-                       rm_rf "config.d"
-                       cd ".."
+                            rm_rf "_darcs"
+                            rm_rf ".arcs-prefs"
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
        rule ["sdist",tarname] tocopy mkdist

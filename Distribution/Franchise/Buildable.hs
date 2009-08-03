@@ -130,6 +130,8 @@ build opts mkbuild =
 buildWithArgs :: [String] -> [C FranchiseFlag] -> C () -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do putV $ "compiled with "++FRANCHISE_VERSION
+          rule [phony "distclean"] [phony "clean"] $ do rm_rf "config.d"
+                                                        rm_rf "franchise.log"
           if "configure" `elem` args
               then return ()
               else (do readConfigureState "config.d"
@@ -143,7 +145,6 @@ buildWithArgs args opts mkbuild = runC $
           mkbuild
           writeConfigureState "config.d"
           when ("configure" `elem` args) $ putS "configure successful!"
-          rule [phony "distclean"] [] $ rm_rf "config.d"
           mapM_ buildtarget targets
     where buildtarget t =
               do mt <- sloppyTarget t

@@ -121,7 +121,6 @@ ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
     do needDefinitions
        hscs <- getHscs
-       addDependencies (phony "distclean") ["clean"]
        addToRule (phony "distclean") $ rm_rf dname
        x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
@@ -135,6 +134,7 @@ ghcDeps dname src announceme =
                        rm dname
                        unlessC (io $ doesFileExist ".package.conf") $
                                io $ writeFile ".package.conf" "[]"
+                       addToRule (phony "distclean") $ rm_rf ".package.conf"
                        x <- seekPackages (run $ ghc Nothing systemErr $
                                                     ["-M"
 #if __GLASGOW_HASKELL__ >= 610

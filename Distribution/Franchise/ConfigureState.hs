@@ -203,7 +203,7 @@ dirname = reverse . drop 1 . dropWhile (not . isSep) . dropWhile isSep . reverse
 
 rm_rf :: FilePath -> C ()
 rm_rf d0 = do d <- processFilePath d0
-              rm_rf' d
+              withRootdir $ rm_rf' d
   where
    rm_rf' d =
     do io (makeRemovable d) `catchC` \_ -> return ()
