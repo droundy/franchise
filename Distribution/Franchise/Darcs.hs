@@ -34,8 +34,7 @@ module Distribution.Franchise.Darcs
     ( inDarcs, darcsDist, darcsRelease, darcsPatchLevel )
         where
 
-import System.Directory ( doesDirectoryExist, copyFile, createDirectory,
-                          getDirectoryContents )
+import System.Directory ( doesDirectoryExist )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -64,51 +63,23 @@ darcsRelease t =
 darcsDist :: String -> [String] -> C String
 darcsDist dn tocopy = withRootdir $
     do v <- getVersion
-       simpleTarget ".releaseVersion" $ whenC inDarcs $ darcsRelease Numbered
-       simpleTarget ".latestRelease" $
-                    whenC inDarcs $ darcsRelease NumberedPreRc
-       simpleTarget ".lastTag" $ whenC inDarcs $ darcsRelease AnyTag
-       simpleTarget ".releaseVersionPatchLevel" $
-                    whenC inDarcs (darcsPatchLevel Numbered >> return ())
-       simpleTarget ".latestReleasePatchLevel" $
-                    whenC inDarcs (darcsPatchLevel NumberedPreRc >> return ())
-       simpleTarget ".lastTagPatchLevel" $
-                    whenC inDarcs (darcsPatchLevel AnyTag >> return ())
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
            mkdist = do putS $ "making tarball as "++tarname
-                       system "darcs" ["dist","--dist-name",distname]
                        rm_rf distname
-                       system "tar" ["zxf",tarname]
-                       withDirectory distname $
-                           do dist ".releaseVersion"
-                              dist ".latestRelease"
-                              dist ".lastTag"
-                              dist ".releaseVersionPatchLevel"
-                              dist ".latestReleasePatchLevel"
-                              dist ".lastTagPatchLevel"
-                              mapM_ dist tocopy
-                              setExecutable "Setup.hs" `catchC` \_ -> return ()
+                       system "darcs" ["get","-t",v,".",distname]
+                       cd distname
+                       setExecutable "Setup.hs" `catchC` \_ -> return ()
+                       system "runghc" ("Setup.hs":".releaseVersion":
+                                        ".latestRelease":".lastTag":
+                                        ".releaseVersionPatchLevel":
+                                        ".lastTagPatchLevel":
+                                        ".latestReleasePatchLevel":tocopy)
+                       rm_rf "_darcs"
+                       rm_rf ".arcs-prefs"
+                       rm_rf "config.d"
+                       cd ".."
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
-       addTarget $ ["sdist",tarname] :< tocopy
-               |<- defaultRule { make = const mkdist }
+       rule ["sdist",tarname] tocopy mkdist
        return tarname
-
--- | Copy specified file from the build directory to the tarball.
--- This is intended to be used in your darcsDist job.
-dist :: String -> C ()
-dist fn = do fn' <- processFilePath fn
-             cp_recursive fn fn'
-          `catchC` \_ -> putV $ "unable to include "++fn++" in the tarball"
-    where cp_recursive :: FilePath -> FilePath -> C ()
-          cp_recursive o n =
-              do putD $ "cp_recursive "++o++" "++n
-                 isd <- io $ doesDirectoryExist o
-                 if not isd
-                   then io (copyFile o n) `catchC` \_ -> return ()
-                   else do io $ createDirectory n
-                           fs <- io $ filter (not . (`elem` [".",".."]))
-                                 `fmap` getDirectoryContents o
-                           putD $ "foobar "++unwords fs
-                           mapM_ (\f -> cp_recursive (o++"/"++f) (n++"/"++f)) fs

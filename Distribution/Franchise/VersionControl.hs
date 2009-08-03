@@ -39,6 +39,7 @@ import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
+import Distribution.Franchise.Buildable ( simpleTarget )
 import Distribution.Franchise.ReleaseType ( ReleaseType(..),
                                             releaseFile, releaseUnknown )
 import Distribution.Franchise.Darcs ( inDarcs, darcsRelease,
@@ -83,12 +84,33 @@ patchLevel t = withRootdir $
            readL = do [(i,"")] <- reads `fmap` cat dotfile
                       return i
 
+releaseTargets :: C ()
+releaseTargets = inVC $ VC inv inv inn ()
+    where inv = do simpleTarget (releaseFile Numbered) $ releaseName Numbered
+                   simpleTarget (releaseFile NumberedPreRc) $
+                                releaseName NumberedPreRc
+                   simpleTarget (releaseFile AnyTag) $ releaseName AnyTag
+                   simpleTarget (releaseFile Numbered++"PatchLevel") $
+                                patchLevel Numbered
+                   simpleTarget (releaseFile NumberedPreRc++"PatchLevel") $
+                                patchLevel NumberedPreRc
+                   simpleTarget (releaseFile AnyTag++"PatchLevel") $
+                                patchLevel AnyTag
+          inn = do nobrainer $ releaseFile Numbered
+                   nobrainer $ releaseFile NumberedPreRc
+                   nobrainer $ releaseFile AnyTag
+                   nobrainer $ releaseFile Numbered ++ "PatchLevel"
+                   nobrainer $ releaseFile NumberedPreRc ++ "PatchLevel"
+                   nobrainer $ releaseFile AnyTag ++ "PatchLevel"
+          nobrainer f = whenC (isFile f) $ simpleTarget f $ return ()
+
 -- | Determine the version based on a reversion control system.
 -- Currently only @git@ and @darcs@ are supported.  The 'ReleaseType'
 -- argument determines how the version is determined.
 
 autoVersion :: ReleaseType -> C String
-autoVersion t = do vers <- releaseName t
+autoVersion t = do releaseTargets
+                   vers <- releaseName t
                    oldversion <- getVersion
                    when (oldversion /= vers) $
                         do version vers
@@ -101,7 +123,8 @@ autoVersion t = do vers <- releaseName t
 -- 1.0.0.10.
 
 autoPatchVersion :: ReleaseType -> C String
-autoPatchVersion t = do r <- releaseName t
+autoPatchVersion t = do releaseTargets
+                        r <- releaseName t
                         p <- patchLevel t
                         let vers = if p == 0 || p == -1
                                    then r
