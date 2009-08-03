@@ -39,6 +39,7 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.SplitFile ( splitFile )
+import Distribution.Franchise.ListUtils ( stripSuffix )
 
 -- | splitMarkdown reads its first argument, which is presumed to be
 -- marked-up markdown, and generates any files indicated in the contents.
@@ -51,10 +52,11 @@ import Distribution.Franchise.SplitFile ( splitFile )
 splitMarkdown :: String -- ^ input filename
               -> String -- ^ name of output HTML file (or empty string)
               -> C [String] -- ^ returns list of files generated
-splitMarkdown fin fout =
+splitMarkdown fin fout0 =
     splitFile fin (\x -> (fout, unlines $ cleanMarkdown $ lines x)
                          : splitf (lines x))
-    where splitf (x:r) =
+    where fout = mkName fin fout0 "txt"
+          splitf (x:r) =
             case tildesfn x of
               Nothing -> splitf r
               Just ("",_) -> splitf r
@@ -83,6 +85,15 @@ splitMarkdown fin fout =
                                        drop 1 $ dropWhile (/='}') x
           dropWhiteAndBraces x = x
 
+mkName :: String -> String -> String -> String
+mkName old "" suff =
+    case stripSuffix ".in" old of
+    Just new -> new
+    Nothing -> if '.' `elem` old
+               then reverse (dropWhile (/='.') $ reverse old)++suff
+               else old++'.':suff
+mkName _ new _ = new
+
 -- | markdownToHtml defines a rule for converting a markdown file into an
 -- html file.
 
@@ -99,12 +110,7 @@ markdownToHtml cssfile fin fout =
                                  mkFile htmlname $
                                         unlines [htmlHead cssfile x,
                                                  html,htmlTail]
-           htmlname = case fout of
-                      "" -> if '.' `elem` fin
-                            then reverse (dropWhile (/='.') $ reverse fin)
-                                     ++ "html"
-                            else fin++".html"
-                      _ -> fout
+           htmlname = mkName fin fout "html"
        addTarget $ [htmlname] :< [fin]
            |<- defaultRule { make = const makehtml }
        return htmlname

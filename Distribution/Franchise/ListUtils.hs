@@ -29,7 +29,8 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
-module Distribution.Franchise.ListUtils ( stripPrefix, endsWithOneOf ) where
+module Distribution.Franchise.ListUtils
+    ( stripPrefix, stripSuffix, endsWithOneOf ) where
 
 import Data.List ( isSuffixOf )
 
@@ -37,6 +38,9 @@ stripPrefix :: Eq a  => [a] -> [a] -> Maybe [a]
 stripPrefix [] ys = Just ys
 stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
 stripPrefix _ _ = Nothing
+
+stripSuffix :: Eq a  => [a] -> [a] -> Maybe [a]
+stripSuffix x y = reverse `fmap` stripPrefix (reverse x) (reverse y)
 
 -- | Checks if a string ends with any given suffix
 endsWithOneOf :: [String] -- ^ List of strings to check
