@@ -143,6 +143,7 @@ buildWithArgs args opts mkbuild = runC $
           mkbuild
           writeConfigureState "config.d"
           when ("configure" `elem` args) $ putS "configure successful!"
+          rule [phony "distclean"] [] $ rm_rf "config.d"
           mapM_ buildtarget targets
     where buildtarget t =
               do mt <- sloppyTarget t

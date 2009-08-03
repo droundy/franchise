@@ -74,7 +74,8 @@ darcsDist dn tocopy = withRootdir $
                                         ".latestRelease":".lastTag":
                                         ".releaseVersionPatchLevel":
                                         ".lastTagPatchLevel":
-                                        ".latestReleasePatchLevel":tocopy)
+                                        ".latestReleasePatchLevel":tocopy
+                                        ++["distclean"])
                        rm_rf "_darcs"
                        rm_rf ".arcs-prefs"
                        rm_rf "config.d"

@@ -121,6 +121,8 @@ ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
     do needDefinitions
        hscs <- getHscs
+       addDependencies (phony "distclean") ["clean"]
+       addToRule (phony "distclean") $ rm_rf dname
        x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
                        filter (not . isSuffixOf ".o") .
