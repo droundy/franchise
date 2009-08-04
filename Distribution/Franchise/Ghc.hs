@@ -181,6 +181,7 @@ privateExecutable  simpleexname src0 cfiles =
        src <- if ".hsc" `isSuffixOf` src0
               then do addHsc src0; return $ init src0
               else return src0
+       build' CanModifyState src
        ghcDeps depend [src] $
                putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend
