@@ -213,8 +213,10 @@ privateExecutable  simpleexname src0 cfiles =
            stubit c x = take (length x - 2) x ++ "_stub."++c
            libname p = "lib"++
                        reverse (drop 1 $ dropWhile (/='-') $ reverse p)++".a"
-
-       addTarget $ [exname, phony simpleexname]
+       let targets = if exname == simpleexname
+                     then [exname]
+                     else [exname, phony simpleexname]
+       addTarget $ targets
                   :< (src:objs++cobjs++maybe [] (\x -> [libname x]) pn)
                   :<- defaultRule { make = mk,
                                     clean = \b -> depend:map (stubit "o") objs++
