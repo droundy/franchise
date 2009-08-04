@@ -37,9 +37,7 @@ import Data.List ( isPrefixOf )
 
 import Distribution.Franchise.ConfigureState ( C, getExtra, addExtra, writeF )
 import Distribution.Franchise.Util ( cat )
-import Distribution.Franchise.Buildable ( addTarget, Buildable(..),
-                                          Dependency(..),
-                                          BuildRule(..), defaultRule )
+import Distribution.Franchise.Buildable ( rule )
 
 -- | The 'replace' function allows you to make replacement based on
 -- actual Haskell values, and works great if you are generating
@@ -96,10 +94,10 @@ replaceLiteral a b = do r <- getExtra "replacements" :: C [(String, String)]
 -- if you ran a naive perl script to do the same).
 
 createFile :: String -> C ()
-createFile fn = addTarget $ [fn] :< [fn++".in"] :<-
-                defaultRule { make = \_ ->  do x <- cat (fn++".in")
-                                               r <- getExtra "replacements"
-                                               writeF fn $ repl r x }
+createFile fn =
+    rule [fn] [fn++".in"] $  do x <- cat (fn++".in")
+                                r <- getExtra "replacements"
+                                writeF fn $ repl r x
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
           r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
