@@ -150,6 +150,9 @@ buildWithArgs args opts mkbuild = runC $
               do mt <- sloppyTarget t
                  case mt of
                    [] -> fail $ "No such target: "++t
+                   ["*distclean*"] -> do putS "{distclean}"
+                                         build' CannotModifyState "*distclean*"
+                                         clearAllBuilt
                    [tt] -> do putS $ "["++unphony tt++"]"
                               build' CannotModifyState tt
                    ts -> fail $ unlines ["No such target: "++t,

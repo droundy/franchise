@@ -1,0 +1,66 @@
+Creating a "distribution" tarball
+=================================
+
+If you use darcs, you can have `franchise` create a distribution
+tarball for you quite simply.
+
+~~~~ tests/dist/dist.hs.in
+main = putStrLn @GREETING@
+~~~~
+
+README.in
+---------
+
+~~~~ tests/dist/README.in
+This program says '@GREETING@'.
+~~~~
+As you can see, it's just a standard hello world.
+
+Setup.hs
+--------
+
+The key is to use [autoVersion][] and [autoDist][].
+
+[autoVersion]: haddock/Distribution-Franchise-V1.html#v%3AautoVersion
+[autoDist]: haddock/Distribution-Franchise-V1.html#v%3AautoDist
+
+~~~~ tests/dist/Setup.hs
+#!/usr/bin/env runghc
+import Distribution.Franchise.V1
+
+main = build [] $ do createFile "dist.hs"
+                     createFile "README"
+                     replace "@GREETING@" "hello world"
+                     autoVersion NumberedPreRc
+                     autoDist "dist" ["dist.hs"]
+                     executable "dist" "dist.hs" []
+~~~~
+
+Testing it out
+--------------
+
+This is a bit more tedious to run as an example, since we need to
+create a darcs repository...
+
+~~~~ tests/dist/dist.sh
+set -ev
+# can't run this test without /usr/bin/env
+which env || exit 0
+darcs initialize
+darcs add dist.hs.in README.in Setup.hs
+darcs record -A foo -m 'add stuff' -a
+darcs tag -m 1.0 -A foo
+
+test -f README && exit 1
+
+runghc Setup.hs build README
+
+grep hello README
+grep hello dist.hs
+
+runghc Setup.hs sdist
+tar zxvf dist-1.0.tar.gz
+test -f dist-1.0/README && exit 1
+grep GREET dist-1.0/README.in
+grep hello dist-1.0/dist.hs
+~~~~

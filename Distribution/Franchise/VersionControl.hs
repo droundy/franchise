@@ -150,9 +150,16 @@ releaseDescription t = do r <- releaseName t
 
 -- | Create a 'distribution tarball'.  This currently only works in
 -- darcs repositories, but could be extended to also work under git or
--- other revision control systems.
+-- other revision control systems.  The tarball directory is
+-- originally created as a repository, then the specified targets are
+-- built (e.g. this could be documentation that tarball users
+-- shouldn't have to build), and then the \"distclean\" target is
+-- built, which should remove anything that you don't want in the
+-- tarball (and automatically includes the \"clean\" target).
 
-autoDist :: String -> [String] -> C String
+autoDist :: String -- ^ base name of tarball (e.g. \"franchise\")
+         -> [String] -- ^ list of targets to be built inside tarball
+         -> C String -- ^ returns name of tarball.
 autoDist dn tocopy =
     withRootdir $ inVC $ VC (darcsDist dn tocopy)
                             (fail "autoDist doesn't work in git.")

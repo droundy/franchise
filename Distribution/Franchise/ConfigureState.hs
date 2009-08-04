@@ -38,7 +38,7 @@ module Distribution.Franchise.ConfigureState
       getNumJobs, setNumJobs, oneJob,
       CanModifyState(..),
       Target(..),
-      getTargets, modifyTargets, setBuilt, clearBuilt, isBuilt,
+      getTargets, modifyTargets, setBuilt, clearBuilt, clearAllBuilt, isBuilt,
       C, runC, io, catchC, forkC,
       writeConfigureState, readConfigureState,
       cd, rm_rf, mkdir, writeF,
@@ -423,6 +423,9 @@ setBuilt t = C $ \ts -> return $ Right ((), ts { built = addS t $ built ts })
 
 clearBuilt :: String -> C ()
 clearBuilt t = C $ \ts -> return $ Right ((), ts { built = delS t $ built ts })
+
+clearAllBuilt :: C ()
+clearAllBuilt = C $ \ts -> return $ Right ((), ts { built = emptyS })
 
 -- | You can run arbitrary Haskell IO in the 'C' monad using the 'io'
 -- function, which is a simple \'lift\' function.
