@@ -1,0 +1,51 @@
+We should only recompile files that need it
+===========================================
+
+
+~~~~ tests/minimal-recompile/Bar.hs
+module Bar where
+
+bar = "hello world"
+~~~~
+
+~~~~ tests/minimal-recompile/Foo.hs
+module Foo where
+import Bar
+
+foo = bar
+~~~~
+
+~~~~ tests/minimal-recompile/executable.hs
+import Foo
+
+main = putStrLn foo
+~~~~
+
+~~~~ tests/minimal-recompile/Setup.hs
+import Distribution.Franchise.V1
+main = build [] $ executable "executable" "executable.hs" []
+~~~~
+
+
+~~~~ tests/minimal-recompile/minimal-recompile.sh
+set -ev
+runghc Setup.hs configure
+
+runghc Setup.hs build > build.out
+cat build.out
+grep Foo.hs build.out
+grep Bar.hs build.out
+grep executable.hs build.out
+
+./executable
+
+echo >> Bar.hs
+# We should only have to rebuild Bar
+runghc Setup.hs build > build.out
+cat build.out
+grep Foo.hs build.out && exit 1
+grep Bar.hs build.out
+grep executable.hs build.out && exit 1
+
+./executable
+~~~~
