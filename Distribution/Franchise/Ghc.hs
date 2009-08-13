@@ -90,7 +90,7 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
                 tixdir <- (++"/tix") `fmap` pwd
                 mkdir tixdir
                 setEnv "HPCTIXDIR" tixdir
-                addToRule "*clean*" (rm_rf tixdir)
+                clean [tixdir]
 
 -- | The 'executable' function creates a haskell executable target.
 --
@@ -121,7 +121,7 @@ ghcDeps :: String -> [String] -> C () -> C ()
 ghcDeps dname src announceme =
     do needDefinitions
        hscs <- getHscs
-       addToRule (phony "distclean") $ rm_rf dname
+       distclean [dname]
        x <- io (readFile dname) `catchC` \_ -> return ""
        let cleandeps = filter (not . isSuffixOf ".hi") .
                        filter (not . isSuffixOf ".o") .
@@ -134,7 +134,7 @@ ghcDeps dname src announceme =
                        rm dname
                        unlessC (io $ doesFileExist ".package.conf") $
                                io $ writeFile ".package.conf" "[]"
-                       addToRule (phony "distclean") $ rm_rf ".package.conf"
+                       distclean [".package.conf"]
                        x <- seekPackages (run $ ghc Nothing systemErr $
                                                     ["-M"
 #if __GLASGOW_HASKELL__ >= 610
@@ -218,9 +218,8 @@ privateExecutable  simpleexname src0 cfiles =
                      else [exname, phony simpleexname]
        addTarget $ targets
                   :< (src:objs++cobjs++maybe [] (\x -> [libname x]) pn)
-                  :<- defaultRule { make = mk,
-                                    clean = \b -> depend:map (stubit "o") objs++
-                                               map (stubit "c") objs++cleanIt b}
+                  :<- defaultRule { make = mk }
+       clean (depend:map (stubit "o") objs++map (stubit "c") objs)
        addDependencies (phony "build") [exname]
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
@@ -320,10 +319,9 @@ package pn modules cfiles =
                             setEnv "FRANCHISE_GHC_PACKAGE_CONF"
                                    (here++"/.package.conf")
                             installPackageInto pn (here++"/."++pn),
-                      install = \_ -> Just $ installPackageInto pn libdir,
-                      clean = \b -> ".package.conf" : (pn++".cfg") : depend
-                              : map (stubit "o") mods ++
-                                map (stubit "c") mods ++ cleanIt b}
+                      install = \_ -> Just $ installPackageInto pn libdir }
+       clean (".package.conf" : (pn++".cfg") : depend :
+              map (stubit "o") mods ++ map (stubit "c") mods)
        setOutputDirectory "."
        addDependencies (phony "build") [phony pn, "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c

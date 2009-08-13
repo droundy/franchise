@@ -32,7 +32,9 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
      p <- package "franchise" exported []
      cabal "franchise" exported
      buildDoc
-     autoDist "franchise" ["franchise.cabal","manual"]
+     autoDist "franchise" ["franchise.cabal"
+                          -- ,"manual"
+                          ]
      executable "enfranchise" "enfranchise.hs" []
      enforceAllPrivacy
      enforceNoTabs

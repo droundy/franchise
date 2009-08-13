@@ -35,6 +35,7 @@ module Distribution.Franchise.Darcs
         where
 
 import System.Directory ( doesDirectoryExist )
+import Data.List ( nub, (\\) )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -65,20 +66,21 @@ darcsDist dn tocopy = withRootdir $
     do v <- getVersion
        let distname = dn++"-"++v
            tarname = distname++".tar.gz"
-           mkdist = do putS $ "making tarball as "++tarname
+       rule [phony "sdist",tarname] [] $
+                    do putS $ "making tarball as "++tarname
                        rm_rf distname
                        system "darcs" ["get","-t",v,".",distname]
+                       c <- nub `fmap` getExtra "to-clean"
+                       dc <- nub `fmap` getExtra "to-distclean"
                        withDirectory distname $
                          do setExecutable "Setup.hs" `catchC` \_ -> return ()
-                            system "./Setup.hs"
-                                       (".releaseVersion":".latestRelease":
-                                        ".lastTag":".lastTagPatchLevel":
-                                        ".releaseVersionPatchLevel":
-                                        ".latestReleasePatchLevel":"distclean":
-                                        tocopy)
-                            rm_rf "_darcs"
-                            rm_rf ".arcs-prefs"
+                            let wanted = (".releaseVersion":".latestRelease":
+                                          ".lastTag":".lastTagPatchLevel":
+                                          ".releaseVersionPatchLevel":
+                                          ".latestReleasePatchLevel":tocopy)
+                            system "./Setup.hs" wanted
+                            mapM_ rm_rf $
+                                      ("_darcs":".arcs-prefs":c++dc) \\ wanted
                        system "tar" ["zcf",tarname,distname]
                        rm_rf distname
-       rule ["sdist",tarname] tocopy mkdist
        return tarname

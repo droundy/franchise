@@ -1,0 +1,1 @@
+test ./Setup.hs test && ./Setup.hs sdist && tar zxvf franchise*gz && rm franchise*gz && cd franchise-* && ./Setup.hs test && cd .. && ./Setup.hs clean && wine runghc Setup.hs test

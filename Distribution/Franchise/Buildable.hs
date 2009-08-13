@@ -34,7 +34,8 @@ module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, buildTarget,
       installBin,
-      defaultRule, buildName, build', cleanIt, rm,
+      defaultRule, buildName, build', rm,
+      clean, distclean,
       addToRule, addDependencies, addTarget,
       rule, simpleTarget, getBuildable, (|<-),
       getTarget, Target(..),
@@ -60,7 +61,7 @@ data Dependency = [String] :< [String]
 infix 2 :<
 data BuildRule = BuildRule { make :: Dependency -> C (),
                              install :: Dependency -> Maybe (C ()),
-                             clean :: Dependency -> [String] }
+                             clean0 :: Dependency -> [String] }
 
 data Buildable = Dependency :<- BuildRule
 
@@ -127,11 +128,21 @@ build opts mkbuild =
 #define FRANCHISE_VERSION "franchise (unknown)"
 #endif
 
+clean :: [FilePath] -> C ()
+clean = addExtra "to-clean"
+
+distclean :: [FilePath] -> C ()
+distclean = addExtra "to-distclean"
+
 buildWithArgs :: [String] -> [C FranchiseFlag] -> C () -> IO ()
 buildWithArgs args opts mkbuild = runC $
        do putV $ "compiled with "++FRANCHISE_VERSION
-          rule [phony "distclean"] [phony "clean"] $ do rm_rf "config.d"
-                                                        rm_rf "franchise.log"
+          distclean ["config.d", "franchise.log"]
+          rule [phony "distclean"] [] $ do toclean <- getExtra "to-clean"
+                                           mapM_ rm_rf toclean
+          rule [phony "clean"] [] $ do toclean <- getExtra "to-clean"
+                                       dist <- getExtra "to-distclean"
+                                       mapM_ rm_rf (toclean++dist)
           if "configure" `elem` args
               then return ()
               else (do readConfigureState "config.d"
@@ -410,9 +421,7 @@ addTarget (ts :< ds :<- r) =
            addt (t,otherTs) = modifyTargets $
                               insertT t (Target otherTs ds' $
                                                 withd $ make r (ts:<ds))
-       case clean r (ts:<ds) of
-         [] -> return ()
-         toclean -> addToRule (phony "clean") (mapM_ rm toclean)
+       clean $ clean0 r (ts:<ds)
        case install r (ts:<ds) of
          Just inst -> modifyTargets $ adjustT (phony "install") $
                       \ (Target a b c) ->

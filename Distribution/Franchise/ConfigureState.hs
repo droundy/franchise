@@ -207,7 +207,8 @@ rm_rf d0 = do d <- processFilePath d0
   where
    rm_rf' d =
     do io (makeRemovable d) `catchC` \_ -> return ()
-       catchC (io $ removeFile d) $ \_ -> return ()
+       catchC (do io $ removeFile d
+                  putV $ "rm "++d) $ \_ -> return ()
        whenC (io $ doesDirectoryExist d) $
              do fs <- readDirectory d
                 mapM_ (rm_rf' . ((d++"/")++)) fs
