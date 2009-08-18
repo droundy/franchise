@@ -43,8 +43,8 @@ module Distribution.Franchise.Ghc
 import Control.Monad ( msum, when, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe, isJust, isNothing )
-import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf, nub )
-import System.Directory ( copyFile, doesFileExist )
+import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf )
+import System.Directory ( doesFileExist )
 import System.Info ( compilerName, compilerVersion )
 import Data.Version ( versionBranch )
 import Data.Monoid ( Monoid, mempty )
@@ -102,9 +102,8 @@ executable :: String -- ^ name of executable to be generated
            -> [String] -- ^ list of C source files to be included
            -> C ()
 executable exname src cfiles =
-    do privateExecutable exname src cfiles
-       Just (x :< y :<- b) <- getBuildable exname
-       addTarget $ x :< y :<- b { install = installBin }
+    do exname' <- privateExecutable exname src cfiles
+       bin exname' -- install the binary
 
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
@@ -166,7 +165,7 @@ objectIsInPackage pn o =
 -- | Build a Haskell executable, but do not install it when running
 -- @.\/Setup.hs install@.
 
-privateExecutable :: String -> String -> [String] -> C ()
+privateExecutable :: String -> String -> [String] -> C String
 privateExecutable  simpleexname src0 cfiles =
     do maketixdir
        checkMinimumPackages
@@ -221,6 +220,7 @@ privateExecutable  simpleexname src0 cfiles =
                   :<- defaultRule { make = mk }
        clean (depend:map (stubit "o") objs++map (stubit "c") objs)
        addDependencies (phony "build") [exname]
+       return exname
 
 whenJust :: Maybe a -> (a -> C ()) -> C ()
 whenJust (Just x) f = f x
@@ -261,23 +261,24 @@ package pn modules cfiles =
        (mods,his) <- io (readFile depend)
                      >>= parseDeps [] xpn [extraData "version"]
        ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
-       libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
+       extralibs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
        libdirs <- (catMaybes . map (stripPrefix "-L")) `fmap` getLdFlags
        packageProvidesModules (maybe pn id xpn) (map objToModName mods)
        deps <- packages
        let hiddenmodules = map objToModName mods \\ modules
-           makeconfig = do mai <- getMaintainer
-                           mkFile (pn++".config") $ unlines
-                                  ["name: "++pn,
-                                   "version: "++ver,
-                                   "maintainer: "++mai,
-                                   "exposed-modules: "++unwords modules,
-                                   "hidden-modules: "++unwords hiddenmodules,
-                                   "hs-libraries: "++pn,
-                                   "extra-libraries: "++unwords libs,
-                                   "extra-lib-dirs: "++unwords libdirs,
-                                   "exposed: True",
-                                   "depends: "++commaWords deps]
+       mai <- getMaintainer
+       mkFile (pn++".config") $ unlines
+                  ["name: "++pn,
+                   "version: "++ver,
+                   "maintainer: "++mai,
+                   "exposed-modules: "++unwords modules,
+                   "hidden-modules: "++unwords hiddenmodules,
+                   "hs-libraries: "++pn,
+                   "extra-libraries: "++unwords extralibs,
+                   "extra-lib-dirs: "++unwords libdirs,
+                   "exposed: True",
+                   "depends: "++commaWords deps]
+       clean [pn++".config"]
        mhaddockdir <- getExtraData "haddock-directory"
        let haddockdir = maybe "haddock" id mhaddockdir
        (preprocsources, coloredfiles) <- preprocessedTargets his haddockdir
@@ -305,10 +306,9 @@ package pn modules cfiles =
                              return o
                       | otherwise = return f
        cobjs <- mapM ccompile cfiles
-       rule [pn++".config"] [depend, extraData "version"] makeconfig
        libdir <- getLibDir
        addTarget $ ["lib"++pn++".a", phony (pn++"-package")]
-                  :< ((pn++".config"):mods++his++cobjs)
+                  :< (mods++his++cobjs)
                   :<- defaultRule {
                       make = \_ ->
                          do stubos <- filterM (io . doesFileExist)
@@ -318,8 +318,10 @@ package pn modules cfiles =
                             here <- pwd
                             setEnv "FRANCHISE_GHC_PACKAGE_CONF"
                                    (here++"/.package.conf")
-                            installPackageInto pn (here++"/."++pn),
-                      install = \_ -> Just $ installPackageInto pn libdir }
+                            installPackageInto pn (here++"/."++pn) }
+       copyPackage pn libdir >>= mapM_ (uncurry install)
+       addToRule (phony "register") $ registerPackageIn pn libdir
+       addToRule (phony "unregister") $ unregisterPackageIn pn libdir
        clean (".package.conf" : (pn++".cfg") : depend :
               map (stubit "o") mods ++ map (stubit "c") mods)
        setOutputDirectory "."
@@ -344,7 +346,7 @@ cabal pn modules =
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
        build' CanModifyState depend
        ver <- getVersion
-       libs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
+       extralibs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
        deps <- packages
        let guessVersion = -- crude heuristic for dependencies
                           reverse . drop 1 . dropWhile (/='-') . reverse
@@ -358,7 +360,7 @@ cabal pn modules =
                                   "version: "++ver,
                                   "maintainer: "++mai,
                                   "exposed-modules: "++unwords modules,
-                                  "extra-libraries: "++unwords libs,
+                                  "extra-libraries: "++unwords extralibs,
                                   "build-type: Custom",
                                   "build-depends: "++
                                        commaWords (map guessVersion deps)]
@@ -375,8 +377,8 @@ cabal pn modules =
 preprocessedTargets :: [String] -> FilePath -> C ([String],[String])
 preprocessedTargets his haddockdir =
     do targets <- catMaybes `fmap` mapM getTarget his
-       let sources = nub $ filter (\x -> ".hs" `isSuffixOf` x ||
-                                         ".lhs" `isSuffixOf` x) $
+       let sources = nubs $ filter (\x -> ".hs" `isSuffixOf` x ||
+                                          ".lhs" `isSuffixOf` x) $
                      concatMap (toListS . dependencies) targets
            preproc s =
                do let preprocs = ".preproc/"++s
@@ -416,48 +418,87 @@ preprocessedTargets his haddockdir =
 
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =
+    do tocopy <- copyPackage pn libdir
+       let inst (f,to) = do putD $ unwords $ "Installing":f:"into":[to]
+                            mkdir (dirname to)
+                            cp f to
+       mapM_ inst tocopy
+       registerPackageIn pn libdir
+
+-- | Register the specified package with ghc.
+
+registerPackageIn :: String -- ^ package name
+                  -> String -- ^ libdir to install into
+                  -> C ()
+registerPackageIn = genRegisterPackageIn Register
+
+-- | Unregister the specified package with ghc.
+
+unregisterPackageIn :: String -- ^ package name
+                    -> String -- ^ libdir to (not) install into
+                    -> C ()
+unregisterPackageIn = genRegisterPackageIn Unregister
+
+data UnOrNot = Register | Unregister
+
+genRegisterPackageIn :: UnOrNot -- ^ to register or unregister
+                     -> String -- ^ package name
+                     -> String -- ^ libdir to install into
+                     -> C ()
+genRegisterPackageIn roru pn libdir =
     do ver <- getVersion
        let destination = libdir++"/"++pn++"-"++ver++"/"++compilerName
                          ++concatMap (('.':) . show)
                                      (versionBranch compilerVersion)
-       config <- cat (pn++".config")
-       mkFile (pn++".cfg") $ unlines [config,
-                                      "import-dirs: "++ show destination,
-                                      "library-dirs: "++ show destination]
+       pkgflags <- getPkgFlags
+       let verb = case roru of Register -> ["update","--auto-ghci-libs"]
+                               Unregister -> ["unregister"]
+       mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
+       case mpf of
+         Nothing -> do x <- getEnv "GHC_PACKAGE_PATH"
+                       case x of -- clear GHC_PACKAGE_PATH,
+                                 -- which might not contain ~/.ghc/...
+                         Just _ -> unsetEnv "GHC_PACKAGE_PATH"
+                         Nothing -> return ()
+                       system "ghc-pkg" $ pkgflags++ verb ++
+                                  [destination++"/"++pn++".cfg"]
+                       case x of
+                         Just xx -> setEnv "GHC_PACKAGE_PATH" xx
+                         Nothing -> return ()
+         Just pf -> system "ghc-pkg" $
+                    filter (/="--user") pkgflags ++ verb ++
+                    [destination++"/"++pn++".cfg", "--package-conf="++pf]
+
+-- | Determine files to copy into the specified libdir for the
+-- specified package.
+
+copyPackage :: String -> String -> C [(FilePath,FilePath)]
+copyPackage pn libdir =
+    do putD $ "copyPackage "++pn++" "++libdir
+       ver <- getVersion
+       let destination = libdir++"/"++pn++"-"++ver++"/"++compilerName
+                         ++concatMap (('.':) . show)
+                                     (versionBranch compilerVersion)
        mt <- getTarget ("lib"++pn++".a")
        case mt of
          Nothing -> fail $ "no such package:  "++pn
          Just (Target _ ds _) ->
-             do mkdir destination
-                let inst x =
-                        do putD $ "installing for package "++x
-                           let x' = case drop 1 $ dropWhile (/='/') $
-                                         drop 1 $ dropWhile (/='/') x of
-                                      "" -> x
-                                      xx -> xx
-                           case dirname x' of
-                             "" -> return ()
-                             xdn -> mkdir $ destination++"/"++xdn
-                           putD $ unwords ["copyFile", x, destination++"/"++x']
-                           io $ copyFile x (destination++"/"++x')
+             do config <- cat (pn++".config")
+                let hash x = take 10 (cleanp x)++show (length x)++
+                             reverse (take 10 $ cleanp $ reverse x)
+                    cleanp = filter (`notElem` "/\\:")
+                    mycfgname = '.':hash libdir++'-':pn++".cfg"
+                mkFile mycfgname $
+                       unlines [config,
+                                "import-dirs: "++ show destination,
+                                "library-dirs: "++ show destination]
+                clean [mycfgname]
+                let inst x = (x,x')
+                        where x' = destination++"/"++
+                                   maybe x id (stripPrefix ("dist/"++pn) x)
                     his = filter (".hi" `isSuffixOf`) $ toListS ds
-                mapM_ inst (("lib"++pn++".a") : his)
-                pkgflags <- getPkgFlags
-                mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
-                case mpf of
-                  Nothing -> do x <- getEnv "GHC_PACKAGE_PATH"
-                                case x of -- clear GHC_PACKAGE_PATH,
-                                          -- which might not contain ~/.ghc/...
-                                  Just _ -> unsetEnv "GHC_PACKAGE_PATH"
-                                  Nothing -> return ()
-                                system "ghc-pkg" $ pkgflags++
-                                       ["update","--auto-ghci-libs",pn++".cfg"]
-                                case x of
-                                  Just xx -> setEnv "GHC_PACKAGE_PATH" xx
-                                  Nothing -> return ()
-                  Just pf -> system "ghc-pkg" $ filter (/="--user") pkgflags ++
-                             ["update", "--auto-ghci-libs",
-                              pn++".cfg", "--package-conf="++pf]
+                return $ (mycfgname,destination++"/"++pn++".cfg") :
+                          map inst (("lib"++pn++".a") : his)
 
 objToModName :: String -> String
 objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap .
@@ -500,7 +541,7 @@ parseDeps ops pn extradeps x =
             where (ys,r') = partition ((==z).fst) r
                   mkzy = do ys' <- filterM (fmap isNothing.hiIsInPackage ops)
                                    $ map snd ys
-                            ps <- (nub . catMaybes)
+                            ps <- (nubs . catMaybes)
                                   `fmap` mapM (hiIsInPackage ops) (map snd ys)
                             alreadyKnown <- isJust `fmap` hiIsInPackage ops y
                             if alreadyKnown
@@ -843,7 +884,7 @@ findRuleForModule m =
 
 addHsc :: String -> C ()
 addHsc hsc = do hscs <- getHscs
-                putExtra "hsc2hs" $ nub (hsc:hscs)
+                putExtra "hsc2hs" $ nubs (hsc:hscs)
                 let hscit = hsc2hs system [hsc]
                 rule [init hsc] [hsc] hscit
                 hscit

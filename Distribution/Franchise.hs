@@ -37,7 +37,7 @@ module Distribution.Franchise
       -- * experimental!
       buildWithArgs,
       buildTarget,
-      installBin, addTarget,
+      addTarget,
       csum,
       -- | test suite helpers
       testOutput,

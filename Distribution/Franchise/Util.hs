@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
                                      systemInOut,
                                      systemOutErrToFile,
+                                     nubs,
                                      mkFile, cat, pwd, ls, mv, cp,
                                      isFile, isDirectory, takeExtension,
                                      bracketC, csum, finallyC, bracketC_ )
@@ -50,6 +51,7 @@ import System.IO ( hGetContents, openFile, IOMode(..), hPutStr, hClose )
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnvironment, extraPath )
 import Distribution.Franchise.Permissions ( isExecutable )
+import Distribution.Franchise.StringSet ( toListS, fromListS )
 
 -- | A version of waitForProcess that is non-blocking even when linked with
 -- the non-threaded runtime.
@@ -284,12 +286,17 @@ mv a b = do a' <- processFilePath a
             b' <- processFilePath b
             io $ renameFile a' b'
 
--- | Copy a file.
+-- | Copy a file or directory.
 
 cp :: String -> String -> C ()
-cp a b = do a' <- processFilePath a
-            b' <- processFilePath b
-            io $ copyFile a' b'
+cp a b = do whenC (isFile a) $
+                  do a' <- processFilePath a
+                     b' <- processFilePath b
+                     io $ copyFile a' b'
+            whenC (isDirectory a) $
+                  do mkdir b
+                     withDirectory a $ do xs <- ls "."
+                                          mapM_ (`cp` b) xs
 
 isFile :: String -> C Bool
 isFile f = do f' <- processFilePath f
@@ -337,3 +344,6 @@ csum :: [C a] -> C a
 csum [] = fail "csum given an empty list"
 csum [f] = f
 csum (f1:fs) = f1 `catchC` \_ -> csum fs
+
+nubs :: [String] -> [String]
+nubs = toListS . fromListS

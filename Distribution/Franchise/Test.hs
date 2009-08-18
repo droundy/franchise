@@ -208,10 +208,10 @@ testResultsFile f = do putExtra "test-results-file" (Just f)
 
 clearTestResults :: C ()
 clearTestResults = do f <- getResultsFile
-                      io $ writeFile (f++"-failed") ""
-                      io $ writeFile (f++"-pass-unexpected") ""
-                      io $ writeFile (f++"-passed") ""
-                      io $ writeFile (f++"-failure-expected") ""
+                      mapM_ clear [f++"-failed", f++"-pass-unexpected",
+                                   f++"-passed", f++"-failure-expected"]
+    where clear f = do clean [f]
+                       io $ writeFile f ""
 
 putAll :: Int -> String -> String -> C ()
 putAll 0 noun verb = putS $ "There were no "++noun++"s... but they all "++verb

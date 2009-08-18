@@ -166,7 +166,8 @@ writeF x0 y = do x <- processFilePath x0
                  mkdir $ dirname x0
                  y' <- io (readFile x) `catchC` \_ -> return ('x':y)
                  whenC (return $ length y /= length y' || y /= y') $
-                       io $ writeFile x y
+                       do putD $ unwords ["writeF",x]
+                          io $ writeFile x y
 
 readDirectory :: String -> C [String]
 readDirectory d =
@@ -177,9 +178,8 @@ readDirectory d =
 mkdir :: FilePath -> C ()
 mkdir "" = return ()
 mkdir d0 = do d <- processFilePath d0
-              putD $ "mkdir "++d
               unlessC (io $ doesDirectoryExist d) $ do mkdir $ dirname d0
-                                                       putV $ "mkdir "++d0
+                                                       putV $ "mkdir "++d
                                                        io $ createDirectory d
 
 -- | Same as the POSIX @basename(1)@.  Returns the name of a file

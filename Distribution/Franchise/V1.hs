@@ -48,6 +48,8 @@ module Distribution.Franchise.V1
       splitMarkdown, markdownToHtml, markdownStringToHtmlString,
       -- ** Defining your own build rules and phony targets
       rule, addToRule, addDependencies,
+      -- ** Specifying the install target
+      install, bin,
       -- * Tools to configure your build
       -- ** Setting compile parameters
       ghcFlags, ldFlags, cFlags, pkgFlags,

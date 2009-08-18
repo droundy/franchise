@@ -39,7 +39,7 @@ import Control.Monad ( when )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
-import Distribution.Franchise.Buildable ( simpleTarget )
+import Distribution.Franchise.Buildable ( simpleTarget, distclean )
 import Distribution.Franchise.ReleaseType ( ReleaseType(..),
                                             releaseFile, releaseUnknown )
 import Distribution.Franchise.Darcs ( inDarcs, darcsRelease,
@@ -65,28 +65,36 @@ inVC j = do ind <- inDarcs
 -- --version.
 
 releaseName :: ReleaseType -> C String
-releaseName t = withRootdir $
-               do x <- inVC $ VC (darcsRelease t) (gitRelease t)
-                                 readV (releaseUnknown t)
-                  when (x /= releaseUnknown t) $
-                       writeF (releaseFile t) x `catchC` \_ -> return ()
-                  return x
+releaseName t = withRootdir $ inVC $
+                VC (writeit darcsRelease) (writeit gitRelease)
+                   readV (releaseUnknown t)
     where readV = do x:_ <- words `fmap` cat (releaseFile t)
                      return x
+          writeit rel = do x <- rel t
+                           distclean [releaseFile t]
+                           writeF (releaseFile t) x
+                           return x
 
 patchLevel :: ReleaseType -> C Int
-patchLevel t = withRootdir $
-               do level <- inVC $ VC (darcsPatchLevel t) (gitPatchLevel t)
-                                      readL (-1)
-                  writeF dotfile (show level) `catchC` \_ -> return ()
-                  return level
-     where dotfile = releaseFile t++"PatchLevel"
-           readL = do [(i,"")] <- reads `fmap` cat dotfile
+patchLevel t = withRootdir $ inVC $
+               VC (writeit darcsPatchLevel) (writeit gitPatchLevel) readL (-1)
+     where writeit rel = do x <- rel t
+                            distclean [releaseFile t++"PatchLevel"]
+                            writeF (releaseFile t++"PatchLevel") (show x)
+                            return x
+           readL = do [(i,"")] <- reads `fmap`
+                                  cat (releaseFile t++"PatchLevel")
                       return i
 
 releaseTargets :: C ()
 releaseTargets = inVC $ VC inv inv inn ()
-    where inv = do simpleTarget (releaseFile Numbered) $ releaseName Numbered
+    where inv = do distclean [releaseFile Numbered,
+                              releaseFile NumberedPreRc,
+                              releaseFile AnyTag,
+                              releaseFile Numbered++"PatchLevel",
+                              releaseFile NumberedPreRc++"PatchLevel",
+                              releaseFile AnyTag++"PatchLevel"]
+                   simpleTarget (releaseFile Numbered) $ releaseName Numbered
                    simpleTarget (releaseFile NumberedPreRc) $
                                 releaseName NumberedPreRc
                    simpleTarget (releaseFile AnyTag) $ releaseName AnyTag

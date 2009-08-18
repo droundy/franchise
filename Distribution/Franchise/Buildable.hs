@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, buildTarget,
-      installBin,
+      bin, install,
       defaultRule, buildName, build', rm,
       clean, distclean,
       addToRule, addDependencies, addTarget,
@@ -42,10 +42,9 @@ module Distribution.Franchise.Buildable
       phony, extraData )
     where
 
-import Data.List ( nub, sort, isSuffixOf, (\\) )
+import Data.List ( sort, isSuffixOf, (\\) )
 import System.Environment ( getArgs )
-import System.Directory ( doesFileExist, removeFile, copyFile,
-                          getModificationTime )
+import System.Directory ( doesFileExist, removeFile, getModificationTime )
 import Control.Concurrent ( readChan, writeChan, newChan )
 import Control.Monad ( when, mplus )
 
@@ -60,7 +59,7 @@ data Dependency = [String] :< [String]
 
 infix 2 :<
 data BuildRule = BuildRule { make :: Dependency -> C (),
-                             install :: Dependency -> Maybe (C ()),
+                             postinst :: Dependency -> Maybe (C ()),
                              clean0 :: Dependency -> [String] }
 
 data Buildable = Dependency :<- BuildRule
@@ -75,7 +74,8 @@ infix 1 :<-
 infix 1 |<-
 
 defaultRule :: BuildRule
-defaultRule = BuildRule (const $ return ()) (const Nothing) cleanIt
+defaultRule = BuildRule (const $ return ()) (const $ Just $ return ())
+              cleanIt
 
 extraData :: String -> String
 extraData x = "config.d/"++x
@@ -128,21 +128,53 @@ build opts mkbuild =
 #define FRANCHISE_VERSION "franchise (unknown)"
 #endif
 
+addPaths :: String -> [FilePath] -> C ()
+addPaths v ps = do ps' <- mapM processFilePath ps
+                   addExtraUnique v ps'
+
 clean :: [FilePath] -> C ()
-clean = addExtra "to-clean"
+clean = addPaths "to-clean"
 
 distclean :: [FilePath] -> C ()
-distclean = addExtra "to-distclean"
+distclean = addPaths "to-distclean"
+
+install :: FilePath -> FilePath -> C ()
+install x y = do x' <- processFilePath x
+                 addDependencies (phony "build") [x]
+                 addExtra "to-install" [(x',y)]
+
+bin :: FilePath -> C ()
+bin x = do bind <- getBinDir
+           install x (bind++"/"++x)
 
 buildWithArgs :: [String] -> [C FranchiseFlag] -> C () -> IO ()
 buildWithArgs args opts mkbuild = runC $
-       do putV $ "compiled with "++FRANCHISE_VERSION
-          distclean ["config.d", "franchise.log"]
-          rule [phony "distclean"] [] $ do toclean <- getExtra "to-clean"
-                                           mapM_ rm_rf toclean
+       do putV $ "compiled with franchise version "++FRANCHISE_VERSION
           rule [phony "clean"] [] $ do toclean <- getExtra "to-clean"
-                                       dist <- getExtra "to-distclean"
-                                       mapM_ rm_rf (toclean++dist)
+                                       mapM_ rm_rf toclean
+          rule [phony "distclean"] [] $ do toclean <- getExtra "to-clean"
+                                           dist <- getExtra "to-distclean"
+                                           mapM_ rm_rf (toclean++dist)
+          -- clear out old install/clean policies
+          putExtra "to-clean" ([] :: [String])
+          putExtra "to-distclean" ["config.d", "franchise.log"]
+          putExtra "to-install" ([] :: [String])
+          rule [phony "copy"] [phony "build"] $
+               do is <- getExtra "to-install"
+                  let inst (x, y) = do mkdir (dirname y)
+                                       cp x y
+                  mapM_ inst is
+          rule [phony "uncopy"] [] $
+               do is <- getExtra "to-install"
+                  mapM_ (rm_rf . snd) (is :: [(String,String)])
+          rule [phony "register"] [] $ return ()
+          rule [phony "unregister"] [] $ return ()
+          rule [phony "install"] [phony "build"] $
+               do build' CannotModifyState (phony "copy")
+                  build' CannotModifyState (phony "register")
+          rule [phony "uninstall"] [] $
+               do build' CannotModifyState (phony "unregister")
+                  build' CannotModifyState (phony "uncopy")
           if "configure" `elem` args
               then return ()
               else (do readConfigureState "config.d"
@@ -155,12 +187,16 @@ buildWithArgs args opts mkbuild = runC $
           runHooks
           mkbuild
           writeConfigureState "config.d"
+          putD "Done writinf to config.d"
           when ("configure" `elem` args) $ putS "configure successful!"
           mapM_ buildtarget targets
     where buildtarget t =
               do mt <- sloppyTarget t
                  case mt of
                    [] -> fail $ "No such target: "++t
+                   ["*clean*"] -> do putS "{clean}"
+                                     build' CannotModifyState "*clean*"
+                                     clearAllBuilt
                    ["*distclean*"] -> do putS "{distclean}"
                                          build' CannotModifyState "*distclean*"
                                          clearAllBuilt
@@ -397,13 +433,6 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                    lookAtDeps nw' (d:ds) = do nw2 <- fw nw' d
                                                               lookAtDeps nw2 ds
 
-installBin :: Dependency -> Maybe (C ())
-installBin (xs:<_) = Just $ do pref <- getBinDir
-                               mkdir pref
-                               let xs' = filter (not . isPhony) xs
-                               putD $ unwords ("copyFile":xs'++[pref++"/"])
-                               mapM_ (\x -> io $ copyFile x (pref++"/"++x)) xs'
-
 simpleTarget :: String -> C a -> C ()
 simpleTarget outname myrule =
     addTarget $ [outname] :< []
@@ -422,10 +451,8 @@ addTarget (ts :< ds :<- r) =
                               insertT t (Target otherTs ds' $
                                                 withd $ make r (ts:<ds))
        clean $ clean0 r (ts:<ds)
-       case install r (ts:<ds) of
-         Just inst -> modifyTargets $ adjustT (phony "install") $
-                      \ (Target a b c) ->
-                          Target a (addsS ts b) (c >> withd inst)
+       case postinst r (ts:<ds) of
+         Just inst -> addToRule (phony "register") $ withd inst
          Nothing -> return ()
        mapM_ addt ts''
 
@@ -446,6 +473,7 @@ rule n deps j =
 
 {-# NOINLINE addToRule #-}
 addToRule :: String -> C () -> C ()
+addToRule t j | unphony t == "install" = addToRule (phony "register") j
 addToRule targ j = do withd <- rememberDirectory
                       modifyTargets $ adjustT' targ $
                             \ (Target a b c) -> Target a b (withd j >> c)
@@ -466,5 +494,5 @@ addDependencies t ds =
        let locate d = maybe d (const $ phony d) `fmap` getTarget (phony d)
        ds' <- mapM locate ds
        case bbb of
-         Just (x :< y :<- b) -> addTarget $ x :< (nub $ y++ds') :<- b
+         Just (x :< y :<- b) -> addTarget $ x :< (nubs $ y++ds') :<- b
          Nothing -> addTarget $ [phony t] :< ds :<- defaultRule

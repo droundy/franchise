@@ -120,6 +120,7 @@ handleArgs optsc =
        withEnv "PACKAGES" (addPackages . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
+       withEnv "DESTDIR" ("destdir" <<=)
        withEnv "LIBDIR" ("libdir" <<=)
        withEnv "BINDIR" ("bindir" <<=)
        withEnv "PREFIX" ("prefix" <<=)
@@ -152,6 +153,9 @@ handleArgs optsc =
                         Option [] ["libdir"]
                           (ReqArg ("libdir" <<=) "PATH")
                           "install in libdir",
+                        Option [] ["destdir"]
+                          (ReqArg ("destdir" <<=) "PATH")
+                          "copy in destdir",
                         Option [] ["libsubdir"]
                           (ReqArg ("libsubdir" <<=) "PATH")
                           "install in libsubdir",

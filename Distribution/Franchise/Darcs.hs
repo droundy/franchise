@@ -35,7 +35,7 @@ module Distribution.Franchise.Darcs
         where
 
 import System.Directory ( doesDirectoryExist )
-import Data.List ( nub, (\\) )
+import Data.List ( (\\) )
 
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -70,8 +70,8 @@ darcsDist dn tocopy = withRootdir $
                     do putS $ "making tarball as "++tarname
                        rm_rf distname
                        system "darcs" ["get","-t",v,".",distname]
-                       c <- nub `fmap` getExtra "to-clean"
-                       dc <- nub `fmap` getExtra "to-distclean"
+                       c <- nubs `fmap` getExtra "to-clean"
+                       dc <- nubs `fmap` getExtra "to-distclean"
                        withDirectory distname $
                          do setExecutable "Setup.hs" `catchC` \_ -> return ()
                             let wanted = (".releaseVersion":".latestRelease":
