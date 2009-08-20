@@ -63,10 +63,13 @@ buildDoc =
                         else putS "no broken links"
              htmls <- mapM (\i -> markdownToHtml "../doc.css" i "")
                            (concatMap fst alltests)
-             addDependencies "html" ("haddock":"manual/index.html":htmls)
-             addDependencies "manual" ["html"]
+             addDependencies "html" ("manual/index.html":htmls)
+             withProgram "haddock" [] $ const $
+                         addDependencies "html" ["haddock"]
+      addDependencies "manual" ["html"]
       addDependencies "webpage" ["manual","index.html"]
-      addDependencies "build" ["webpage"]
+      withProgram "markdown" ["hsmarkdown"] $ const $
+                  addDependencies "build" ["webpage"]
   where buildOneDoc f | not (".txt.in" `isSuffixOf` f) = return ([],[])
         buildOneDoc f =
             do tests0@(txtf:_)
