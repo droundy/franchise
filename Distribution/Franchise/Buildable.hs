@@ -141,7 +141,7 @@ distclean = addPaths "to-distclean"
 install :: FilePath -> FilePath -> C ()
 install x y = do x' <- processFilePath x
                  addDependencies (phony "build") [x]
-                 addExtra "to-install" [(x',y)]
+                 addExtraUnique "to-install" [(x',y)]
 
 bin :: FilePath -> C ()
 bin x = do bind <- getBinDir
