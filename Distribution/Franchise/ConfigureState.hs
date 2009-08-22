@@ -428,14 +428,13 @@ clearBuilt t = C $ \ts -> return $ Right ((), ts { built = delS t $ built ts })
 clearAllBuilt :: C ()
 clearAllBuilt = C $ \ts -> return $ Right ((), ts { built = emptyS })
 
--- | You can run arbitrary Haskell IO in the 'C' monad using the 'io'
--- function, which is a simple \'lift\' function.
+-- | Run arbitrary Haskell IO in the 'C' monad.
 io :: IO a -> C a
 io x = C $ \cs -> do a <- x
                      return $ Right (a,cs)
 
--- | If you wish to catch exceptions, please do so using 'catchC',
--- which converts all exceptions into user-presentable strings.
+-- | Catch any exceptions, which are converted into user-presentable
+-- strings.
 catchC :: C a -> (String -> C a) -> C a
 catchC (C a) b = C $ \ts ->
     do out <- (Right `fmap` a ts) `catch` \err -> return (Left $ show err)
@@ -460,17 +459,16 @@ putSnoln str = whenC ((>= Normal) `fmap` getVerbosity) $
                do putMnoln Stdout str
                   putMnoln Logfile str
 
--- | The 'putS' function prints a string to the screen and to the log
--- file.  Note that it adds a trailing newline for your convenience.
+-- | Print a string to the screen and to the log file.  Note that this
+-- will add a trailing newline for your convenience.
 putS :: String -> C ()
 putS str = whenC ((>= Normal) `fmap` getVerbosity) $
            do putM Stdout str
               putM Logfile str
 
--- | The 'putV' function is like 'putS', except that it only puts the
--- string in the \"verbose\" location, which by default is the log
--- file.  However, if the user runs with the --verbose flag, then
--- verbose output is sent to stdout as well.
+-- | Like 'putS', but only put the string in the \"verbose\" location,
+-- which by default is the log file.  However, if the user runs with
+-- the --verbose flag, then verbose output is sent to stdout as well.
 putV :: String -> C ()
 putV str = do amv <- (> Normal) `fmap` getVerbosity
               if amv then putS str
@@ -482,9 +480,9 @@ putD str = whenC ((> Verbose) `fmap` getVerbosity) $ putS str
 getNoRemove :: C [()]
 getNoRemove = getExtra "noRemove"
 
--- | 'putSV' is a mongrel of 'putS' and 'putV' which allows to specify
--- separate \"verbose\" and \"normal\" output strings.  This allows
--- you to avoid duplicate output.
+-- | A mongrel of 'putS' and 'putV' which allows to specify separate
+-- \"verbose\" and \"normal\" output strings.  This allows you to
+-- avoid duplicate output.
 putSV :: String -> String -> C ()
 putSV str vstr = do v <- getVerbosity
                     case v of

@@ -42,7 +42,7 @@ module Distribution.Franchise.V1
       -- * Defining build targets
       -- ** Compiling Haskell code
       executable, privateExecutable, package, version, installPackageInto,
-      -- ** Creating cabal files
+      -- *** Creating cabal files
       cabal, copyright, license,
       -- ** Processing markdown files
       splitMarkdown, markdownToHtml, markdownStringToHtmlString,

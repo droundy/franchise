@@ -138,10 +138,16 @@ clean = addPaths "to-clean"
 distclean :: [FilePath] -> C ()
 distclean = addPaths "to-distclean"
 
-install :: FilePath -> FilePath -> C ()
+-- | add the specified install to the install target.
+
+install :: FilePath -- ^ file or directory to be installed
+        -> FilePath -- ^ install location as an absolute path
+        -> C ()
 install x y = do x' <- processFilePath x
                  addDependencies (phony "build") [x]
                  addExtraUnique "to-install" [(x',y)]
+
+-- | request that the given file be installed in the bindir.
 
 bin :: FilePath -> C ()
 bin x = do bind <- getBinDir
@@ -460,7 +466,7 @@ addTarget (ts :< ds :<- r) =
 -- which creates a build target with certain dependencies and a rule
 -- to do any extra actual building.
 
-rule :: [String] -- ^ list of targets built by this rule
+rule :: [String] -- ^ list of targets simultaneously built by this rule
      -> [String] -- ^ list of dependencies
      -> C () -- ^ rule to build this target
      -> C ()

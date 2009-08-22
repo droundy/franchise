@@ -124,7 +124,7 @@ needDefinitions = getDefinitions >>= putExtra "definitions"
 
 
 -- | The 'defineAs' function is like 'define', but it allows you to
--- | specify the actual value of the defined C preprocessor macro:
+-- specify the actual value of the defined C preprocessor macro:
 -- 
 -- @
 --         'defineAs' \"COOLNESS\" \"cool\"

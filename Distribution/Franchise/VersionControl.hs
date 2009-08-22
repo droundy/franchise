@@ -62,7 +62,8 @@ inVC j = do ind <- inDarcs
 
 -- | Return the version name that would be set by 'autoVersion'.
 -- Useful if you want to use 'defineAs' to create the output of
--- --version.
+-- --version with a 'ReleaseType' that differs from how you have
+-- 'autoVersion' configured.
 
 releaseName :: ReleaseType -> C String
 releaseName t = withRootdir $ inVC $

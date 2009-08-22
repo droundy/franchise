@@ -56,7 +56,7 @@ franchiseVersion = "unknown"
 #endif
 
 -- |At heart, a FranchiseFlag is just a getopt OptDescr, but it is
--- kept abstract so I can change the API.
+-- kept abstract so I can change the internal implementation.
 newtype FranchiseFlag = FF (OptDescr (C ()))
 
 unFF :: FranchiseFlag -> OptDescr (C ())

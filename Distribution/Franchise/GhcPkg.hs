@@ -70,6 +70,10 @@ getPackageConfs =
        return $ map (init . filter (/='\r')) $ filter ((/= ' ') . head) $
               filter (not . null) $ lines list
 
+-- | Add a file to the ghc package search path.  This is useful with
+-- 'installPackageInto', since it allows you to test a package before
+-- really installing it.
+
 addToGhcPath :: FilePath -> C ()
 addToGhcPath d = do amw <- amInWindows
                     oldpath <- reverse `fmap` getPackageConfs

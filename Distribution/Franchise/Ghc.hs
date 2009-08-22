@@ -768,7 +768,12 @@ requireModuleExporting m i c =
 -- | If the specified module is available (and exports the right
 -- stuff), do something.
 
-withModuleExporting :: Monoid a => String -> String -> String -> C a -> C a
+withModuleExporting :: Monoid a =>
+       String -- ^ module name, e.g. System.Exit
+    -> String -- ^ export list, e.g. ExitCode, exitWith
+    -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
+    -> C a -- ^ action to do if the module is available
+    -> C a
 withModuleExporting m i c j =
     (requireModuleExporting m i c >> j)
     `catchC` \_ -> return mempty
