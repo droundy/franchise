@@ -1,5 +1,5 @@
-Using addToPath
-===============
+Setting the PATH environment variable
+=====================================
 
 You can use the [addToPath][] function to add a new directory to your
 path.  This is useful for tests.
@@ -13,14 +13,25 @@ main = putStrLn "hello world"
 Setup.hs
 --------
 
+In this example, we'll use [addToPath][] within
+[setupTestEnvironment][], so that it gets run before the [test][] is
+run, and doesn't affect the environment for the build itself.  This is
+equivalent to making [addToPath][] the first action in the test, but
+is convenient if you happen to define many different tests.
+
+[test]: haddock/Distribution-Franchise-V1.html#v%3Atest
+[setupTestEnvironment]: haddock/Distribution-Franchise-V1.html#v%3AsetupTestEnvironment
+
 ~~~~ tests/add-to-path/Setup.hs
 import Distribution.Franchise.V1
 
 main = build [] $
        do d <- pwd
-          addToPath (d++"/out")
-          rule ["test"] ["build"] $
-               system "simple" [] -- test that "simple" can be run.
+          -- using setupTestEnvironment here is gratuitous, but could
+          -- be useful if you didn't want the PATH to be modified for
+          -- your actual build.
+          setupTestEnvironment $ addToPath (d++"/out")
+          test "test" $ system "simple" [] -- test that "simple" can be run.
           executable "out/simple" "out/simple.hs" []
 ~~~~
 

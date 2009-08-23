@@ -14,8 +14,7 @@ main = putStrLn "goodbye world"
 Setup.hs
 --------
 
-This couldn't be easier.  You just need to indicate how to build them, and
-then return a list with two elements:
+This couldn't be easier.  You just need to indicate how to build them.
 
 ~~~~ tests/two-executables/Setup.hs
 import Distribution.Franchise.V1

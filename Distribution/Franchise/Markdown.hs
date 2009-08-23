@@ -66,7 +66,7 @@ splitMarkdown fin fout0 =
           splitf [] = []
           cleanMarkdown (x:xs) =
               case tildesfn x of
-                Just (_,n) -> indentnext xs
+                Just (fn,n) -> ("#### "++fn) : indentnext xs
                     where indentnext (z:zs) =
                               if n `atleasttildes` z
                               then cleanMarkdown zs

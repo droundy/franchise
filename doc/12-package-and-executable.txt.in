@@ -24,8 +24,7 @@ Setup.hs
 --------
 
 This couldn't be much easier.  You just need to indicate how to build
-them, specifying the package first, and then return a list with two
-elements.
+them, specifying the package first.
 
 ~~~~ tests/package-and-executable/Setup.hs
 import Distribution.Franchise.V1
