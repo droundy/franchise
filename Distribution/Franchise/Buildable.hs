@@ -505,7 +505,7 @@ addDependencies t ds =
            fixt tar = (tar, delS tar allts)
            allts = fromListS (t':ots)
            ts'' = map fixt (t':ots)
-           addt (t,otherTs) = modifyTargets $
-                              insertT t (Target otherTs ds'' rul)
+           addt (thisT,otherTs) = modifyTargets $
+                                  insertT thisT (Target otherTs ds'' rul)
        mapM_ clearBuilt (t':ots)
        mapM_ addt ts''
