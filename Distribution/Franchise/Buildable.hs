@@ -496,9 +496,16 @@ addDependencies :: String -- ^ target
                 -> [String] -- ^ new dependencies
                 -> C ()
 addDependencies t ds =
-    do bbb <- getBuildable t
-       let locate d = maybe d (const $ phony d) `fmap` getTarget (phony d)
-       ds' <- mapM locate ds
-       case bbb of
-         Just (x :< y :<- b) -> addTarget $ x :< (nubs $ y++ds') :<- b
-         Nothing -> addTarget $ [phony t] :< ds :<- defaultRule
+    do ots <- maybe [] (toListS . fellowTargets) `fmap` getTarget t
+       ds0 <- maybe emptyS dependencies `fmap` getTarget t
+       rul <- maybe (return ()) buildrule `fmap` getTarget t
+       t' <- maybe (phony t) (const t) `fmap` getTarget t
+       ds' <- fromListS `fmap` mapM processFilePathOrTarget ds
+       let ds'' = ds0 `unionS` ds'
+           fixt tar = (tar, delS tar allts)
+           allts = fromListS (t':ots)
+           ts'' = map fixt (t':ots)
+           addt (t,otherTs) = modifyTargets $
+                              insertT t (Target otherTs ds'' rul)
+       mapM_ clearBuilt (t':ots)
+       mapM_ addt ts''
