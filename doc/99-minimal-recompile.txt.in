@@ -39,6 +39,7 @@ grep executable.hs build.out
 
 ./executable
 
+sleep 2 # so the timestamp will have changed...
 echo >> Bar.hs
 # We should only have to rebuild Bar
 runghc Setup.hs build > build.out
