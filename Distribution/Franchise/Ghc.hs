@@ -33,9 +33,9 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Ghc
     ( executable, privateExecutable,
       -- Handy module-searching
-      requireModule, lookForModule, withModule,
+      requireModule, withModule,
       requireLib, lookForLib, withLib, checkHeader, withHeader, withLibOutput,
-      requireModuleExporting, lookForModuleExporting, withModuleExporting,
+      requireModuleExporting, withModuleExporting,
       findPackagesFor,
       -- defining package properties
       package, cabal, installPackageInto ) where

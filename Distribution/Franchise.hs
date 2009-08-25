@@ -31,34 +31,22 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise
     ( -- * The recommended API is defined in the module
-      -- Distribution.Franchise_1.
+      -- "Distribution.Franchise.V1".
       module Distribution.Franchise.V1,
       -- * The rest of the API defined below is either deprecated or
       -- * experimental!
       buildWithArgs,
       buildTarget,
-      addTarget,
       csum,
       -- | test suite helpers
       testOutput,
       testResultsFile,
-      -- | The constructors are exported so users
-      -- can construct arbitrarily complex build
-      -- systems, hopefully.
-      Dependency(..), Buildable, (|<-), BuildRule(..),
-      defaultRule,
       -- | some handy utilities for writing checks
       cacheifC, require, requireWithFeedback, requireWithPrereq, setOnce,
-      -- | Handy module-searching
-      lookForModule, lookForModuleExporting,
       -- | Searching for an executable
       lookForLib, checkHeader, withHeader,
       findPackagesFor,
       withLibOutput,
-      -- | defining package properties
-      haveExtraData,
-      -- | Various utilities for interfacing with darcs
-      darcsDist,
       -- | generalized version control support
       inDarcs, inGit,
       -- | utilities for autoheader files
@@ -72,8 +60,7 @@ module Distribution.Franchise
       -- | string-processing...
       stripPrefix,
       -- | for handy preprocessing...
-      splitFile,
-      extraData )
+      splitFile )
     where
 
 import Distribution.Franchise.V1
@@ -84,7 +71,7 @@ import Distribution.Franchise.GhcPkg ( addToGhcPath )
 import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.VersionControl
-import Distribution.Franchise.Darcs ( inDarcs, darcsDist )
+import Distribution.Franchise.Darcs ( inDarcs )
 import Distribution.Franchise.Git ( inGit )
 import Distribution.Franchise.AutoHeader
 import Distribution.Franchise.SplitFile
