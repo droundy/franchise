@@ -1,0 +1,44 @@
+Using DESTDIR to build a binary package
+=======================================
+
+Sometimes you might want to redirect the install into another
+directory, for instance if you're building a Debian package.   The
+standard way to do this is with the DESTDIR environment variable.
+Franchise supports this approach, but you'd best use copy rather than
+install, so as to avoid running scripts that won't quite work.
+
+Here as an example, I'll use a project that includes both a Haskell
+package and an executable.
+
+~~~~ tests/destdir/Greet.hs
+module Greet where
+greet = putStrLn "hello world"
+~~~~
+
+~~~~ tests/destdir/hello-world.hs
+import Greet
+main = greet
+~~~~
+
+~~~~ tests/destdir/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $ do package "hello" ["Greet"] []
+                     executable "hello" "hello-world.hs" []
+~~~~
+
+Testing it out
+--------------
+
+~~~~ tests/destdir/destdir.sh
+set -ev
+
+DESTDIR=`pwd`/foobar runghc Setup.hs copy --prefix=/usr
+
+./foobar/usr/bin/hello
+
+# The config file shouldn't "know" about the DESTDIR
+grep foobar foobar/usr/lib/hello*/*/hello.cfg && exit 1
+
+ls foobar/usr/lib/hello*/*/hello.cfg
+~~~~

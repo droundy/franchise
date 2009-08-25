@@ -138,14 +138,22 @@ clean = addPaths "to-clean"
 distclean :: [FilePath] -> C ()
 distclean = addPaths "to-distclean"
 
--- | add the specified install to the install target.
+(</>) :: FilePath -> FilePath -> FilePath
+"" </> x = x
+x </> ('/':y) = x </> y
+x </> y = reverse (dropWhile (=='/') $ reverse x) ++ '/':y
+
+-- | add the specified install to the install target.  This function
+-- respects the DESTDIR environment variable, and should therefore be
+-- used for installing.
 
 install :: FilePath -- ^ file or directory to be installed
         -> FilePath -- ^ install location as an absolute path
         -> C ()
 install x y = do x' <- processFilePath x
                  addDependencies (phony "build") [x]
-                 addExtraUnique "to-install" [(x',y)]
+                 destdir <- maybe "" id `fmap` getExtraData "destdir"
+                 addExtraUnique "to-install" [(x',destdir</>y)]
 
 -- | request that the given file be installed in the bindir.
 
