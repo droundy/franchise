@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Util ( system, systemV, systemOut, systemErr,
+                                     saveAsScript,
                                      systemInOut,
                                      systemOutErrToFile,
                                      nubs,
@@ -50,7 +51,7 @@ import System.IO ( hGetContents, openFile, IOMode(..), hPutStr, hClose )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnvironment, extraPath )
-import Distribution.Franchise.Permissions ( isExecutable )
+import Distribution.Franchise.Permissions ( isExecutable, setExecutable )
 import Distribution.Franchise.StringSet ( toListS, fromListS )
 
 -- | A version of waitForProcess that is non-blocking even when linked with
@@ -90,16 +91,67 @@ findCommandInExtraPath c = do ds <- extraPath
                                  if ise then return (d++"/"++c)
                                         else fail $ "not "++(d++"/"++c)
 
+assertNotCreatingScript :: String -> C ()
+assertNotCreatingScript err =
+    do x <- getExtraData "savescript"
+       case x of
+         Nothing -> return ()
+         Just _ -> fail $ err++" doesn't work when creating script."
+
+saveAsScript :: String -> C () -> C ()
+saveAsScript scriptname job =
+    do x <- getExtraData "savescript"
+       case x of
+         Just s -> fail $ "Already saving as a script: "++s
+         Nothing -> return ()
+       "savescript" <<= scriptname
+       unlessC amInWindows $
+               do writeF scriptname "#!/bin/sh\n"
+                  setExecutable scriptname
+       whenC amInWindows $ writeF scriptname "" -- empty script is okay
+       job
+       rmExtra "savescript"
+
+inscript :: String -> C () -> C ()
+inscript inscr j = do x <- getExtraData "savescript"
+                      case x of
+                        Nothing -> j
+                        Just s -> io $ appendFile s (inscr++"\n")
+
+mkscript :: String -> [String] -> Maybe String
+         -> [(String,String)] -> String
+mkscript c args subdir _env =
+    dropWhile (==' ') $ unwords $
+                  mycd: -- map setenv env++
+                  showSh c:map showSh args
+    where -- setenv (x,y) = x++"="++showSh y
+          mycd = case subdir of
+                   Nothing -> ""
+                   Just x -> "cd "++showSh x++";"
+
+showSh :: String -> String
+showSh x | any (`elem` x) "\'\t\n" = '"':concatMap doublequote x++"\""
+         | any (`elem` x) "\" ;{}()*?$@" = '\'':x++"\""
+         | otherwise = x
+    where doublequote '"' = "\\\""
+          doublequote '\t' = "\\t"
+          doublequote '\n' = "\\n"
+          doublequote '$' = "\\$"
+          doublequote '@' = "\\@"
+          doublequote c = [c]
+
 -- | Run a command
 system :: String   -- ^ Command
        -> [String] -- ^ Arguments
        -> C ()
-system g args = do sd <- getCurrentSubdir
-                   c <- findCommandInExtraPath g
-                   env <- Just `fmap` getEnvironment
-                   let cl = unwords (('[':c++"]"):drop (length args-1) args)
-                       clv = unwords (c:args)
-                   whenC oneJob $ putSV cl clv
+system g args =
+    do sd <- getCurrentSubdir
+       c <- findCommandInExtraPath g
+       env <- Just `fmap` getEnvironment
+       let cl = unwords (('[':c++"]"):drop (length args-1) args)
+           clv = unwords (c:args)
+       inscript (mkscript c args sd (maybe [] id env)) $
+                do whenC oneJob $ putSV cl clv
                    (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
                    io $ hClose i
                    out <- io $ hGetContents o
@@ -123,10 +175,12 @@ system g args = do sd <- getCurrentSubdir
 systemV :: String   -- ^ Command
         -> [String] -- ^ Arguments
         -> C ()
-systemV g args = do sd <- getCurrentSubdir
-                    c <- findCommandInExtraPath g
-                    env <- Just `fmap` getEnvironment
-                    whenC oneJob $ putV $ unwords (c:args)
+systemV g args =
+    do sd <- getCurrentSubdir
+       c <- findCommandInExtraPath g
+       env <- Just `fmap` getEnvironment
+       inscript (mkscript c args sd (maybe [] id env)) $
+                 do whenC oneJob $ putV $ unwords (c:args)
                     (i,o,e,pid) <- io $ runInteractiveProcess c args sd env
                     io $ hClose i
                     out <- io $ hGetContents o
@@ -168,7 +222,8 @@ systemErr g args = do sd <- getCurrentSubdir
 -- /stderr/ or /stdout/ to a file
 systemOutErrToFile :: String -> [String] -> String -> C ExitCode
 systemOutErrToFile g args outf0 =
-    do sd <- getCurrentSubdir
+    do assertNotCreatingScript "systemInOut"
+       sd <- getCurrentSubdir
        c <- findCommandInExtraPath g
        let long = unwords (c:args)
            short = if length args < 2 then long
@@ -185,7 +240,8 @@ systemOutErrToFile g args outf0 =
 systemOut :: String   -- ^ Program name
           -> [String] -- ^ Arguments
           -> C String -- ^ Output
-systemOut g args = do sd <- getCurrentSubdir
+systemOut g args = do assertNotCreatingScript "systemInOut"
+                      sd <- getCurrentSubdir
                       c <- findCommandInExtraPath g
                       env <- Just `fmap` getEnvironment
                       whenC oneJob $ putV $ unwords (c:args)
@@ -216,7 +272,8 @@ systemInOut :: String   -- ^ Program name
             -> [String] -- ^ Arguments
             -> String   -- ^ stdin
             -> C String -- ^ output
-systemInOut g args inp = do sd <- getCurrentSubdir
+systemInOut g args inp = do assertNotCreatingScript "systemInOut"
+                            sd <- getCurrentSubdir
                             c <- findCommandInExtraPath g
                             env <- Just `fmap` getEnvironment
                             whenC oneJob $ putV $ unwords (c:args)
@@ -247,15 +304,21 @@ systemInOut g args inp = do sd <- getCurrentSubdir
 -- easier (but also leads to lots of verbosity.
 
 mkFile :: FilePath -> String -> C ()
-mkFile f s = do f' <- processFilePath f
+mkFile f s = inscript ("cat > "++showSh f++" <<EOF\n"++s'++"EOF\n") $
+             do f' <- processFilePath f
                 io $ writeFile f' s
                 putL $ "wrote file "++f++":\n"
                 putL $ unlines $ map (\l->('|':' ':l)) $ lines s
+    where s' = concatMap quote s
+          quote '$' = "\\$"
+          quote '@' = "\\@"
+          quote c = [c]
 
 -- | cat is a strict readFile that handles the franchise working
 -- directory properly.
 cat :: String -> C String
-cat fn = do fn' <- processFilePath fn
+cat fn = do assertNotCreatingScript "cat"
+            fn' <- processFilePath fn
             x <- io $ readFile fn'
             length x `seq` return x
 
@@ -266,7 +329,8 @@ cat fn = do fn' <- processFilePath fn
 -- in order to build in parallel.
 
 pwd :: C String
-pwd = do x <- io $ getCurrentDirectory
+pwd = do assertNotCreatingScript "pwd"
+         x <- io $ getCurrentDirectory
          sd <- getCurrentSubdir
          return $ case sd of Nothing -> x
                              Just d -> x++"/"++d
@@ -276,20 +340,23 @@ pwd = do x <- io $ getCurrentDirectory
 -- often useful in build rules.
 
 ls :: String -> C [String]
-ls d = do d' <- processFilePath d
+ls d = do assertNotCreatingScript "ls"
+          d' <- processFilePath d
           io $ filter (not . (`elem` [".",".."])) `fmap` getDirectoryContents d'
 
 -- | Rename a file.
 
 mv :: String -> String -> C ()
-mv a b = do a' <- processFilePath a
+mv a b = inscript ("mv "++showSh a++" "++showSh b) $
+         do a' <- processFilePath a
             b' <- processFilePath b
             io $ renameFile a' b'
 
 -- | Copy a file or directory.
 
 cp :: String -> String -> C ()
-cp a b = do whenC (isFile a) $
+cp a b = inscript ("cp -a "++showSh a++" "++showSh b) $
+         do whenC (isFile a) $
                   do a' <- processFilePath a
                      b' <- processFilePath b
                      io $ copyFile a' b'
@@ -299,11 +366,13 @@ cp a b = do whenC (isFile a) $
                                           mapM_ (`cp` b) xs
 
 isFile :: String -> C Bool
-isFile f = do f' <- processFilePath f
+isFile f = do assertNotCreatingScript "isFile"
+              f' <- processFilePath f
               io $ doesFileExist f'
 
 isDirectory :: String -> C Bool
-isDirectory f = do f' <- processFilePath f
+isDirectory f = do assertNotCreatingScript "isDirectory"
+                   f' <- processFilePath f
                    io $ doesDirectoryExist f'
 
 takeExtension :: String -> String

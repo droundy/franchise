@@ -182,6 +182,20 @@ buildWithArgs args opts mkbuild = runC $
                do is <- getExtra "to-install"
                   mapM_ (rm_rf . snd) (is :: [(String,String)])
           rule [phony "register"] [] $ return ()
+          whenC amInWindows $
+            do rule ["register.bat", phony "register-script"] [] $
+                  saveAsScript "register.bat" $
+                  build' CannotModifyState (phony "register")
+               rule ["unregister.bat", phony "unregister-script"] [] $
+                  saveAsScript "unregister.bat" $
+                  build' CannotModifyState (phony "unregister")
+          unlessC amInWindows $
+            do rule ["register.sh", phony "register-script"] [] $
+                  saveAsScript "register.sh" $
+                  build' CannotModifyState (phony "register")
+               rule ["unregister.sh", phony "unregister-script"] [] $
+                  saveAsScript "unregister.sh" $
+                  build' CannotModifyState (phony "unregister")
           rule [phony "unregister"] [] $ return ()
           rule [phony "install"] [phony "build"] $
                do build' CannotModifyState (phony "copy")
@@ -208,6 +222,18 @@ buildWithArgs args opts mkbuild = runC $
               do mt <- sloppyTarget t
                  case mt of
                    [] -> fail $ "No such target: "++t
+                   ["*register*"] ->
+                       do putS "{register}"
+                          x <- getExtraData "gen-script"
+                          let realtarg = maybe "*register*"
+                                         (const "*register-script*") x
+                          build' CannotModifyState realtarg
+                   ["*unregister*"] ->
+                       do putS "{unregister}"
+                          x <- getExtraData "gen-script"
+                          let realtarg = maybe "*unregister*"
+                                         (const "*unregister-script*") x
+                          build' CannotModifyState realtarg
                    ["*clean*"] -> do putS "{clean}"
                                      build' CannotModifyState "*clean*"
                                      clearAllBuilt

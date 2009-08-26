@@ -23,7 +23,8 @@ main = greet
 ~~~~ tests/destdir/Setup.hs
 import Distribution.Franchise.V1
 
-main = build [] $ do package "hello" ["Greet"] []
+main = build [] $ do version "1.0.137"
+                     package "greet" ["Greet"] []
                      executable "hello" "hello-world.hs" []
 ~~~~
 
@@ -33,12 +34,40 @@ Testing it out
 ~~~~ tests/destdir/destdir.sh
 set -ev
 
-DESTDIR=`pwd`/foobar runghc Setup.hs copy --prefix=/usr
+runghc Setup.hs configure --user --prefix=$HOME/local
 
-./foobar/usr/bin/hello
+DESTDIR=`pwd`/foobar runghc Setup.hs copy
+
+if echo $HOME | grep :; then
+  echo cannot test in windows
+else
+  ./foobar$HOME/local/bin/hello
+fi
 
 # The config file shouldn't "know" about the DESTDIR
-grep foobar foobar/usr/lib/hello*/*/hello.cfg && exit 1
+grep foobar foobar$HOME/local/lib/greet*/*/greet.cfg && exit 1
 
-ls foobar/usr/lib/hello*/*/hello.cfg
+if echo $HOME | grep :; then
+  echo cannot test in windows
+else
+  ls foobar$HOME/local/lib/greet*/*/greet.cfg
+fi
+
+# to finish the install, we would need to run the register script
+runghc Setup.hs register unregister --gen-script
+ls register*
+
+grep ghc-pkg register*
+grep ghc-pkg unregister*
+
+if echo $HOME | grep :; then
+  echo cannot test in windows
+else
+  # let's see if an "install" actually works!
+  cp -r foobar$HOME/local/lib/* $HOME/local/lib/
+  ./register*
+  
+  # now let's unregister...
+  ./unregister*
+fi
 ~~~~

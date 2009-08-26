@@ -453,6 +453,8 @@ genRegisterPackageIn roru pn libdir =
        pkgflags <- getPkgFlags
        let verb = case roru of Register -> ["update","--auto-ghci-libs"]
                                Unregister -> ["unregister"]
+           object = case roru of Register -> destination++"/"++pn++".cfg"
+                                 Unregister -> pn
        mpf <- getEnv "FRANCHISE_GHC_PACKAGE_CONF"
        case mpf of
          Nothing -> do x <- getEnv "GHC_PACKAGE_PATH"
@@ -460,14 +462,13 @@ genRegisterPackageIn roru pn libdir =
                                  -- which might not contain ~/.ghc/...
                          Just _ -> unsetEnv "GHC_PACKAGE_PATH"
                          Nothing -> return ()
-                       system "ghc-pkg" $ pkgflags++ verb ++
-                                  [destination++"/"++pn++".cfg"]
+                       system "ghc-pkg" $ pkgflags++ verb ++[object]
                        case x of
                          Just xx -> setEnv "GHC_PACKAGE_PATH" xx
                          Nothing -> return ()
          Just pf -> system "ghc-pkg" $
                     filter (/="--user") pkgflags ++ verb ++
-                    [destination++"/"++pn++".cfg", "--package-conf="++pf]
+                               ["--package-conf="++pf, object]
 
 -- | Determine files to copy into the specified libdir for the
 -- specified package.

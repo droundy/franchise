@@ -133,6 +133,9 @@ handleArgs optsc =
                                    "show usage info",
                         Option [] ["user"]
                           (NoArg $ pkgFlags ["--user"]) "install as user",
+                        Option [] ["gen-script"]
+                          (NoArg $ "gen-script" <<= "doit")
+                          "Instead of [un]registering, generate a script.",
                         Option [] ["disable-optimization","disable-optimize"]
                           (NoArg $ addHook "disable-optimize" $
                                  rmGhcFlags ["-O2","-O"])

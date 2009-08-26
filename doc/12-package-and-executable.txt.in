@@ -51,4 +51,6 @@ grep Hello.hs franchise.log
 #ls -l Hello.hi && exit 1 # Check that we didn't create a Hello.hi outside dist/
 ./hello
 ./hello | grep 'hello world'
+
+runghc Setup.hs uninstall
 ~~~~
