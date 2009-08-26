@@ -63,9 +63,8 @@ buildDoc =
                         else putS "no broken links"
              htmls <- mapM (\i -> markdownToHtml "../doc.css" i "")
                            (concatMap fst alltests)
-             addDependencies "html" ("manual/index.html":htmls)
-             withProgram "haddock" [] $ const $
-                         addDependencies "html" ["haddock"]
+             hadd <- withProgram "haddock" [] $ const $ return ["haddock"]
+             addDependencies "html" ("manual/index.html":hadd++htmls)
       addDependencies "manual" ["html"]
       addDependencies "webpage" ["manual","index.html"]
       withProgram "markdown" ["hsmarkdown"] $ const $
