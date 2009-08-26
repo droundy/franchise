@@ -279,8 +279,7 @@ package pn modules cfiles =
                    "exposed: True",
                    "depends: "++commaWords deps]
        clean [pn++".config"]
-       mhaddockdir <- getExtraData "haddock-directory"
-       let haddockdir = maybe "haddock" id mhaddockdir
+       haddockdir <- maybe "haddock" id `fmap` getExtraData "haddock-directory"
        (preprocsources, coloredfiles) <- preprocessedTargets his haddockdir
        rule [phony "haddock", haddockdir++"/index.html"]
             (map (".preproc/"++) preprocsources ++ coloredfiles) $
