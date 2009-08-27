@@ -67,6 +67,7 @@ import Data.List ( delete, (\\) )
 import Data.Maybe ( isJust, catMaybes )
 import System.Directory ( getPermissions, setPermissions,
                           readable, writable, searchable )
+import System.CPUTime ( getCPUTime )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
@@ -222,6 +223,7 @@ rm_rf d0 = do d <- processFilePath d0
 
 data LogMessage = Stdout String | Logfile String
 data Verbosity = Quiet | Normal | Verbose | Debug deriving ( Eq, Ord, Enum )
+data ShowTimes = NoTimes | ShowTimes deriving ( Eq, Ord, Enum )
 data Target = Target { fellowTargets :: !StringSet,
                        dependencies :: !StringSet,
                        buildrule :: !(C ()) }
@@ -230,6 +232,7 @@ instance Show Target where
 
 data TotalState = TS { numJobs :: Int,
                        verbosity :: Verbosity,
+                       showTimes :: ShowTimes,
                        outputChan :: Chan LogMessage,
                        syncChan :: Chan (),
                        hooks :: [(String,C ())],
@@ -375,6 +378,8 @@ runC (C a) =
                             writethread
        thid <- forkIO writethread
        v <- Just `fmap` E.getEnv "VERBOSE" `catch` \_ -> return Nothing
+       t <- const ShowTimes `fmap` E.getEnv "FRANCHISE_TIMINGS"
+            `catch` \_ -> return NoTimes
        xxx <- a (TS { outputChan = ch,
                       syncChan = ch2,
                       numJobs = 1,
@@ -382,6 +387,7 @@ runC (C a) =
                       hooks = [],
                       persistentThings = [],
                       verbosity = readVerbosity Normal v,
+                      showTimes = t,
                       targets = defaultTargets,
                       built = emptyS,
                       packageModuleMap = Nothing,
@@ -491,9 +497,23 @@ putSV str vstr = do v <- getVerbosity
                       _ -> putM Stdout vstr
                     putM Logfile vstr
 
+ps2s :: Integer -> String
+ps2s = reverse . dec . drop 9 . reverse . show
+    where dec [a,b,c] = a:b:c:".0"
+          dec [a,b] = a:b:"0.0"
+          dec [a] = a:"00.0"
+          dec (a:b:c:r) = a:b:c:'.':r
+          dec _ = "0"
+
 putM :: (String -> LogMessage) -> String -> C ()
 putM _ "" = return ()
-putM m str = putMnoln m $ chomp str ++ "\n"
+putM m str = do st <- C $ \ts -> return $ Right (showTimes ts, ts)
+                timings <-
+                    case st of
+                    NoTimes -> return ""
+                    ShowTimes -> do x <- ps2s `fmap` io getCPUTime
+                                    return (x++"s: ")
+                putMnoln m $ timings ++ chomp str ++ "\n"
     where chomp x = case reverse x of '\n':rx -> reverse rx
                                       _ -> x
 
