@@ -37,7 +37,7 @@ module Distribution.Franchise.StringSet ( StringSet(..), nullS, emptyS, elemS,
 
 import Data.Maybe ( catMaybes )
 
-data StringSet = SS {-# UNPACK #-} !Bool [(Char,StringSet)]
+data StringSet = SS {-# UNPACK #-} !Bool {-# UNPACK #-} ![(Char,StringSet)]
 
 instance Show StringSet where
     showsPrec x ss = showsPrec x (toListS ss)
@@ -56,6 +56,9 @@ takeOne x (y:ys) | x == y = Just ys
                  | otherwise = (y:) `fmap` takeOne x ys
 takeOne _ [] = Nothing
 
+{-# RULES "fromListS . toListS"
+  forall x. fromListS (toListS x) = x #-}
+
 toListS :: StringSet -> [String]
 toListS (SS b ls) = (if b then [""] else []) ++ concatMap toL ls
     where toL (c,ss) = map (c:) $ toListS ss
@@ -64,7 +67,8 @@ fromListS :: [String] -> StringSet
 fromListS x = addsS x emptyS
 
 lengthS :: StringSet -> Int
-lengthS (SS b ls) = sum (map (lengthS . snd) ls) + (if b then 1 else 0)
+lengthS (SS b ls) =  if b then rest + 1 else rest
+    where rest = sum (map (lengthS . snd) ls)
 
 emptyS :: StringSet
 emptyS = SS False []
@@ -110,4 +114,4 @@ delsS [] x = x
 delsS (s:ss) x = delsS ss $ delS s x
 
 foreachS :: Monad m => (String -> m a) -> StringSet -> m [a]
-foreachS f s = mapM f $ toListS s
+foreachS f = mapM f . toListS
