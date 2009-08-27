@@ -38,103 +38,99 @@ module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.CharAssocList
 
-data Trie a = Trie {-# UNPACK #-} !(Maybe a) {-# UNPACK #-} ![(Char,Trie a)]
+data Trie a = Trie {-# UNPACK #-} !(Maybe a)
+                   {-# UNPACK #-} !(CharAssocList (Trie a))
+              deriving ( Eq )
 
 instance Show a => Show (Trie a) where
     showsPrec x ss = showsPrec x (toListT ss)
-
-instance Eq a => Eq (Trie a) where
-    Trie a _ == Trie b _ | a /= b = False
-    Trie _ [] == Trie _ [] = True
-    Trie _ [] == _ = False
-    _ == Trie _ [] = False
-    Trie _ (x:xs) == Trie _ ys = case takeOne x ys of
-                                 Just ys' -> Trie Nothing xs == Trie Nothing ys'
-                                 Nothing -> False
-
-mapSnd :: (a -> b) -> [(Char, a)] -> [(Char, b)]
-mapSnd f = map (\(c, a) -> (c, f a))
+instance Functor Trie where
+    fmap f (Trie x y) = Trie (fmap f x) (fmap (fmap f) y)
 
 keysT :: Trie a -> StringSet
-keysT (Trie (Just _) ts) = SS True $ fromListC $ mapSnd keysT ts
-keysT (Trie Nothing ts) = SS False $ fromListC $ mapSnd keysT ts
-
-takeOne :: Eq a => a -> [a] -> Maybe [a]
-takeOne x (y:ys) | x == y = Just ys
-                 | otherwise = (y:) `fmap` takeOne x ys
-takeOne _ [] = Nothing
+keysT (Trie (Just _) ts) = SS True $ fmap keysT ts
+keysT (Trie Nothing ts) = SS False $ fmap keysT ts
 
 {-# RULES "fromListT . toListT"
   forall x. fromListT (toListT x) = x #-}
 
 toListT :: Trie a -> [(String, a)]
-toListT (Trie b ls) = (case b of Just a -> [("",a)]; _ -> [])
-                      ++ concatMap toL ls
+toListT (Trie b ls) = (case b of Just a -> (("",a):); _ -> id) $
+                      concatMap toL (toListC ls)
     where toL (c,ss) = map (\(s,a) -> (c:s,a)) $ toListT ss
 
 fromListT :: [(String,a)] -> Trie a
 fromListT x = insertSeveralT x emptyT
 
 lengthT :: Trie a -> Int
-lengthT (Trie b ls) = sum (map (lengthT . snd) ls)
-                      + (case b of Just _ -> 1; _ -> 0)
+lengthT (Trie b ls) =  case b of Just _ -> rest + 1
+                                 Nothing -> rest
+    where rest = sumC lengthT ls
 
 emptyT :: Trie a
-emptyT = Trie Nothing []
+emptyT = Trie Nothing emptyC
+
+nullT :: Trie a -> Bool
+nullT (Trie Nothing x) = nullC x
+nullT _ = False
 
 lookupT :: String -> Trie a -> Maybe a
 lookupT "" (Trie ma _) = ma
-lookupT (c:cs) (Trie _ ls) = do ls' <- lookup c ls
+lookupT (c:cs) (Trie _ ls) = do ls' <- lookupC c ls
                                 lookupT cs ls'
 
 sloppyLookupKey :: String -> Trie a -> [String]
 sloppyLookupKey "" (Trie (Just _) _) = [""]
 sloppyLookupKey "" t = map fst $ toListT t
 sloppyLookupKey (c:cs) (Trie _ ls) =
-    case lookup c ls of
+    case lookupC c ls of
     Nothing -> []
     Just ls' -> map (c:) $ sloppyLookupKey cs ls'
 
 alterT :: String -> (Maybe a -> Maybe a) -> Trie a -> Trie a
 alterT "" f (Trie mv ls) = Trie (f mv) ls
-alterT (c:cs) f (Trie b ls) = Trie b $ adj ls
-    where adj ((c', ss):r) | c == c' = (c', alterT cs f ss) : r
-          adj (x:r) = x : adj r
-          adj [] = case f Nothing of
-                   Just v -> [(c, insertT cs v emptyT)]
-                   Nothing -> []
+alterT (c:cs) f (Trie b ls) = Trie b $ alterC c alt ls
+    where alt (Just t) = case alterT cs f t of
+                           t' | nullT t' -> Nothing
+                              | otherwise -> Just t'
+          alt Nothing = case f Nothing of
+                          Nothing -> Nothing
+                          Just a -> Just $ singleT cs a
 
 adjustT :: String -> (a -> a) -> Trie a -> Trie a
 adjustT "" f (Trie (Just v) ls) = fv `seq` Trie (Just fv) ls
     where fv = f v -- make this strict to avoid stack overflow!
 adjustT "" _ (Trie Nothing ls) = Trie Nothing ls
-adjustT (c:cs) f (Trie b ls) = Trie b $ adj ls
-    where adj ((c', ss):r) | c == c' = (c', adjustT cs f ss) : r
-          adj (x:r) = x : adj r
-          adj [] = []
+adjustT (c:cs) f (Trie b ls) = Trie b $ adjustC c (adjustT cs f) ls
 
 insertT :: String -> a -> Trie a -> Trie a
+-- The following code causes a major slowdown!
+-- insertT "" a (Trie _ ls) = a `seq` Trie (Just a) ls
 insertT "" a (Trie _ ls) = Trie (Just a) ls
-insertT (c:cs) a (Trie b ls) = Trie b $ repl ls
-    where repl ((c', ss):r) | c == c' = (c', insertT cs a ss) : r
-          repl (x:r) = x : repl r
-          repl [] = [(c, insertT cs a emptyT)]
+insertT (c:cs) a (Trie b ls) = Trie b $ alterAddC c ins ls
+    where ins Nothing = singleT cs a
+          ins (Just t) = insertT cs a t
+
+singleT :: String -> a -> Trie a
+singleT "" a = Trie (Just a) emptyC
+singleT (c:cs) a = Trie Nothing $ singleC c $ singleT cs a
 
 filterT :: (a -> Bool) -> Trie a -> Trie a
-filterT f (Trie ma ts) = case f `fmap` ma of Just True -> Trie ma (filt ts)
-                                             _ -> Trie Nothing (filt ts)
-    where filt ((c,t):r) = case filterT f t of Trie Nothing [] -> filt r
-                                               t' -> (c,t') : filt r
-          filt [] = []
+filterT f (Trie ma ts) = Trie ma' $ mapDelC fil ts
+    where ma' = do a <- ma
+                   if f a then Just a
+                          else Nothing
+          fil t = case filterT f t of
+                     t' | nullT t' -> Nothing
+                        | otherwise -> Just t'
 
 delT :: String -> Trie a -> Trie a
 delT "" (Trie _ ls) = Trie Nothing ls
-delT (c:cs) (Trie b ls) = Trie b $ del ls
-    where del ((c', x):r) | c == c' = case delT cs x of
-                                        Trie Nothing [] -> r
-                                        x' -> (c', x') : r
-                          | otherwise = (c',x) : del r
-          del [] = []
+delT (c:cs) (Trie b ls) = Trie b $ alterC c del ls
+    where del (Just x) = case delT cs x of
+                           x' | nullT x' -> Nothing
+                              | otherwise -> Just x'
+          del Nothing = Nothing
 
 unionT :: Trie a -> Trie a -> Trie a
 unionT x y = insertSeveralT (toListT x) y

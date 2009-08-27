@@ -31,16 +31,16 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.CharAssocList
     ( CharAssocList, emptyC, nullC, lookupC, fromListC, toListC,
-      unionC, insertC, adjustC, alterC,
+      unionC, insertC, singleC,
+      adjustC, alterC, alterDelC, alterAddC, mapDelC,
       filterC, sumC,
       delC, delSeveralC, lengthC ) where
 
 import Data.List ( sort )
 
 data CharAssoc a = CA {-# UNPACK #-} !Char {-# UNPACK #-} !a
-instance Eq (CharAssoc a) where
-    CA c1 _ == CA c2 _ = c1 == c2
-instance Ord (CharAssoc a) where
+                   deriving ( Eq )
+instance Eq a => Ord (CharAssoc a) where
     compare (CA c1 _) (CA c2 _) = compare c1 c2
 instance Functor CharAssoc where
     fmap f (CA c a) = CA c (f a)
@@ -62,7 +62,7 @@ instance Show a => Show (CharAssocList a) where
 toListC :: CharAssocList a -> [(Char, a)]
 toListC (CAL ls) = map toPair ls
 
-fromListC :: [(Char,a)] -> CharAssocList a
+fromListC :: Eq a => [(Char,a)] -> CharAssocList a
 fromListC = CAL . sort . map fromPair
 
 lengthC :: CharAssocList a -> Int
@@ -100,9 +100,35 @@ alterC c f (CAL xxs) = CAL $ alt xxs
 adjustC :: Char -> (a -> a) -> CharAssocList a -> CharAssocList a
 adjustC c f (CAL xxs) = CAL $ alt xxs
     where alt (CA c' a:r) | c' == c = CA c (f a):r
-                                 | c' > c = CA c' a : r
-                                 | otherwise = CA c' a : alt r
+                          | c' > c = CA c' a : r
+                          | otherwise = CA c' a : alt r
           alt [] = []
+
+alterAddC :: Char -> (Maybe a -> a) -> CharAssocList a -> CharAssocList a
+alterAddC c f (CAL xxs) = CAL $ alt xxs
+    where alt (CA c1 a1:r) | c1 == c = CA c1 (f $ Just a1):r
+                           | c1 > c = CA c (f Nothing):CA c1 a1:r
+                           | otherwise = CA c1 a1 : alt r
+          alt [] = [CA c $ f Nothing]
+
+alterDelC :: Char -> (a -> Maybe a) -> CharAssocList a -> CharAssocList a
+alterDelC c f (CAL xxs) = CAL $ alt xxs
+    where alt (CA c1 a1:r) | c1 == c = case f a1 of
+                                       Nothing -> r
+                                       Just a' -> CA c a' : r
+                           | c1 > c = CA c1 a1 : r
+                           | otherwise = CA c1 a1 : alt r
+          alt [] = []
+
+mapDelC :: (a -> Maybe a) -> CharAssocList a -> CharAssocList a
+mapDelC f (CAL xxs) = CAL $ alt xxs
+    where alt (CA c a:r) = case f a of
+                             Nothing -> alt r
+                             Just a' -> CA c a' : alt r
+          alt [] = []
+
+singleC :: Char -> a -> CharAssocList a
+singleC c a = CAL [CA c a]
 
 insertC :: Char -> a -> CharAssocList a -> CharAssocList a
 insertC c a (CAL ls) = CAL $ alt ls

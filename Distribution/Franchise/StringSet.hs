@@ -71,11 +71,15 @@ elemS (c:cs) (SS _ ls) = case lookupC c ls of
                          Nothing -> False
                          Just ls' -> elemS cs ls'
 
+singleS :: String -> StringSet
+singleS "" = SS True emptyC
+singleS (c:cs) = SS False $ singleC c $ singleS cs
+
 addS :: String -> StringSet -> StringSet
 addS "" (SS _ ls) = SS True ls
-addS (c:cs) (SS b ls) = SS b $ alterC c add ls
-    where add Nothing = Just $ addS cs emptyS
-          add (Just x) = Just $ addS cs x
+addS (c:cs) (SS b ls) = SS b $ alterAddC c add ls
+    where add Nothing = singleS cs
+          add (Just x) = addS cs x
 
 delS :: String -> StringSet -> StringSet
 delS "" (SS _ ls) = SS False ls
