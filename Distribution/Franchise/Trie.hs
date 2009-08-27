@@ -1,4 +1,4 @@
-{- Copyright (c) 2008 David Roundy
+{- Copyright (c) 2008-2009 David Roundy
 
 All rights reserved.
 
@@ -36,9 +36,8 @@ module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
                                      delT, delSeveralT, lengthT ) where
 
 import Distribution.Franchise.StringSet
-import Data.Maybe ( catMaybes, isJust )
 
-data Trie a = Trie {-# UNPACK #-} !(Maybe a) [(Char,Trie a)]
+data Trie a = Trie {-# UNPACK #-} !(Maybe a) {-# UNPACK #-} ![(Char,Trie a)]
 
 instance Show a => Show (Trie a) where
     showsPrec x ss = showsPrec x (toListT ss)
@@ -56,12 +55,16 @@ mapSnd :: (a -> b) -> [(Char, a)] -> [(Char, b)]
 mapSnd f = map (\(c, a) -> (c, f a))
 
 keysT :: Trie a -> StringSet
-keysT (Trie x ts) = SS (isJust x) $ mapSnd keysT ts
+keysT (Trie (Just _) ts) = SS True $ mapSnd keysT ts
+keysT (Trie Nothing ts) = SS False $ mapSnd keysT ts
 
 takeOne :: Eq a => a -> [a] -> Maybe [a]
 takeOne x (y:ys) | x == y = Just ys
                  | otherwise = (y:) `fmap` takeOne x ys
 takeOne _ [] = Nothing
+
+{-# RULES "fromListT . toListT"
+  forall x. fromListT (toListT x) = x #-}
 
 toListT :: Trie a -> [(String, a)]
 toListT (Trie b ls) = (case b of Just a -> [("",a)]; _ -> [])
@@ -117,21 +120,20 @@ insertT (c:cs) a (Trie b ls) = Trie b $ repl ls
           repl [] = [(c, insertT cs a emptyT)]
 
 filterT :: (a -> Bool) -> Trie a -> Trie a
-filterT f (Trie ma ts) =
-    case f `fmap` ma of
-    Just True -> Trie ma ts'
-    _ -> Trie Nothing ts'
-    where ts' = catMaybes $ map (\(c,t) -> case filterT f t of
-                                           Trie Nothing [] -> Nothing
-                                           t' -> Just (c,t')) ts
+filterT f (Trie ma ts) = case f `fmap` ma of Just True -> Trie ma (filt ts)
+                                             _ -> Trie Nothing (filt ts)
+    where filt ((c,t):r) = case filterT f t of Trie Nothing [] -> filt r
+                                               t' -> (c,t') : filt r
+          filt [] = []
 
 delT :: String -> Trie a -> Trie a
 delT "" (Trie _ ls) = Trie Nothing ls
-delT (c:cs) (Trie b ls) = Trie b $ catMaybes $ map d ls
-    where d (c', x) | c == c' = case delT cs x of
-                                Trie Nothing [] -> Nothing
-                                x' -> Just (c', x')
-          d x = Just x
+delT (c:cs) (Trie b ls) = Trie b $ del ls
+    where del ((c', x):r) | c == c' = case delT cs x of
+                                        Trie Nothing [] -> r
+                                        x' -> (c', x') : r
+                          | otherwise = (c',x) : del r
+          del [] = []
 
 unionT :: Trie a -> Trie a -> Trie a
 unionT x y = insertSeveralT (toListT x) y
