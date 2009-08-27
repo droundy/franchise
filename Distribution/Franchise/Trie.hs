@@ -36,6 +36,7 @@ module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
                                      delT, delSeveralT, lengthT ) where
 
 import Distribution.Franchise.StringSet
+import Distribution.Franchise.CharAssocList
 
 data Trie a = Trie {-# UNPACK #-} !(Maybe a) {-# UNPACK #-} ![(Char,Trie a)]
 
@@ -55,8 +56,8 @@ mapSnd :: (a -> b) -> [(Char, a)] -> [(Char, b)]
 mapSnd f = map (\(c, a) -> (c, f a))
 
 keysT :: Trie a -> StringSet
-keysT (Trie (Just _) ts) = SS True $ mapSnd keysT ts
-keysT (Trie Nothing ts) = SS False $ mapSnd keysT ts
+keysT (Trie (Just _) ts) = SS True $ fromListC $ mapSnd keysT ts
+keysT (Trie Nothing ts) = SS False $ fromListC $ mapSnd keysT ts
 
 takeOne :: Eq a => a -> [a] -> Maybe [a]
 takeOne x (y:ys) | x == y = Just ys

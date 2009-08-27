@@ -35,32 +35,20 @@ module Distribution.Franchise.StringSet ( StringSet(..), nullS, emptyS, elemS,
                                           addS, addsS, delS, delsS,
                                           lengthS ) where
 
-import Data.Maybe ( catMaybes )
+import Distribution.Franchise.CharAssocList
 
-data StringSet = SS {-# UNPACK #-} !Bool {-# UNPACK #-} ![(Char,StringSet)]
+data StringSet = SS {-# UNPACK #-} !Bool
+                    {-# UNPACK #-} !(CharAssocList StringSet)
+                 deriving ( Eq )
 
 instance Show StringSet where
     showsPrec x ss = showsPrec x (toListS ss)
-
-instance Eq StringSet where
-    SS a _ == SS b _ | a /= b = False
-    SS _ [] == SS _ [] = True
-    SS _ [] == _ = False
-    _ == SS _ [] = False
-    SS _ (x:xs) == SS _ ys = case takeOne x ys of
-                         Just ys' -> SS False xs == SS False ys'
-                         Nothing -> False
-
-takeOne :: Eq a => a -> [a] -> Maybe [a]
-takeOne x (y:ys) | x == y = Just ys
-                 | otherwise = (y:) `fmap` takeOne x ys
-takeOne _ [] = Nothing
 
 {-# RULES "fromListS . toListS"
   forall x. fromListS (toListS x) = x #-}
 
 toListS :: StringSet -> [String]
-toListS (SS b ls) = (if b then [""] else []) ++ concatMap toL ls
+toListS (SS b ls) = (if b then [""] else []) ++ concatMap toL (toListC ls)
     where toL (c,ss) = map (c:) $ toListS ss
 
 fromListS :: [String] -> StringSet
@@ -68,35 +56,34 @@ fromListS x = addsS x emptyS
 
 lengthS :: StringSet -> Int
 lengthS (SS b ls) =  if b then rest + 1 else rest
-    where rest = sum (map (lengthS . snd) ls)
+    where rest = sumC lengthS ls
 
 emptyS :: StringSet
-emptyS = SS False []
+emptyS = SS False emptyC
 
 nullS :: StringSet -> Bool
-nullS (SS False []) = True
+nullS (SS False x) = nullC x
 nullS _ = False
 
 elemS :: String -> StringSet -> Bool
 elemS "" (SS b _) = b
-elemS (c:cs) (SS _ ls) = case lookup c ls of
+elemS (c:cs) (SS _ ls) = case lookupC c ls of
                          Nothing -> False
                          Just ls' -> elemS cs ls'
 
 addS :: String -> StringSet -> StringSet
 addS "" (SS _ ls) = SS True ls
-addS (c:cs) (SS b ls) = SS b $ repl ls
-    where repl ((c', ss):r) | c == c' = (c', addS cs ss) : r
-          repl (x:r) = x : repl r
-          repl [] = [(c, addS cs emptyS)]
+addS (c:cs) (SS b ls) = SS b $ alterC c add ls
+    where add Nothing = Just $ addS cs emptyS
+          add (Just x) = Just $ addS cs x
 
 delS :: String -> StringSet -> StringSet
 delS "" (SS _ ls) = SS False ls
-delS (c:cs) (SS b ls) = SS b $ catMaybes $ map d ls
-    where d (c', x) | c == c' = case delS cs x of
-                                SS False [] -> Nothing
-                                x' -> Just (c', x')
-          d x = Just x
+delS (c:cs) (SS b ls) = SS b $ alterC c d ls
+    where d Nothing = Nothing
+          d (Just x) = case delS cs x of
+                         x' | nullS x' -> Nothing
+                            | otherwise -> Just x'
 
 unionS :: StringSet -> StringSet -> StringSet
 unionS a b = addsS (toListS a) b
