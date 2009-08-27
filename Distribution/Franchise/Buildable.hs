@@ -169,10 +169,6 @@ buildWithArgs args opts mkbuild = runC $
           rule [phony "distclean"] [] $ do toclean <- getExtra "to-clean"
                                            dist <- getExtra "to-distclean"
                                            mapM_ rm_rf (toclean++dist)
-          -- clear out old install/clean policies
-          putExtra "to-clean" ([] :: [String])
-          putExtra "to-distclean" ["config.d", "franchise.log"]
-          putExtra "to-install" ([] :: [String])
           rule [phony "copy"] [phony "build"] $
                do is <- getExtra "to-install"
                   let inst (x, y) = do mkdir (dirname y)
@@ -211,6 +207,7 @@ buildWithArgs args opts mkbuild = runC $
                                      putV "Couldn't read old config.d"
                                      rm_rf "config.d"
           putExtra "commandLine" args
+          distclean ["config.d", "franchise.log"]
           targets <- handleArgs opts
           runHooks
           mkbuild

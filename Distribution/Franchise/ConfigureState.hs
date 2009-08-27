@@ -146,7 +146,10 @@ readConfigureState d =
 
 writeConfigureState :: String -> C ()
 writeConfigureState d =
-    do cs <- getAllExtraData
+    do let transitory ('t':'o':'-':_, _) = True
+           transitory ('t':'e':'m':'p':'-':_, _) = True
+           transitory _ = False
+       cs <- filter (not . transitory) `fmap` getAllExtraData
        mapM_ writeExtra cs
        allextras <- filter ((/= '.') . head) `fmap` readDirectory d
        let toberemoved = allextras \\ map fst cs
