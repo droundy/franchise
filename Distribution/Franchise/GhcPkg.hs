@@ -66,9 +66,15 @@ readPkgMappings =
 
 getPackageConfs :: C [String]
 getPackageConfs =
-    do list <- systemOut "ghc-pkg" ["list"]
-       return $ map (init . filter (/='\r')) $ filter ((/= ' ') . head) $
-              filter (not . null) $ lines list
+    do x <- getExtra "to-package-confs"
+       case x of
+         [] -> do list <- systemOut "ghc-pkg" ["list"]
+                  let confs = map (init . filter (/='\r')) $
+                              filter ((/= ' ') . head) $
+                              filter (not . null) $ lines list
+                  putExtra "to-package-confs" confs
+                  return confs
+         confs -> return confs
 
 -- | Add a file to the ghc package search path.  This is useful with
 -- 'installPackageInto', since it allows you to test a package before
@@ -79,9 +85,12 @@ addToGhcPath d = do amw <- amInWindows
                     oldpath <- reverse `fmap` getPackageConfs
                     if d `elem` oldpath
                        then return ()
-                       else setEnv "GHC_PACKAGE_PATH" $
-                            if amw then drop 1 $ concatMap (';':) (d:oldpath)
-                                   else drop 1 $ concatMap (':':) (d:oldpath)
+                       else
+                         do setEnv "GHC_PACKAGE_PATH" $
+                                if amw
+                                then drop 1 $ concatMap (';':) (d:oldpath)
+                                else drop 1 $ concatMap (':':) (d:oldpath)
+                            putExtra "to-package-confs" (reverse $ d:oldpath)
                     unlessC (io $ doesFileExist d) $
                             io $ do createDirectoryIfMissing True (dirname d)
                                     writeFile d "[]"
