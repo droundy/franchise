@@ -6,6 +6,7 @@ module Distribution.Franchise.AutoHeader ( autoHeader ) where
 import Distribution.Franchise.SplitFile
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState ( getDefinitions )
+import Distribution.Franchise.ListUtils ( stripPrefix )
 
 -- |This is the split function for @splitFile@.  We need to provide
 -- the output filename explicitly since it's not in the file, and we
@@ -13,11 +14,12 @@ import Distribution.Franchise.GhcState ( getDefinitions )
 -- function.
 ahSplit :: FilePath -> [(String,String)] -> String -> [(FilePath,String)]
 ahSplit outfile subs content = [(outfile,unlines $ map repl $ lines content)]
-    where repl s | ("#undef ",ss) <- splitAt 7 s
-                 , Just v <- lookup ss subs = "#define " ++ ss ++ if null v
-                                                                  then ""
-                                                                  else " " ++ v
-                 | otherwise = s
+    where repl s = maybe s id $
+                   do ss <- stripPrefix "#undef " s
+                      v <- lookup ss subs
+                      Just $ "#define " ++ ss ++ if null v
+                                                 then ""
+                                                 else " " ++ v
 
 autoHeader :: FilePath -> C ()
 autoHeader target = do defs <- getDefinitions
