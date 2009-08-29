@@ -30,11 +30,12 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.GhcState
-    ( ghcFlags, ldFlags, cFlags, addPackages, removePackages, packageName,
+    ( hcFlags, ghcFlags, jhcFlags,
+      ldFlags, cFlags, addPackages, removePackages, packageName,
       rmGhcFlags,
       setOutputDirectory,
       pkgFlags, copyright, license, version,
-      getGhcFlags, getCFlags, getLdFlags,
+      getGhcFlags, getJhcFlags, getCFlags, getLdFlags,
       define, undefine, defineAs, needDefinitions,
       isDefined, getDefinitions,
       getLibDir, getBinDir,
@@ -44,7 +45,7 @@ module Distribution.Franchise.GhcState
 
 import Control.Monad ( mplus )
 import System.Directory ( getAppUserDataDirectory )
-import Data.List ( (\\) )
+import Data.List ( nub, (\\) )
 import Data.Maybe ( catMaybes )
 
 import Distribution.Franchise.ConfigureState
@@ -62,9 +63,20 @@ removePackages x = do p <- getExtra "packages"
 pkgFlags :: [String] -> C ()
 pkgFlags = addExtraUnique "pkgFlags"
 
--- | Add the specified flags to the list of flags passed to ghc.
+-- | Add the specified flags to the list of flags passed to ghc.  Note
+-- that it is preferred for flags such as -i or -I to use 'hcFlags'
+-- instead.
 ghcFlags :: [String] -> C ()
 ghcFlags = addExtraUnique "ghcFlags"
+
+-- | Add the specified flags to the list of flags specific to jhc.
+jhcFlags :: [String] -> C ()
+jhcFlags = addExtraUnique "jhcFlags"
+
+-- | Add the specified flags to the list of flags passed to any
+-- Haskell compiler.
+hcFlags :: [String] -> C ()
+hcFlags = addExtraUnique "hcFlags"
 
 setOutputDirectory :: String -> C ()
 setOutputDirectory odir =
@@ -155,7 +167,14 @@ version v = do "version" <<= v
                       `catchC` \_ -> return ()
 
 getGhcFlags :: C [String]
-getGhcFlags = getExtra "ghcFlags"
+getGhcFlags = do x <- getExtra "ghcFlags"
+                 y <- getExtra "hcFlags"
+                 return $ nub (x++y)
+
+getJhcFlags :: C [String]
+getJhcFlags = do x <- getExtra "jhcFlags"
+                 y <- getExtra "hcFlags"
+                 return $ nub (x++y)
 
 getCFlags :: C [String]
 getCFlags = getExtra "cflags"

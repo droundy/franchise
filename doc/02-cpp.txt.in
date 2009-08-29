@@ -6,6 +6,7 @@ an example of a simple executable that will fail if `DATA` is not a `cpp`
 macro:
 
 ~~~~ tests/cpp/executable.hs
+{-# LANGUAGE CPP #-}
 main = if DATA then putStrLn "It works." else putStrLn "Ooops."
 ~~~~
 
@@ -18,18 +19,23 @@ type.
 [define]: haddock/Distribution-Franchise-V1.html#v%3Adefine
 [defineAs]: haddock/Distribution-Franchise-V1.html#v%3AdefineAs
 
-Note that we also use the [ghcFlags][] macro to add the `-cpp` flag to the
-list of flags passed to `ghc`.  We could alternatively have asked for `cpp`
-in a pragma in the `executable.hs` file.
+Note that we used a `LANGUAGE` pragma above to tell the compiler to
+use run the C preprocessor over the file.  We could alternatively have
+used the [ghcFlags][] function to add the `-cpp` flag to the list of
+flags passed to `ghc`, and the [jhcFlags][] function to pass `-fcpp`
+to `jhc`.  This would just be a bit more work to support both `ghc`
+and `jhc`.  If both compilers were to accept the same command-line
+flag, we could have used [hcFlags][].
 
 [ghcFlags]: haddock/Distribution-Franchise-V1.html#v%3AghcFlags
+[jhcFlags]: haddock/Distribution-Franchise-V1.html#v%3AjhcFlags
+[hcFlags]: haddock/Distribution-Franchise-V1.html#v%3AhcFlags
 
 ~~~~ tests/cpp/Setup.hs
 import Distribution.Franchise.V1
 
 main = build [] $
        do defineAs "DATA" "True"
-          ghcFlags ["-cpp"]
           executable "executable" "executable.hs" []
 ~~~~
 
@@ -41,4 +47,13 @@ set -ev
 runghc Setup.hs build
 ./executable
 ./executable | grep works
+
+if which jhc; then
+  # we have jhc, so we should be able to compile with it!
+  runghc Setup.hs distclean
+  runghc Setup.hs build --jhc
+  ./executable | grep works
+else
+  echo alack, we cannot test on jhc
+fi
 ~~~~

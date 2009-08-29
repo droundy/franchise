@@ -46,15 +46,35 @@ import System.Directory ( doesFileExist )
 import Data.Monoid ( Monoid, mempty )
 
 import qualified Distribution.Franchise.Ghc as Ghc
+    ( package, cabal, privateExecutable,
+      findPackagesFor, installPackageInto,
+      checkHeader, getLibOutput, tryLib,
+      checkMinimumPackages, lookForModuleExporting )
+import qualified Distribution.Franchise.Jhc as Jhc
+    ( privateExecutable, checkMinimumPackages )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState
-    ( getGhcFlags, getCFlags, getLdFlags,
-      ldFlags, setOutputDirectory, packageName,
-      packages, getDefinitions )
+    ( getGhcFlags, getJhcFlags, getCFlags, getLdFlags, ldFlags,
+      setOutputDirectory, packageName, packages, getDefinitions )
 import Distribution.Franchise.Env ( setEnv )
 import Distribution.Franchise.Persistency ( requireWithPrereq )
+
+data HC a = HC { ghc :: C a,
+                 jhc :: C a }
+
+hc :: String -> HC a
+hc op = HC { ghc = fail (op++": operation not supported for ghc."),
+             jhc = fail (op++": operation not supported for ghc.") }
+
+withHc :: HC a -> C a
+withHc hC = do x <- getExtraData "hc"
+               case x of
+                 Just "jhc" -> jhc hC
+                 Just "ghc" -> ghc hC
+                 Just c -> fail $ "Misunderstood compiler: "++c
+                 Nothing -> ghc hC
 
 maketixdir :: C ()
 maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
@@ -78,7 +98,8 @@ executable exname src cfiles =
        bin exname' -- install the binary
 
 findPackagesFor :: String -> C ()
-findPackagesFor = Ghc.findPackagesFor
+findPackagesFor modul = withHc $ (hc "findPackagesFor") {
+                          ghc = Ghc.findPackagesFor modul }
 
 -- | Build a Haskell executable, but do not install it when running
 -- @.\/Setup.hs install@.
@@ -91,7 +112,10 @@ privateExecutable  simpleexname src0 cfiles =
               then do addHsc src0; return $ init src0
               else return src0
        build' CanModifyState src
-       Ghc.privateExecutable simpleexname src cfiles
+       withHc $ (hc "privateExecutable") {
+          ghc = Ghc.privateExecutable simpleexname src cfiles,
+          jhc = Jhc.privateExecutable simpleexname src cfiles
+       }
 
 -- | Inform franchise that you wish to build a haskell package
 -- (i.e. library).  Some of the less important package properties,
@@ -116,7 +140,7 @@ package pn modules cfiles =
        checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
        setOutputDirectory $ "dist/"++pn
-       Ghc.package pn modules cfiles
+       withHc $ (hc "package") { ghc = Ghc.package pn modules cfiles }
 
 -- | Generate a cabal file describing a package.  The arguments are
 -- the same as those to 'package'.  The package properties which are
@@ -131,18 +155,23 @@ cabal pn modules =
        packageName pn
        whenC (io $ doesFileExist "LICENSE") $ "license-file" <<= "LICENSE"
        getHscs -- to build any hsc files we need to.
-       Ghc.cabal pn modules
+       withHc $ (hc "cabal") { ghc = Ghc.cabal pn modules }
 
 -- | Install the specified package into a given ghc config file.  This
 -- is essentially only useful for test suites, when you want to test
 -- a package by installing it, but without /really/ installing it.
 
 installPackageInto :: String -> String -> C ()
-installPackageInto = Ghc.installPackageInto
+installPackageInto pn libdir =
+    withHc $ (hc "cabal") { ghc = Ghc.installPackageInto pn libdir }
+
+getHcFlags :: C [String]
+getHcFlags = withHc $ (hc "getHcFlags") { ghc = getGhcFlags,
+                                          jhc = getJhcFlags }
 
 hsc2hs :: (String -> [String] -> C a) -> [String] -> C a
 hsc2hs sys args =
-    do fl <- filter ("-I" `isPrefixOf`) `fmap` getGhcFlags
+    do fl <- filter ("-I" `isPrefixOf`) `fmap` getHcFlags
        defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v))
                `fmap` getDefinitions
        cf <- map ("--cflag="++) `fmap` getCFlags
@@ -151,14 +180,15 @@ hsc2hs sys args =
        sys "hsc2hs" $ "--cc=ghc":opts++args
 
 checkHeader :: String -> C ()
-checkHeader = Ghc.checkHeader
+checkHeader h = withHc $ (hc "checkHeader") { ghc = Ghc.checkHeader h }
 
 withHeader :: String -> C () -> C ()
 withHeader h job = (checkHeader h >> job)
                    `catchC` \_ -> return ()
 
 getLibOutput :: String -> String -> String -> C String
-getLibOutput = Ghc.getLibOutput
+getLibOutput lib h code =
+    withHc $ (hc "getLibOutput") { ghc = Ghc.getLibOutput lib h code }
 
 withLibOutput :: Monoid a => String -> String -> String
               -> (String -> C a) -> C a
@@ -167,7 +197,7 @@ withLibOutput lib h code job = (getLibOutput lib h code >>= job)
                                                   return mempty
 
 tryLib :: String -> String -> String -> C ()
-tryLib = Ghc.tryLib
+tryLib lib h code = withHc $ (hc "tryLib") { ghc = Ghc.tryLib lib h code }
 
 -- | If specified library is available, do something.
 withLib :: Monoid a => String -- ^ library name (i.e. what goes in -lfoo)
@@ -222,7 +252,9 @@ lookForModule :: String -> C Bool
 lookForModule m = lookForModuleExporting m "" ""
 
 lookForModuleExporting :: String -> String -> String -> C Bool
-lookForModuleExporting = Ghc.lookForModuleExporting
+lookForModuleExporting m i c =
+    withHc $ (hc "lookForModuleExporting") {
+                 ghc = Ghc.lookForModuleExporting m i c }
 
 -- | Fail if there isn't available a module that provides the
 -- specified exports.  Ideally, the \'code\' argument should use all
@@ -255,7 +287,9 @@ withModuleExporting m i c j =
     `catchC` \_ -> return mempty
 
 checkMinimumPackages :: C ()
-checkMinimumPackages = Ghc.checkMinimumPackages
+checkMinimumPackages =
+    withHc $ (hc "checkMinimumPackages") { ghc = Ghc.checkMinimumPackages,
+                                           jhc = Jhc.checkMinimumPackages }
 
 addHsc :: String -> C ()
 addHsc hsc = do hscs <- getHscs

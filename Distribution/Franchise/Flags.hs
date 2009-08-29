@@ -45,8 +45,9 @@ import Data.List ( delete )
 
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util ( isDirectory )
-import Distribution.Franchise.GhcState ( ghcFlags, ldFlags, cFlags, pkgFlags,
-                                         rmGhcFlags, addPackages )
+import Distribution.Franchise.GhcState
+    ( ghcFlags, jhcFlags, hcFlags, ldFlags, cFlags, pkgFlags,
+      rmGhcFlags, addPackages )
 
 franchiseVersion :: String
 #ifdef VERSION
@@ -117,6 +118,8 @@ handleArgs optsc =
     do args <- getExtra "commandLine"
        myname <- io $ getProgName
        withEnv "GHCFLAGS" (ghcFlags . words)
+       withEnv "HCFLAGS" (hcFlags . words)
+       withEnv "JHCFLAGS" (jhcFlags . words)
        withEnv "PACKAGES" (addPackages . words)
        withEnv "LDFLAGS" (ldFlags . words)
        withEnv "CFLAGS" (cFlags . words)
@@ -181,7 +184,8 @@ handleArgs optsc =
            showVersion = putAndExit franchiseVersion
            showUsage = putAndExit (usageInfo header options)
            options = opts++defaults
-       eviloptions <- sequence [ flag "ghc" "use ghc" $ return (),
+       eviloptions <- sequence [ flag "ghc" "use ghc" $ "hc" <<= "ghc",
+                                 flag "jhc" "use jhc" $ "hc" <<= "jhc",
                                  flag "global" "not --user" $ return (),
                                  return $ FF $ Option [] ["constraint"]
                                  (ReqArg (const (return ())) "ugh") "ignored" ]

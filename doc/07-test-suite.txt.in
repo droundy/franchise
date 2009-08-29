@@ -9,7 +9,7 @@ making the framework more generally available.
 Here is a simple program that we can use to write a test suite.
 
 ~~~~ tests/test-suite/dups.hs
-import System.Environment ( getArgs )
+import System ( getArgs )
 
 main = do x <- getArgs
           case x of
@@ -122,5 +122,20 @@ runghc BetterSetup.hs test
 runghc BetterSetup.hs failing-success.test && exit 1
 runghc BetterSetup.hs nodups.test
 runghc BetterSetup.hs single-arg.test
+
+if ! which jhc; then
+  echo we cannot test on jhc this time
+  exit 0
+fi
+
+# we have jhc, so we should be able to compile with it!
+runghc Setup.hs distclean
+runghc Setup.hs build --jhc
+./dups a a
+runghc Setup.hs test --jhc && exit 1
+runghc Setup.hs single-arg.test --jhc
+
+exit 0 # the following test fails because fail goes to stdout on jhc
+runghc BetterSetup.hs test --jhc
 ~~~~
 

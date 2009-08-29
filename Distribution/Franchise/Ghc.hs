@@ -154,21 +154,15 @@ objectIsInPackage pn o =
 -- @.\/Setup.hs install@.
 
 privateExecutable :: String -> String -> [String] -> C String
-privateExecutable  simpleexname src0 cfiles =
-    do maketixdir
-       checkMinimumPackages
-       aminwin <- amInWindows
+privateExecutable  simpleexname src cfiles =
+    do aminwin <- amInWindows
        exname <- if aminwin
                  then do putV $ unwords $ "calling the executable":
                                           simpleexname:simpleexname:[".exe"]
                          return (simpleexname++".exe")
                  else return simpleexname
-       whenJust (directoryPart src0) $ \d -> ghcFlags ["-i"++d, "-I"++d]
+       whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d, "-I"++d]
        let depend = exname++".depend"
-       src <- if ".hsc" `isSuffixOf` src0
-              then do addHsc src0; return $ init src0
-              else return src0
-       build' CanModifyState src
        ghcDeps depend [src] $
                putV $ "finding dependencies of executable "++simpleexname
        build' CanModifyState depend

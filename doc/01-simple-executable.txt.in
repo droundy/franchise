@@ -59,4 +59,14 @@ set -ev
 echo $HOME | grep doc/tests
 runghc Setup.hs build
 ./simple
+
+if which jhc; then
+  # we have jhc, so we should be able to compile with it!
+  runghc Setup.hs distclean
+  runghc Setup.hs configure --jhc
+  runghc Setup.hs build
+  ./simple
+else
+  echo we can not test on jhc as it is not available
+fi
 ~~~~

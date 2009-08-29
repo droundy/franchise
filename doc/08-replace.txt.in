@@ -44,4 +44,21 @@ set -ev
 runghc Setup.hs build
 ./simple
 ./simple | grep 'Foo message'
+
+if ! which jhc; then
+  echo we cannot test on jhc this time
+  exit 0
+fi
+
+# we have jhc, so we should be able to compile with it!
+runghc Setup.hs distclean
+rm Distribution/Simple.hs && exit 1 # should be removed by distclean
+
+# actually this is broken, because jhc doesn't yet support dependency
+#  tracking...
+exit 0
+
+runghc Setup.hs build --jhc
+./simple
+./simple | grep 'Foo message'
 ~~~~

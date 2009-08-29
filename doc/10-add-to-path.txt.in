@@ -43,4 +43,13 @@ set -ev
 runghc Setup.hs build
 runghc Setup.hs test
 ./out/simple
+
+if which jhc; then
+  # we have jhc, so we should be able to compile with it!
+  runghc Setup.hs distclean
+  runghc Setup.hs test --jhc
+  ./out/simple
+else
+  echo we cannot test on jhc
+fi
 ~~~~

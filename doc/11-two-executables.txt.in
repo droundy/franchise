@@ -32,4 +32,14 @@ set -ev
 runghc Setup.hs build
 ./hello
 ./goodbye
+
+if which jhc; then
+  # we have jhc, so we should be able to compile with it!
+  runghc Setup.hs distclean
+  runghc Setup.hs build --jhc
+  ./hello
+  ./goodbye
+else
+  echo we can not test with jhc here
+fi
 ~~~~

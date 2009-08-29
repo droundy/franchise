@@ -52,7 +52,8 @@ module Distribution.Franchise.V1
       install, bin,
       -- * Tools to configure your build
       -- ** Setting compile parameters
-      ghcFlags, ldFlags, cFlags, pkgFlags,
+      hcFlags, ghcFlags, jhcFlags,
+      ldFlags, cFlags, pkgFlags,
       -- ** C preprocessor helpers
       -- | For a tutorial in the use of the C preprocessor, see
       -- <../02-cpp.html>.
