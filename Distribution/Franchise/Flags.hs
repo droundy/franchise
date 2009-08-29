@@ -72,7 +72,7 @@ configureFlagWithDefault :: String -> String -> String
 configureFlagWithDefault n argname h defaultaction j =
  do whenC amConfiguring $ addHook n defaultaction
     return $ FF $ Option [] [n] (ReqArg (addHook n . j') argname) h
-    where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
+ where j' v = do putV $ "handling configure flag --"++n++" "++v; j v
 
 -- | 'flag' associates a flag with a help and an action to be taken
 -- when this flag is passed.  You may wish to see
