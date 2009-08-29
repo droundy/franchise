@@ -31,23 +31,24 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Ghc
-    ( executable, privateExecutable,
+    ( privateExecutable,
       -- Handy module-searching
-      requireModule, withModule,
-      requireLib, lookForLib, withLib, checkHeader, withHeader, withLibOutput,
-      requireModuleExporting, withModuleExporting,
+      checkHeader, withHeader,
       findPackagesFor,
       -- defining package properties
-      package, cabal, installPackageInto ) where
+      package, cabal, installPackageInto,
+      -- internal stuff for Haskell interface...
+      checkMinimumPackages,
+      lookForModuleExporting, tryLib, getLibOutput
+    ) where
 
-import Control.Monad ( msum, when, filterM )
+import Control.Monad ( msum, filterM )
 import System.Exit ( ExitCode(..) )
 import Data.Maybe ( catMaybes, listToMaybe, isJust, isNothing )
 import Data.List ( delete, partition, (\\), isSuffixOf, isPrefixOf )
 import System.Directory ( doesFileExist )
 import System.Info ( compilerName, compilerVersion )
 import Data.Version ( versionBranch )
-import Data.Monoid ( Monoid, mempty )
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
@@ -64,7 +65,7 @@ import Distribution.Franchise.Env ( setEnv, unsetEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.GhcPkg ( readPkgMappings, addToGhcPath )
 import Distribution.Franchise.Trie ( Trie, lookupT, alterT )
-import Distribution.Franchise.Persistency ( require, requireWithPrereq )
+import Distribution.Franchise.Persistency ( require )
 
 compile_C :: String -> String -> C Buildable
 compile_C x y =
@@ -91,19 +92,6 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
                 mkdir tixdir
                 setEnv "HPCTIXDIR" tixdir
                 clean [tixdir]
-
--- | The 'executable' function creates a haskell executable target.
---
--- For a tutorial in the use of 'executables', see
--- <../01-simple-executable.html>.
-
-executable :: String -- ^ name of executable to be generated
-           -> String -- ^ name of main file
-           -> [String] -- ^ list of C source files to be included
-           -> C ()
-executable exname src cfiles =
-    do exname' <- privateExecutable exname src cfiles
-       bin exname' -- install the binary
 
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
@@ -653,12 +641,6 @@ getLibOutput lib h code = do checkMinimumPackages
           remove = mapM_ rm ["get-const-ffi.h","get-const-ffi.o",
                              "get-const-ffi.c","get-const","get-const.hs"]
 
-withLibOutput :: Monoid a => String -> String -> String
-              -> (String -> C a) -> C a
-withLibOutput lib h code job = (getLibOutput lib h code >>= job)
-                               `catchC`  \_ -> do putS $ "failed to run "++code
-                                                  return mempty
-
 tryLib :: String -> String -> String -> C ()
 tryLib l h func = do checkMinimumPackages
                      bracketC_ create remove test
@@ -684,58 +666,6 @@ tryLib l h func = do checkMinimumPackages
           remove = mapM_ rm [fh,fn,fo,"try-lib"++l++".hi",
                              "try-lib","try-lib.o",hf]
 
--- | If specified library is available, do something.
-withLib :: Monoid a => String -- ^ library name (i.e. what goes in -lfoo)
-        -> String -- ^ header file to use
-        -> String -- ^ check for the presence of this function
-        -> C a -- ^ job to do
-        -> C a
-withLib l h func job = whenC (lookForLib l h func) job
-
-lookForLib :: String -> String -> String -> C Bool
-lookForLib l h func = (requireLib l h func >> return True)
-                      `catchC` \_ -> return False
-
--- | Fail if specified library isn't available.
-requireLib :: String -- ^ library name (i.e. what goes in -lfoo)
-           -> String -- ^ header file to use
-           -> String -- ^ check for the presence of this function
-           -> C ()
-requireLib l h func =
-    requireWithPrereq ("for library "++l)
-                      (unlines ["for library",l,"exporting",
-                                func,"using header",h])
-                      getLdFlags $
-    do checkMinimumPackages
-       if null l
-         then csum [do tryLib "std" h func
-                       putS $ "found function "++func++
-                                " without any extra flags."
-                   ,fail $ "couldn't find function "++func]
-         else csum [do tryLib l h func
-                       putS $ "found library "++l++" without any extra flags."
-                   ,do ldFlags ["-l"++l]
-                       tryLib l h func
-                       putS $ "found library "++l++" with -l"++l
-                   ,fail $ "couldn't find library "++l]
-
--- | Fail if the specified module isn't available.
-
-requireModule :: String -> C ()
-requireModule m = requireWithPrereq ("for module "++m)
-                                    ("for module "++m) packages $
-                  do haveit <- lookForModule m
-                     when (not haveit) $ fail $ "can't use module "++m
-
--- | If the specified module is available, do something.
-
-withModule :: Monoid a => String -> C a -> C a
-withModule m job = (requireModule m >> job)
-                   `catchC` \_ -> return mempty
-
-lookForModule :: String -> C Bool
-lookForModule m = lookForModuleExporting m "" ""
-
 lookForModuleExporting :: String -> String -> String -> C Bool
 lookForModuleExporting m i c =
     do putSnoln $ "checking module "++m++" ... "
@@ -747,36 +677,6 @@ lookForModuleExporting m i c =
        return True
     `catchC` \e -> do putV e
                       return False
-
--- | Fail if there isn't available a module that provides the
--- specified exports.  Ideally, the \'code\' argument should use all
--- of the functions you're checking to see exported.  See also
--- <../99-requireExporting.html>
-
-requireModuleExporting
-    :: String -- ^ module name, e.g. System.Exit
-    -> String -- ^ export list, e.g. ExitCode, exitWith
-    -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
-    -> C ()
-requireModuleExporting m i c =
-    requireWithPrereq ("module "++m++" exporting "++i)
-                      ("module "++m++" exporting "++i++" with code "++c)
-                      packages $
-                      unlessC (lookForModuleExporting m i c) $
-                               fail $ "can't use module "++m :: C ()
-
--- | If the specified module is available (and exports the right
--- stuff), do something.
-
-withModuleExporting :: Monoid a =>
-       String -- ^ module name, e.g. System.Exit
-    -> String -- ^ export list, e.g. ExitCode, exitWith
-    -> String -- ^ code using the exports, e.g. exitWith :: ExitCode -> IO ()
-    -> C a -- ^ action to do if the module is available
-    -> C a
-withModuleExporting m i c j =
-    (requireModuleExporting m i c >> j)
-    `catchC` \_ -> return mempty
 
 run :: C (C a) -> C a
 run j = j >>= id

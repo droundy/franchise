@@ -66,8 +66,8 @@ module Distribution.Franchise
 import Distribution.Franchise.V1
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
-import Distribution.Franchise.Ghc
-import Distribution.Franchise.GhcPkg ( addToGhcPath )
+import Distribution.Franchise.Haskell ( lookForLib, withLibOutput )
+import Distribution.Franchise.Ghc ( checkHeader, withHeader, findPackagesFor )
 import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.VersionControl

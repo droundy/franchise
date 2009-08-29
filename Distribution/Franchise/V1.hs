@@ -111,7 +111,11 @@ module Distribution.Franchise.V1
 
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
-import Distribution.Franchise.Ghc
+import Distribution.Franchise.Haskell
+    ( executable, privateExecutable, package,
+      requireModule, withModule, requireModuleExporting, withModuleExporting,
+      requireLib, withLib,
+      cabal, installPackageInto )
 import Distribution.Franchise.GhcState
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Endian ( amLittleEndian )
