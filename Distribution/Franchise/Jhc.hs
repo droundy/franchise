@@ -47,7 +47,7 @@ import Distribution.Franchise.GhcState ( packages, jhcFlags, getDefinitions,
                                          getCFlags, getJhcFlags, getLdFlags )
 import Distribution.Franchise.Util ( system, mkFile )
 
-jhc :: (String -> [String] -> C a) -> [String] -> C a
+jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
 jhc sys args =
     do packs <- concatMap (\p -> ["-p",p]) `fmap` packages
        fl <- getJhcFlags
@@ -55,7 +55,7 @@ jhc sys args =
                `fmap` getDefinitions
        cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
        ld <- getLdFlags
-       sys "jhc" $ fl ++ defs ++ cf ++ ld ++ packs++args
+       return (sys "jhc" $ fl ++ defs ++ cf ++ ld ++ packs++args)
 
 -- | Build a Haskell executable, but do not install it when running
 -- @.\/Setup.hs install@.
@@ -74,7 +74,8 @@ privateExecutable  simpleexname src [] =
        let targets = if exname == simpleexname
                      then [exname]
                      else [exname, phony simpleexname]
-       rule targets [src] $ jhc system [src, "-o", exname]
+       buildit <- jhc system [src, "-o", exname]
+       rule targets [src] $ buildit
        addDependencies (phony "build") [exname]
        return exname
 
@@ -96,13 +97,14 @@ package pn modules [] =
     do xpn <- maybe pn id `fmap` getPackageVersion
        ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
        let hiddenmodules = [] -- need tracking!
+       buildit <- jhc system ["--build-hl",pn++".config","-o",xpn++".hl"]
        rule [xpn++".hl", phony (pn++"-package"), pn++".config"] [] $
             do mkFile (pn++".config") $ unlines
                   ["name: "++pn,
                    "version: "++ver,
                    "exposed-modules: "++unwords modules,
                    "hidden-modules: "++unwords hiddenmodules]
-               jhc system ["--build-hl",pn++".config","-o",xpn++".hl"]
+               buildit
        addDependencies (phony "build") [phony (pn++"-package"), "lib"++pn++".a"]
 package _ _ _ = fail "Can't handle C files with jhc."
 
