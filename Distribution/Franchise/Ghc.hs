@@ -85,14 +85,6 @@ compile_hs pn (x,h) y otherdeps =
                   :<- defaultRule { make = const compileit }
          _ -> return Nothing
 
-maketixdir :: C ()
-maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
-             do -- create directory for coverage output
-                tixdir <- (++"/tix") `fmap` pwd
-                mkdir tixdir
-                setEnv "HPCTIXDIR" tixdir
-                clean [tixdir]
-
 findPackagesFor :: String -> C ()
 findPackagesFor src = do rm "temp.depend"
                          whenJust (directoryPart src) $ \d -> ghcFlags ["-i"++d,
