@@ -29,7 +29,8 @@ them, specifying the package first.
 ~~~~ tests/package-and-executable/Setup.hs
 import Distribution.Franchise.V1
 
-main = build [] $ do package "hello" ["Hello"] []
+main = build [] $ do version "1.0"
+                     package "hello" ["Hello"] []
                      executable "hello" "hello-world.hs" []
 ~~~~
 
@@ -53,4 +54,16 @@ grep Hello.hs franchise.log
 ./hello | grep 'hello world'
 
 runghc Setup.hs uninstall
+
+if ! which jhc; then
+  echo we can not test on jhc as it is not available
+  exit 0
+fi
+
+# we have jhc, so we should be able to compile with it!
+runghc Setup.hs distclean
+runghc Setup.hs configure --jhc
+runghc Setup.hs build
+test -f hello-1.0.hl
+./hello
 ~~~~

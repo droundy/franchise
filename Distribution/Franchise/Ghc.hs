@@ -232,10 +232,7 @@ package :: String -- ^ name of package to be generated
         -> [String] -- ^ list of C source files to be included
         -> C ()
 package pn modules cfiles =
-    do maketixdir
-       checkMinimumPackages -- ensure that we've got at least the prelude...
-       packageName pn
-       xpn <- getPackageVersion
+    do xpn <- getPackageVersion
        let depend = pn++"-package.depend"
        setOutputDirectory $ "dist/"++pn
        ghcDeps depend modules $ putV $ "finding dependencies of package "++pn
@@ -306,7 +303,7 @@ package pn modules cfiles =
        clean (".package.conf" : (pn++".cfg") : depend :
               map (stubit "o") mods ++ map (stubit "c") mods)
        setOutputDirectory "."
-       addDependencies (phony "build") [phony pn, "lib"++pn++".a"]
+       addDependencies (phony "build") [phony (pn++"-package"), "lib"++pn++".a"]
     where stubit c x = take (length x - 2) x ++ "_stub."++c
 
 -- | Generate a cabal file describing a package.  The arguments are

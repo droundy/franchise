@@ -51,13 +51,13 @@ import qualified Distribution.Franchise.Ghc as Ghc
       checkHeader, getLibOutput, tryLib,
       checkMinimumPackages, lookForModuleExporting )
 import qualified Distribution.Franchise.Jhc as Jhc
-    ( privateExecutable, checkMinimumPackages )
+    ( privateExecutable, package, checkMinimumPackages )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.GhcState
     ( getGhcFlags, getJhcFlags, getCFlags, getLdFlags, ldFlags,
-      setOutputDirectory, packageName, packages, getDefinitions )
+      packageName, packages, getDefinitions )
 import Distribution.Franchise.Env ( setEnv )
 import Distribution.Franchise.Persistency ( requireWithPrereq )
 
@@ -139,8 +139,8 @@ package pn modules cfiles =
     do maketixdir
        checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
-       setOutputDirectory $ "dist/"++pn
-       withHc $ (hc "package") { ghc = Ghc.package pn modules cfiles }
+       withHc $ (hc "package") { ghc = Ghc.package pn modules cfiles,
+                                 jhc = Jhc.package pn modules cfiles }
 
 -- | Generate a cabal file describing a package.  The arguments are
 -- the same as those to 'package'.  The package properties which are

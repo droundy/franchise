@@ -31,8 +31,8 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Jhc
-    ( privateExecutable,
-    --  package, cabal,
+    ( privateExecutable, package,
+    --  cabal,
     --  findPackagesFor, installPackageInto,
     --  checkHeader, getLibOutput, tryLib,
       checkMinimumPackages,
@@ -40,10 +40,12 @@ module Distribution.Franchise.Jhc
     ) where
 
 import Distribution.Franchise.ConfigureState ( C, amInWindows, putV )
-import Distribution.Franchise.Buildable ( rule, addDependencies, phony )
+import Distribution.Franchise.Buildable
+    ( rule, addDependencies, phony )
 import Distribution.Franchise.GhcState ( packages, jhcFlags, getDefinitions,
+                                         getVersion, getPackageVersion,
                                          getCFlags, getJhcFlags, getLdFlags )
-import Distribution.Franchise.Util ( system )
+import Distribution.Franchise.Util ( system, mkFile )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C a
 jhc sys args =
@@ -85,6 +87,24 @@ directoryPart f = case reverse $ dropWhile (=='/') $
                        dropWhile (/= '/') $ reverse f of
                   "" -> Nothing
                   d -> Just d
+
+package :: String -- ^ name of package to be generated
+        -> [String] -- ^ list of modules to be exported
+        -> [String] -- ^ list of C source files to be included
+        -> C ()
+package pn modules [] =
+    do xpn <- maybe pn id `fmap` getPackageVersion
+       ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
+       let hiddenmodules = [] -- need tracking!
+       rule [xpn++".hl", phony (pn++"-package"), pn++".config"] [] $
+            do mkFile (pn++".config") $ unlines
+                  ["name: "++pn,
+                   "version: "++ver,
+                   "exposed-modules: "++unwords modules,
+                   "hidden-modules: "++unwords hiddenmodules]
+               jhc system ["--build-hl",pn++".config","-o",xpn++".hl"]
+       addDependencies (phony "build") [phony (pn++"-package"), "lib"++pn++".a"]
+package _ _ _ = fail "Can't handle C files with jhc."
 
 checkMinimumPackages :: C ()
 checkMinimumPackages = return ()
