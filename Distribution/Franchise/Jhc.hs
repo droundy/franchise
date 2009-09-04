@@ -36,16 +36,19 @@ module Distribution.Franchise.Jhc
     --  findPackagesFor, installPackageInto,
     --  checkHeader, getLibOutput, tryLib,
       checkMinimumPackages,
-    --  lookForModuleExporting
+      lookForModuleExporting
     ) where
 
-import Distribution.Franchise.ConfigureState ( C, amInWindows, putV )
+import System.Exit ( ExitCode(..) )
+
+import Distribution.Franchise.ConfigureState
+    ( C, amInWindows, putS, putV, putSnoln )
 import Distribution.Franchise.Buildable
-    ( rule, addDependencies, phony )
+    ( rule, addDependencies, phony, rm )
 import Distribution.Franchise.GhcState ( packages, jhcFlags, getDefinitions,
                                          getVersion, getPackageVersion,
                                          getCFlags, getJhcFlags, getLdFlags )
-import Distribution.Franchise.Util ( system, mkFile )
+import Distribution.Franchise.Util ( system, systemErr, mkFile )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
 jhc sys args =
@@ -110,3 +113,23 @@ package _ _ _ = fail "Can't handle C files with jhc."
 
 checkMinimumPackages :: C ()
 checkMinimumPackages = return ()
+
+lookForModuleExporting :: String -> String -> String -> C Bool
+lookForModuleExporting m i c =
+    do putSnoln $ "checking module "++m++" ... "
+       x <- tryModule m i c
+       case x of
+         (ExitSuccess, _) -> do putS $ "found"
+                                return True
+         (_, e) -> do putV e
+                      return False
+
+tryModule :: String -> String -> String -> C (ExitCode, String)
+tryModule m imports code =
+    do let fn = "Try"++m++".hs"
+       mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
+                              "main:: IO ()",
+                              "main = undefined ("++code++")"]
+       e <- (jhc systemErr ["-c",fn]) >>= id
+       mapM_ rm [fn]
+       return e

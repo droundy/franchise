@@ -8,7 +8,7 @@ main = putStrLn "hello world"
 
 ~~~~ tests/check-just-once/Setup.hs
 import Distribution.Franchise.V1
-main = build [] $ do requireModule "Distribution.Franchise.V1"
+main = build [] $ do requireModule "System.Exit"
                      putS "foobar foobar"
                      executable "executable" "executable.hs" []
 ~~~~
@@ -18,11 +18,22 @@ main = build [] $ do requireModule "Distribution.Franchise.V1"
 set -ev
 runghc Setup.hs configure > configure.out
 cat configure.out
-grep Franchise configure.out
+grep System.Exit configure.out
 
 runghc Setup.hs build > build.out
 cat build.out
-grep Franchise build.out && exit 1
+grep System.Exit build.out && exit 1
 
+./executable
+
+if ! which jhc; then
+  echo we can not test on jhc as it is not available
+  exit 0
+fi
+
+# we have jhc, so we should be able to compile with it!
+runghc Setup.hs distclean
+runghc Setup.hs configure --jhc
+runghc Setup.hs build
 ./executable
 ~~~~

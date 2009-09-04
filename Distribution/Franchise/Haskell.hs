@@ -51,7 +51,7 @@ import qualified Distribution.Franchise.Ghc as Ghc
       checkHeader, getLibOutput, tryLib,
       checkMinimumPackages, lookForModuleExporting )
 import qualified Distribution.Franchise.Jhc as Jhc
-    ( privateExecutable, package, checkMinimumPackages )
+    ( privateExecutable, package, checkMinimumPackages, lookForModuleExporting )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -254,7 +254,8 @@ lookForModule m = lookForModuleExporting m "" ""
 lookForModuleExporting :: String -> String -> String -> C Bool
 lookForModuleExporting m i c =
     withHc $ (hc "lookForModuleExporting") {
-                 ghc = Ghc.lookForModuleExporting m i c }
+                 ghc = Ghc.lookForModuleExporting m i c,
+                 jhc = Jhc.lookForModuleExporting m i c }
 
 -- | Fail if there isn't available a module that provides the
 -- specified exports.  Ideally, the \'code\' argument should use all
