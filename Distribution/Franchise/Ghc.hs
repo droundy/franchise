@@ -59,7 +59,7 @@ import Distribution.Franchise.GhcState
       getPackageVersion, getMaintainer, getVersion, packageName, getLibDir,
       packages, addPackages, removePackages,
       getDefinitions, needDefinitions )
-import Distribution.Franchise.ListUtils ( stripPrefix )
+import Distribution.Franchise.ListUtils ( stripPrefix, commaWords )
 import Distribution.Franchise.StringSet ( toListS )
 import Distribution.Franchise.Env ( setEnv, unsetEnv, getEnv )
 import Distribution.Franchise.Program ( withProgram )
@@ -305,7 +305,7 @@ package pn modules cfiles =
 -- exposed to the user, and should be defined using the '<<='
 -- operator.
 
-cabal :: String -> [String] -> C [String]
+cabal :: String -> [String] -> C ()
 cabal pn modules =
     do checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
@@ -342,7 +342,6 @@ cabal pn modules =
                                  "category", "synopsis", "description"]
        rule [pn++".cabal"] [depend, extraData "version"] makecabal
        setOutputDirectory "."
-       return [pn++".cabal"]
 
 preprocessedTargets :: [String] -> FilePath -> C ([String],[String])
 preprocessedTargets his haddockdir =
@@ -485,11 +484,6 @@ objToModName = drop 1 . concatMap ('.':) . dropWhile isntCap .
 
 takeAllBut :: Int -> [a] -> [a]
 takeAllBut n xs = take (length xs - n) xs
-
-commaWords :: [String] -> String
-commaWords [] = ""
-commaWords [x] = x
-commaWords (x:xs) = x++", "++commaWords xs
 
 parseDeps :: [String] -> Maybe String -> [String]
           -> String -> C ([String], [String])

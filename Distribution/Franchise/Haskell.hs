@@ -51,7 +51,8 @@ import qualified Distribution.Franchise.Ghc as Ghc
       checkHeader, getLibOutput, tryLib,
       checkMinimumPackages, lookForModuleExporting )
 import qualified Distribution.Franchise.Jhc as Jhc
-    ( privateExecutable, package, checkMinimumPackages, lookForModuleExporting )
+    ( privateExecutable, package, cabal,
+      checkMinimumPackages, lookForModuleExporting )
 import Distribution.Franchise.Util
 import Distribution.Franchise.Buildable
 import Distribution.Franchise.ConfigureState
@@ -149,13 +150,14 @@ package pn modules cfiles =
 -- exposed to the user, and should be defined using the '<<='
 -- operator.
 
-cabal :: String -> [String] -> C [String]
+cabal :: String -> [String] -> C ()
 cabal pn modules =
     do checkMinimumPackages -- ensure that we've got at least the prelude...
        packageName pn
        whenC (io $ doesFileExist "LICENSE") $ "license-file" <<= "LICENSE"
        getHscs -- to build any hsc files we need to.
-       withHc $ (hc "cabal") { ghc = Ghc.cabal pn modules }
+       withHc $ (hc "cabal") { ghc = Ghc.cabal pn modules,
+                               jhc = Jhc.cabal pn modules }
 
 -- | Install the specified package into a given ghc config file.  This
 -- is essentially only useful for test suites, when you want to test

@@ -30,7 +30,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.ListUtils
-    ( stripPrefix, stripSuffix, endsWithOneOf ) where
+    ( stripPrefix, stripSuffix, endsWithOneOf, commaWords ) where
 
 import Data.List ( isSuffixOf )
 
@@ -47,3 +47,8 @@ endsWithOneOf :: [String] -- ^ List of strings to check
               -> String   -- ^ String to check against
               -> Bool
 endsWithOneOf xs y = any (`isSuffixOf` y) xs
+
+commaWords :: [String] -> String
+commaWords [] = ""
+commaWords [x] = x
+commaWords (x:xs) = x++", "++commaWords xs

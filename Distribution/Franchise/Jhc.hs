@@ -31,8 +31,7 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Jhc
-    ( privateExecutable, package,
-    --  cabal,
+    ( privateExecutable, package, cabal,
     --  findPackagesFor, installPackageInto,
     --  checkHeader, getLibOutput, tryLib,
       checkMinimumPackages,
@@ -41,18 +40,23 @@ module Distribution.Franchise.Jhc
 
 import System.Exit ( ExitCode(..) )
 import Data.List ( isPrefixOf )
+import Data.Maybe ( catMaybes )
+import System.Directory ( doesFileExist )
 
 import Distribution.Franchise.ConfigureState
-    ( C, io, catchC, amInWindows, putExtra, getExtra,
+    ( C, io, catchC, whenC, (<<=), amInWindows,
+      putExtra, getExtra, getExtraData,
       putS, putV, putSnoln )
 import Distribution.Franchise.Buildable
     ( rule, addDependencies, phony, rm, extraData )
-import Distribution.Franchise.GhcState ( packages, jhcFlags,
-                                         getDefinitions, needDefinitions,
-                                         getVersion, getPackageVersion,
-                                         getCFlags, getJhcFlags, getLdFlags )
+import Distribution.Franchise.GhcState
+    ( packages, jhcFlags,
+      getDefinitions, needDefinitions,
+      getVersion, getPackageVersion, getMaintainer,
+      getCFlags, getJhcFlags, getLdFlags )
 import Distribution.Franchise.Util
     ( system, systemErr, systemOut , mkFile, nubs )
+import Distribution.Franchise.ListUtils ( stripPrefix, commaWords )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
 jhc sys args =
@@ -130,6 +134,37 @@ package pn modules [] =
                buildit
        addDependencies (phony "build") [phony (pn++"-package"), "lib"++pn++".a"]
 package _ _ _ = fail "Can't handle C files with jhc."
+
+cabal :: String -> [String] -> C ()
+cabal pn modules =
+    do whenC (io $ doesFileExist "LICENSE") $ "license-file" <<= "LICENSE"
+       getHscs -- to build any hsc files we need to.
+       ver <- getVersion
+       extralibs <- (catMaybes . map (stripPrefix "-l")) `fmap` getLdFlags
+       deps <- packages
+       let guessVersion = -- crude heuristic for dependencies
+                          reverse . drop 1 . dropWhile (/='-') . reverse
+           appendExtra f d = do mval <- getExtraData d
+                                case mval of
+                                  Nothing -> return ()
+                                  Just v -> io $ appendFile f $ d++": "++v++"\n"
+           makecabal = do mai <- getMaintainer
+                          mkFile (pn++".cabal") $ unlines
+                                 ["name: "++pn,
+                                  "version: "++ver,
+                                  "maintainer: "++mai,
+                                  "exposed-modules: "++unwords modules,
+                                  "extra-libraries: "++unwords extralibs,
+                                  "build-type: Custom",
+                                  "build-depends: "++
+                                       commaWords (map guessVersion deps)]
+                          mapM_ (appendExtra (pn++".cabal"))
+                                ["author", "license", "copyright", "homepage",
+                                 "bug-reports",
+                                 "stability", "package-url", "tested-with",
+                                 "license-file",
+                                 "category", "synopsis", "description"]
+       rule [pn++".cabal"] [extraData "version"] makecabal
 
 checkMinimumPackages :: C ()
 checkMinimumPackages = return ()
