@@ -51,17 +51,18 @@ main = do fp <- wrap (return 137)
 The Setup.hs file
 -----------------
 
-Here's the ``Setup.hs`` file.  The only trickiness we need is to use [ghcFlags][] tell ghc
-to use the FFI.  This could alternatively have been achieved using a pragma
-at the top of the `TestModule.hs` file.
+Here's the ``Setup.hs`` file.  The only trickiness we need is to use
+[hcFlags][] tell the compiler to use the FFI.  This could
+alternatively have been achieved using a pragma at the top of the
+`TestModule.hs` file.
 
-[ghcFlags]: haddock/Distribution-Franchise-V1.html#v%3AghcFlags
+[hcFlags]: haddock/Distribution-Franchise-V1.html#v%3AhcFlags
 
 ~~~~ tests/foreign-wrapper/Setup.hs
 import Distribution.Franchise.V1
 
 main = build [] $
-       do ghcFlags ["-fffi"]
+       do hcFlags ["-fffi"]
           executable "test" "test.hs" ["printit.c"]
 ~~~~
 
@@ -73,4 +74,20 @@ set -ev
 runghc Setup.hs build
 ./test
 ./test | grep 137
+
+if ! which jhc; then
+  echo we can not test on jhc as it is not available
+  exit 0
+fi
+
+# actually ffi support isn't yet there for jhc
+exit 0
+
+# we have jhc, so we should be able to compile with it!
+runghc Setup.hs distclean
+runghc Setup.hs configure --jhc
+runghc Setup.hs build
+./test
+./test | grep 137
+
 ~~~~
