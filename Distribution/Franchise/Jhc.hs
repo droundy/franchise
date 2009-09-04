@@ -40,15 +40,19 @@ module Distribution.Franchise.Jhc
     ) where
 
 import System.Exit ( ExitCode(..) )
+import Data.List ( isPrefixOf )
 
 import Distribution.Franchise.ConfigureState
-    ( C, amInWindows, putS, putV, putSnoln )
+    ( C, io, catchC, amInWindows, putExtra, getExtra,
+      putS, putV, putSnoln )
 import Distribution.Franchise.Buildable
-    ( rule, addDependencies, phony, rm )
-import Distribution.Franchise.GhcState ( packages, jhcFlags, getDefinitions,
+    ( rule, addDependencies, phony, rm, extraData )
+import Distribution.Franchise.GhcState ( packages, jhcFlags,
+                                         getDefinitions, needDefinitions,
                                          getVersion, getPackageVersion,
                                          getCFlags, getJhcFlags, getLdFlags )
-import Distribution.Franchise.Util ( system, systemErr, mkFile )
+import Distribution.Franchise.Util
+    ( system, systemErr, systemOut , mkFile, nubs )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
 jhc sys args =
@@ -59,6 +63,9 @@ jhc sys args =
        cf <- (map ("-optc"++) . (++defs)) `fmap` getCFlags
        ld <- getLdFlags
        return (sys "jhc" $ fl ++ defs ++ cf ++ ld ++ packs++args)
+
+jhcRelatedConfig :: [String]
+jhcRelatedConfig = [extraData "packages", extraData "definitions"]
 
 -- | Build a Haskell executable, but do not install it when running
 -- @.\/Setup.hs install@.
@@ -77,8 +84,14 @@ privateExecutable  simpleexname src [] =
        let targets = if exname == simpleexname
                      then [exname]
                      else [exname, phony simpleexname]
-       buildit <- jhc system [src, "-o", exname]
-       rule targets [src] $ buildit
+           depend = exname++".depend"
+       needDefinitions
+       hscs <- getHscs
+       othersrc <- (lines `fmap` io (readFile depend))
+                   `catchC` \_ -> return [src]
+       buildit <- jhc system [src, "--dependencies", depend, "-o", exname]
+       rule (depend:targets)
+            (nubs $ src:othersrc++map init hscs++jhcRelatedConfig) $ buildit
        addDependencies (phony "build") [exname]
        return exname
 
@@ -100,8 +113,15 @@ package pn modules [] =
     do xpn <- maybe pn id `fmap` getPackageVersion
        ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
        let hiddenmodules = [] -- need tracking!
-       buildit <- jhc system ["--build-hl",pn++".config","-o",xpn++".hl"]
-       rule [xpn++".hl", phony (pn++"-package"), pn++".config"] [] $
+           depend = pn++".depend"
+       src <- (lines `fmap` io (readFile depend))
+              `catchC` \_ -> return []
+       needDefinitions
+       hscs <- getHscs
+       buildit <- jhc system ["--dependencies", depend,
+                              "--build-hl",pn++".config"]
+       rule [xpn++".hl", phony (pn++"-package"), pn++".config"]
+            (src++map init hscs++jhcRelatedConfig) $
             do mkFile (pn++".config") $ unlines
                   ["name: "++pn,
                    "version: "++ver,
@@ -130,6 +150,35 @@ tryModule m imports code =
        mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
                               "main:: IO ()",
                               "main = undefined ("++code++")"]
-       e <- (jhc systemErr ["-c",fn]) >>= id
+       e <- jhc systemErr ["-c",fn] >>= id
        mapM_ rm [fn]
        return e
+
+-- | 'addHsc' will be used when we add module tracking, so that we can
+-- easily add rules to build source from hsc.
+
+addHsc :: String -> C ()
+addHsc hsc = do hscs <- getHscs
+                putExtra "hsc2hs" $ nubs (hsc:hscs)
+                let hscit = hsc2hs system [hsc]
+                rule [init hsc] [hsc] hscit
+                hscit
+
+getHscs :: C [String]
+getHscs = do hscs <- getExtra "hsc2hs"
+             mapM_ (\hsc -> rule [dropdotslash $ init hsc] [dropdotslash hsc]
+                                 $ hsc2hs system [hsc]) hscs
+             return hscs
+    where dropdotslash ('.':'/':r) = dropdotslash $ dropWhile (=='/') r
+          dropdotslash x = x
+
+hsc2hs :: (String -> [String] -> C a) -> [String] -> C a
+hsc2hs sys args =
+    do fl <- filter ("-I" `isPrefixOf`) `fmap` getJhcFlags
+       defs <- map (\(k,v)->"-D"++k++(if null v then "" else "="++v))
+               `fmap` getDefinitions
+       cf <- map ("--cflag="++) `fmap` getCFlags
+       ld <- map ("--lflag="++) `fmap` getLdFlags
+       hscopts <- words `fmap` (jhc systemOut ["--print-hsc-options"] >>= id)
+       let opts = fl ++ defs ++ ld ++ cf
+       sys "hsc2hs" (hscopts++opts++args)

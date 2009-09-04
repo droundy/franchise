@@ -66,7 +66,7 @@ data HC a = HC { ghc :: C a,
 
 hc :: String -> HC a
 hc op = HC { ghc = fail (op++": operation not supported for ghc."),
-             jhc = fail (op++": operation not supported for ghc.") }
+             jhc = fail (op++": operation not supported for jhc.") }
 
 withHc :: HC a -> C a
 withHc hC = do x <- getExtraData "hc"
