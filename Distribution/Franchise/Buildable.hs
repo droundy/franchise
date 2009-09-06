@@ -408,7 +408,7 @@ partitionM f (x:xs) = do amok <- f x
 
 canBuildNow :: StringSet -> String -> C Bool
 canBuildNow needwork t = do mt <- getTarget t
-                            case dependencies `fmap` mt of
+                            case (delS t . dependencies) `fmap` mt of
                               Just d -> return $ not $
                                         any (`elemS` needwork) $ toListS d
                               _ -> return True
@@ -443,10 +443,11 @@ sloppyTarget t =
 
 findWork :: String -> C StringSet
 findWork zzz = do putD $ "findWork called on "++zzz
-                  fw emptyS zzz
-    where fw :: StringSet -> String -> C StringSet
-          fw nw t | t `elemS` nw = return nw
-          fw nw t =
+                  fw emptyS emptyS zzz
+    where fw :: StringSet -> StringSet -> String -> C StringSet
+          fw nw _ t | t `elemS` nw = return nw
+          fw nw done t | t `elemS` done = return nw
+          fw nw done t =
               do amb <- isBuilt t
                  if amb
                   then return nw
@@ -467,8 +468,9 @@ findWork zzz = do putD $ "findWork called on "++zzz
                                            if tooold then return $ addS t nwds
                                                      else return nwds
                              where lookAtDeps nw' [] = return nw'
-                                   lookAtDeps nw' (d:ds) = do nw2 <- fw nw' d
-                                                              lookAtDeps nw2 ds
+                                   lookAtDeps nw' (d:ds) =
+                                       do nw2 <- fw nw' (t `addS` done) d
+                                          lookAtDeps nw2 ds
 
 simpleTarget :: String -> C a -> C ()
 simpleTarget outname myrule =
