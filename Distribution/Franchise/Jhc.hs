@@ -86,9 +86,9 @@ privateExecutable  simpleexname src [] =
                  else return simpleexname
        whenJust (directoryPart src) $ \d -> jhcFlags ["-i"++d, "-I"++d]
        let targets = if exname == simpleexname
-                     then [exname]
-                     else [exname, phony simpleexname]
-           depend = exname++".depend"
+                     then [exname, depend]
+                     else [exname, depend, phony simpleexname]
+           depend = exname++".jhc-deps"
        needDefinitions
        hscs <- getHscs
        othersrc <- (lines `fmap` io (readFile depend))
@@ -117,7 +117,7 @@ package pn modules [] =
     do xpn <- maybe pn id `fmap` getPackageVersion
        ver <- takeWhile (`elem` ('.':['0'..'9']))  `fmap` getVersion
        let hiddenmodules = [] -- need tracking!
-           depend = pn++".depend"
+           depend = pn++".jhc-deps"
        src <- (lines `fmap` io (readFile depend))
               `catchC` \_ -> return []
        needDefinitions
