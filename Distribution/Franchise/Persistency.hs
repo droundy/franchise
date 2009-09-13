@@ -124,7 +124,7 @@ requireWithPrereqActionWithFeedback action name longname prereq check =
 
 satisfyWithPrereq :: Show a => a -> String -> C [String] -> C ()
 satisfyWithPrereq a checkname prereq =
-    ((("PASS\n"++show a):) `fmap` prereq) >>= putExtra checkname
+    ((("PASS "++show a):) `fmap` prereq) >>= putExtra checkname
 
 failWithPrereq :: String -> C [String] -> String -> C a
 failWithPrereq checkname prereq e = do v <- prereq

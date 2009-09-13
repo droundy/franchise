@@ -1,45 +1,84 @@
-module Distribution.Franchise.YAML ( Node(..), ToNode(..),
+module Distribution.Franchise.YAML ( Node(..), YAML(..),
                                      showYAML, readYAML ) where
 
+import Data.Maybe ( catMaybes )
 import Data.Char
+import Distribution.Franchise.StringSet ( StringSet, toListS, fromListS )
 import Distribution.Franchise.Trie
 import Distribution.Franchise.ListUtils ( stripPrefix )
 
 data Node = Leaf String | List [Node] | Map (Trie Node) | Null
             deriving ( Eq )
 
-class ToNode a where
+class YAML a where
     toNode :: a -> Node
+    fromNode :: Node -> Maybe a
     toString :: [a] -> Maybe String
     toString _ = Nothing
+    fromString :: String -> [a]
+    fromString _ = []
 
-instance ToNode Node where
+instance YAML Node where
     toNode x = x
+    fromNode x = Just x
 
-instance ToNode Char where
+instance YAML Char where
     toNode c = Leaf [c]
+    fromNode (Leaf [c]) = Just c
+    fromNode _ = Nothing
     toString = Just
+    fromString s = s
 
-instance ToNode a => ToNode [a] where
+instance YAML a => YAML [a] where
     toNode ns = maybe (List $ map toNode ns) Leaf $ toString ns
+    fromNode (List ns) = Just $ catMaybes $ map fromNode ns
+    fromNode (Leaf x) = Just $ fromString x
+    fromNode _ = Just []
 
-instance ToNode a => ToNode (Trie a) where
+instance YAML a => YAML (Trie a) where
     toNode ns = Map $ toNode `fmap` ns
+    fromNode (Map t) = Just $ catMaybesT $ fmap fromNode t
+    fromNode _ = Just emptyT
 
-instance ToNode a => ToNode (Maybe a) where
+instance YAML StringSet where
+    toNode = toNode . toListS
+    fromNode s = fromListS `fmap` fromNode s
+
+instance YAML a => YAML (Maybe a) where
     toNode Nothing = Null
     toNode (Just x) = toNode x
+    fromNode Null = Just Nothing
+    fromNode n = case fromNode n of
+                   Just x -> Just (Just x)
+                   Nothing -> Nothing
 
-instance (ToNode a,ToNode b) => ToNode (Either a b) where
-    toNode (Left  x) = toNode x
-    toNode (Right x) = toNode x
+instance (YAML a, YAML b) => YAML (Either a b) where
+    toNode (Left  x) = Map $ singleT "Left" $ toNode x
+    toNode (Right x) = Map $ singleT "Right" $ toNode x
+    fromNode (Map t) = case toListT t of
+                         [("Left",n)] -> Left `fmap` fromNode n
+                         [("Right",n)] -> Right `fmap` fromNode n
+                         _ -> Nothing
+    fromNode _ = Nothing
 
-instance ToNode Bool where
+instance (YAML a, YAML b) => YAML (a,b) where
+    toNode (a,b) = List [toNode a, toNode b]
+    fromNode n = do [a,b] <- fromNode n
+                    aa <- fromNode a
+                    bb <- fromNode b
+                    Just (aa,bb)
+
+instance YAML Bool where
     toNode True  = Leaf "true"
     toNode False = Leaf "false"
+    fromNode (Leaf "true") = Just True
+    fromNode (Leaf "false") = Just False
+    fromNode _ = Nothing
 
-instance ToNode () where
+instance YAML () where
     toNode () = Null
+    fromNode Null = Just ()
+    fromNode _ = Nothing
 
 dumpNode :: Node -> String
 dumpNode node0 = f False 0 node0 "\n" where
@@ -57,7 +96,7 @@ dumpNode node0 = f False 0 node0 "\n" where
     foo True  = showChar ' '
     foo False = id
 
-showYAML :: ToNode a => a -> String
+showYAML :: YAML a => a -> String
 showYAML n = dumpNode (toNode n)
 
 showString' :: String -> String -> String
@@ -70,9 +109,12 @@ showString' a b = if all isGood a then a ++ b else '"':f a b where
 isGood :: Char -> Bool
 isGood x = isAlphaNum x || x `elem` "_-.@/"
 
-readYAML :: String -> Node
-readYAML "null\n" = Null
-readYAML string0 = rn $ lines string0
+readYAML :: YAML a => String -> Maybe a
+readYAML s = fromNode $ readYAML' s
+
+readYAML' :: String -> Node
+readYAML' "null\n" = Null
+readYAML' string0 = rn $ lines string0
     where rn [] = Null
           rn ("-":r) = List $ nlist ("-":r)
           rn (('-':' ':v):r) = List $ nlist (('-':' ':v):r)

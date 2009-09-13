@@ -71,23 +71,22 @@ import System.CPUTime ( getCPUTime )
 
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
+import Distribution.Franchise.YAML ( YAML, readYAML, showYAML )
 
-putExtra :: Show a => String -> a -> C ()
-putExtra d v = d <<= show v
+putExtra :: YAML a => String -> a -> C ()
+putExtra d v = d <<= showYAML v
 
-addExtraUnique :: (Eq a, Show a, Read a) => String -> [a] -> C ()
+addExtraUnique :: (Eq a, YAML a) => String -> [a] -> C ()
 addExtraUnique d v = do vold <- getExtra d
                         putExtra d $ v ++ (vold \\ v)
 
-addExtra :: (Monoid a, Show a, Read a) => String -> a -> C ()
+addExtra :: (Monoid a, YAML a) => String -> a -> C ()
 addExtra d v = do vold <- getExtra d
                   putExtra d $ mappend v vold
 
-getExtra :: (Monoid a, Read a) => String -> C a
+getExtra :: (Monoid a, YAML a) => String -> C a
 getExtra d = do mv <- getExtraData d
-                return $ case reads `fmap` mv of
-                           Just [(v,_)] -> v
-                           _ -> mempty
+                return $ maybe mempty id (mv >>= readYAML)
 
 getExtraData :: String -> C (Maybe String)
 getExtraData d = lookup d `fmap` getAllExtraData

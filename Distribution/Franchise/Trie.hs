@@ -30,11 +30,12 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Franchise.Trie ( Trie, emptyT, lookupT, fromListT, toListT,
-                                     sloppyLookupKey, unionT,
+                                     sloppyLookupKey, unionT, singleT,
                                      insertT, adjustT, alterT,
-                                     insertSeveralT, filterT, keysT,
+                                     insertSeveralT, filterT, catMaybesT, keysT,
                                      delT, delSeveralT, lengthT ) where
 
+import Data.Monoid ( Monoid, mempty, mappend )
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.CharAssocList
 
@@ -46,6 +47,9 @@ instance Show a => Show (Trie a) where
     showsPrec x ss = showsPrec x (toListT ss)
 instance Functor Trie where
     fmap f (Trie x y) = Trie (fmap f x) (fmap (fmap f) y)
+instance Monoid (Trie a) where
+    mempty = emptyT
+    mappend = unionT
 
 keysT :: Trie a -> StringSet
 keysT (Trie (Just _) ts) = SS True $ fmap keysT ts
@@ -114,6 +118,13 @@ insertT (c:cs) a (Trie b ls) = Trie b $ alterAddC c ins ls
 singleT :: String -> a -> Trie a
 singleT "" a = Trie (Just a) emptyC
 singleT (c:cs) a = Trie Nothing $ singleC c $ singleT cs a
+
+catMaybesT :: Trie (Maybe a) -> Trie a
+catMaybesT (Trie ma ts) = Trie ma' $ mapDelC fil ts
+    where ma' = ma >>= id -- can we be more obscure?
+          fil t = case catMaybesT t of
+                    t' | nullT t' -> Nothing
+                       | otherwise -> Just t'
 
 filterT :: (a -> Bool) -> Trie a -> Trie a
 filterT f (Trie ma ts) = Trie ma' $ mapDelC fil ts

@@ -120,7 +120,7 @@ alterDelC c f (CAL xxs) = CAL $ alt xxs
                            | otherwise = CA c1 a1 : alt r
           alt [] = []
 
-mapDelC :: (a -> Maybe a) -> CharAssocList a -> CharAssocList a
+mapDelC :: (a -> Maybe b) -> CharAssocList a -> CharAssocList b
 mapDelC f (CAL xxs) = CAL $ alt xxs
     where alt (CA c a:r) = case f a of
                              Nothing -> alt r

@@ -51,6 +51,7 @@ import Data.Maybe ( catMaybes )
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Env ( getEnv )
 import Distribution.Franchise.ListUtils ( stripPrefix )
+import Distribution.Franchise.Trie ( toListT, fromListT )
 
 addPackages :: [String] -> C ()
 addPackages = addExtra "packages"
@@ -129,10 +130,10 @@ define x = defineAs x ""
 
 undefine :: String -> C ()
 undefine x = do ds <- getDefinitions
-                putExtra "definitions" $ filter ((/=x).fst) ds
+                putExtra "definitions" $ fromListT $ filter ((/=x).fst) ds
 
 needDefinitions :: C ()
-needDefinitions = getDefinitions >>= putExtra "definitions"
+needDefinitions = getDefinitions >>= (putExtra "definitions" . fromListT)
 
 
 -- | The 'defineAs' function is like 'define', but it allows you to
@@ -151,7 +152,7 @@ needDefinitions = getDefinitions >>= putExtra "definitions"
 
 defineAs :: String -> String -> C ()
 defineAs x y = do ds <- getDefinitions
-                  putExtra "definitions" $ update x y ds
+                  putExtra "definitions" $ fromListT $ update x y ds
 
 -- | Define the copyright field for a cabal file.
 copyright :: String -> C ()
@@ -189,7 +190,7 @@ getPkgFlags :: C [String]
 getPkgFlags = getExtra "pkgFlags"
 
 getDefinitions :: C [(String,String)]
-getDefinitions = getExtra "definitions"
+getDefinitions = toListT `fmap` getExtra "definitions"
 
 -- | You can find out if you've previously defined something with 'isDefined':
 --

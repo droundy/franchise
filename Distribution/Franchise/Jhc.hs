@@ -202,10 +202,10 @@ seekModuleInLibraries :: String -> C [String]
 seekModuleInLibraries m =
     do x <- jhc systemOut ["--list-libraries","-v"] >>= id
        case readYAML x of
-         Null -> fail "null"
-         List _ -> fail "list"
-         Leaf _ -> fail "leaf"
-         Map t -> return $ map name $ filter hasmod $ map snd $ toListT t
+         Just Null -> fail "null"
+         Just (List _) -> fail "list"
+         Just (Leaf _) -> fail "leaf"
+         Just (Map t) -> return $ map name $ filter hasmod $ map snd $ toListT t
              where name (Map t') = case lookupT "BaseName" t' of
                                      Just (Leaf n) -> n
                                      _ -> error "bad library has no name!!!"
