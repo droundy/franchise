@@ -93,7 +93,8 @@ privateExecutable  simpleexname src [] =
        hscs <- getHscs
        othersrc <- (lines `fmap` io (readFile depend))
                    `catchC` \_ -> return [src]
-       buildit <- jhc system [src, "--dependencies", depend, "-o", exname]
+       buildit <- jhc system [src, "-o", exname]
+       -- buildit <- jhc system [src, "--dependencies", depend, "-o", exname]
        rule (depend:targets)
             (nubs $ src:othersrc++map init hscs++jhcRelatedConfig) $ buildit
        addDependencies (phony "build") [exname]
