@@ -50,13 +50,15 @@ import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Buildable
     ( rule, addDependencies, phony, rm, extraData )
 import Distribution.Franchise.GhcState
-    ( packages, jhcFlags,
+    ( packages, jhcFlags, addPackages, removePackages,
       getDefinitions, needDefinitions,
       getVersion, getPackageVersion, getMaintainer,
       getCFlags, getJhcFlags, getLdFlags )
 import Distribution.Franchise.Util
     ( system, systemErr, systemOut , mkFile, nubs )
 import Distribution.Franchise.ListUtils ( stripPrefix, commaWords )
+import Distribution.Franchise.YAML ( Node(..), readYAML )
+import Distribution.Franchise.Trie ( lookupT, toListT )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
 jhc sys args =
@@ -175,17 +177,51 @@ lookForModuleExporting m i c =
     do putSnoln $ "checking module "++m++" ... "
        x <- tryModule m i c
        case x of
-         (ExitSuccess, _) -> do putS $ "found"
+         (ExitSuccess, _) -> do putS "found"
                                 return True
          (_, e) -> do putV e
-                      return False
+                      ps <- seekModuleInLibraries m
+                      if null ps
+                        then do putS "no package found"
+                                return False
+                        else do putV $ unwords ("looking in packages":ps)
+                                tryPackages ps
+    where tryPackages [] = return False
+          tryPackages (p:ps) =
+              do addPackages [p]
+                 putSnoln $ "looking in package "++p++" ... "
+                 x <- tryModule m i c
+                 case x of
+                   (ExitSuccess, _) -> do putS "found"
+                                          return True
+                   (_, e) -> do putV e
+                                removePackages [p]
+                                tryPackages ps
+
+seekModuleInLibraries :: String -> C [String]
+seekModuleInLibraries m =
+    do x <- jhc systemOut ["--list-libraries","-v"] >>= id
+       case readYAML x of
+         Null -> fail "null"
+         List _ -> fail "list"
+         Leaf _ -> fail "leaf"
+         Map t -> return $ map name $ filter hasmod $ map snd $ toListT t
+             where name (Map t') = case lookupT "BaseName" t' of
+                                     Just (Leaf n) -> n
+                                     _ -> error "bad library has no name!!!"
+                   name _ = error "impossible case in seekModuleInLibraries"
+                   hasmod (Map t') = case lookupT "Exported-Modules" t' of
+                                       Just (List ms) -> Leaf m `elem` ms
+                                       _ -> False
+                   hasmod _ = False
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
     do let fn = "Try"++m++".hs"
-       mkFile fn $ unlines $ ["import "++m++" ("++imports++")",
-                              "main:: IO ()",
-                              "main = undefined ("++code++")"]
+       mkFile fn $ unlines $ ["module Try"++m++" where",
+                              "import "++m++" ("++imports++")",
+                              "foo :: ()",
+                              "foo = undefined ("++code++")"]
        e <- jhc systemErr ["-c",fn] >>= id
        mapM_ rm [fn]
        return e
@@ -218,3 +254,4 @@ hsc2hs sys args =
        hscopts <- words `fmap` (jhc systemOut ["--print-hsc-options"] >>= id)
        let opts = fl ++ defs ++ ld ++ cf
        sys "hsc2hs" (hscopts++opts++args)
+

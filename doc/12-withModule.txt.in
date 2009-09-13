@@ -1,0 +1,67 @@
+Using withModule to base build on presence of a given module
+============================================================
+
+You can use [withModule][] (and its cousin [withModuleExporting][] to
+base your configuration on whether a given Haskell module is
+available.  This tests searches the compiler's packages to see if
+there are any that provide this module.
+
+[withModule]: haddock/Distribution-Franchise-V1.html#v%3AwithModule
+[withModuleExporting]: haddock/Distribution-Franchise-V1.html#v%3AwithModuleExporting
+
+Consider this executable, which has a couple of possible compilation
+possibilities.  If compiled with Data.Set present, it'll use it to
+avoid the O(N^2) nub function.  Otherwise, it just uses the less
+efficient (but Haskell 98) nub function.  Except that I'm not going to
+use nub for this example, or it'll be hard to know it's working right.
+
+~~~~ tests/withModule/a.hs
+{-# LANGUAGE CPP #-}
+module Main where
+
+#ifdef HAVE_MAP
+import qualified Data.Set as S
+
+cleanup = S.toList . S.fromList
+#else
+import Data.List ( nub )
+cleanup = error "don't want nub" -- nub
+#endif
+
+#ifdef AM_BUGGY
+this is a syntax error
+#endif
+
+main = putStrLn $ unwords $ cleanup ["foo","foo"]
+~~~~
+
+We can now use [withModule][] to very easily check for this module (or
+a fictitious one), to see if it's present.
+
+~~~~ tests/withModule/Setup.hs
+import Distribution.Franchise.V1
+main = build [] $
+     do withModule "Data.Map" $ define "HAVE_MAP"
+        withModule "Am.Buggy" $ define "AM_BUGGY"
+        executable "a" "a.hs" []
+~~~~
+
+~~~~ tests/withModule/withModule.sh
+set -ev
+
+runghc Setup.hs build
+./a
+./a | grep foo
+
+
+if ! which jhc; then
+  # we do not have jhc, so stop now
+  exit 0
+fi
+
+runghc Setup.hs distclean
+runghc Setup.hs configure --jhc
+runghc Setup.hs build
+./a
+
+~~~~
