@@ -125,17 +125,25 @@ readYAML' string0 = rn $ lines string0
                     unquote "" = ""
           rn (x:xs) | ':' `elem` x = Map $ fromListT $ nmap (x:xs)
           rn ls = error $ unlines $ "nasty yaml:\n" : ls
-          nlist ("-":r) = case splitByPrefix " " r of
+          nlist ("-":r) = case splitByIndentation r of
                             (a,b) -> rn a : nlist b
-          nlist (('-':' ':v):r) = rn [v] : nlist r
+          nlist (('-':' ':v):r) = case splitByIndentation (v':r) of
+                                    (a,b) -> rn a : nlist b
+              where v' = ' ':' ':v
           nlist (x:_) = error ("bad yaml list element: "++x)
           nlist [] = []
           nmap (x:xs) = case break (==':') x of
-                          (k,':':' ':v) -> (k, rn [v]) : nmap xs
-                          (k,":") -> case splitByPrefix " " xs of
+                          (k,':':' ':v) ->
+                              case splitByIndentation ((' ':' ':v):xs) of
+                                (a,b) -> (k, rn a) : nmap b
+                          (k,":") -> case splitByIndentation xs of
                                        (a,b) -> (k, rn a) : nmap b
                           (a,b) -> error $ unlines ["bad yaml!",a,b]
           nmap [] = []
+
+splitByIndentation :: [String] -> ([String], [String])
+splitByIndentation [] = ([],[])
+splitByIndentation (x:xs) = splitByPrefix (takeWhile (==' ') x) (x:xs)
 
 splitByPrefix :: String -> [String] -> ([String], [String])
 splitByPrefix x (l:ls) =
