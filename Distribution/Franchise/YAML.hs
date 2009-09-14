@@ -1,4 +1,6 @@
 module Distribution.Franchise.YAML ( Node(..), YAML(..),
+                                     getScalar, getMapping, getMappingValues,
+                                     getSequence,
                                      showYAML, readYAML ) where
 
 import Data.Maybe ( catMaybes )
@@ -152,3 +154,33 @@ splitByPrefix x (l:ls) =
                    (a,b) -> (l':a,b)
       Nothing -> ([],l:ls)
 splitByPrefix _ [] = ([],[])
+
+-- | read a node that we expect to be a scalar value.  This supports
+-- the \"tag:yaml.org,2002:value\" type, which is just a convention
+-- that a key of \"=\" indicates a scalar value.  It's a trick that
+-- allows us to switch a scalar to a mapping without breaking
+-- applications that already know how to read this format.
+
+getScalar :: Node -> Maybe String
+getScalar (Leaf s) = Just s
+getScalar (Map t) = lookupT "=" t >>= getScalar
+getScalar _ = Nothing
+
+-- | find an element from a mapping.
+
+getMapping :: String -> Node -> Maybe Node
+getMapping k (Map t) = lookupT k t
+getMapping "=" (Leaf x) = Just $ Leaf x
+getMapping _ _ = Nothing
+
+-- | read a mapping into a list.
+
+getMappingValues :: Node -> Maybe [Node]
+getMappingValues (Map t) = Just $ map snd $ toListT t
+getMappingValues _ = Nothing
+
+-- | read a sequence.
+
+getSequence :: Node -> Maybe [Node]
+getSequence (List ns) = Just ns
+getSequence _ = Nothing
