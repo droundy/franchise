@@ -1,6 +1,6 @@
 module Distribution.Franchise.YAML ( Node(..), YAML(..),
-                                     getScalar, getMapping, getMappingValues,
-                                     getSequence,
+                                     getScalar, getMapping, getSequence,
+                                     getMappingValues, getMappingTrie,
                                      showYAML, readYAML ) where
 
 import Data.Maybe ( catMaybes )
@@ -172,6 +172,12 @@ getMapping :: String -> Node -> Maybe Node
 getMapping k (Map t) = lookupT k t
 getMapping "=" (Leaf x) = Just $ Leaf x
 getMapping _ _ = Nothing
+
+-- | read a mapping into a 'Trie'.
+
+getMappingTrie :: Node -> Trie Node
+getMappingTrie (Map t) = t
+getMappingTrie l = singleT "=" l
 
 -- | read a mapping into a list.
 

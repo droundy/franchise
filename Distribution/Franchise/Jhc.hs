@@ -58,7 +58,7 @@ import Distribution.Franchise.Util
     ( system, systemErr, systemOut , mkFile, nubs )
 import Distribution.Franchise.ListUtils ( stripPrefix, commaWords )
 import Distribution.Franchise.YAML
-    ( readYAML, getMapping, getMappingValues, getScalar, getSequence )
+    ( readYAML, getMapping, getMappingTrie, getScalar, getSequence )
 import Distribution.Franchise.Trie ( toListT )
 
 jhc :: (String -> [String] -> C a) -> [String] -> C (C a)
@@ -202,17 +202,22 @@ lookForModuleExporting m i c =
 seekModuleInLibraries :: String -> C [String]
 seekModuleInLibraries m =
     do x <- jhc systemOut ["--list-libraries","-v"] >>= id
-       case readYAML x >>= getMappingValues of
+       case (toListT . getMappingTrie) `fmap` readYAML x of
          Nothing -> fail "bad yaml?"
-         Just vs -> return $ map name $ filter hasmod vs
-             where name n = case getMapping "Name" n >>= getScalar of
-                              Just nm -> nm
-                              _ -> error "bad library has no name!!!"
-                   hasmod n = case getMapping "Exported-Modules" n >>=
-                                   getSequence of
-                                Just ms ->
-                                    m `elem` catMaybes (map getScalar ms)
-                                _ -> False
+         Just vs -> return $ map uniquename $ filter hasmod vs
+             where name (_,n) = case getMapping "Name" n >>= getScalar of
+                                  Just nm -> nm
+                                  _ -> error "bad library has no name!!!"
+                   uniquename n = if any (issubname n) vs
+                                  then fst n
+                                  else name n
+                   issubname a b = case stripPrefix (name a) (name b) of
+                                     Just _ -> True
+                                     Nothing -> False
+                   hasmod (_,n) =
+                       case getMapping "Exported-Modules" n >>= getSequence of
+                         Just ms -> m `elem` catMaybes (map getScalar ms)
+                         Nothing -> False
 
 tryModule :: String -> String -> String -> C (ExitCode, String)
 tryModule m imports code =
