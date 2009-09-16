@@ -205,7 +205,7 @@ seekModuleInLibraries m =
        case readYAML x >>= getMappingValues of
          Nothing -> fail "bad yaml?"
          Just vs -> return $ map name $ filter hasmod vs
-             where name n = case getMapping "BaseName" n >>= getScalar of
+             where name n = case getMapping "Name" n >>= getScalar of
                               Just nm -> nm
                               _ -> error "bad library has no name!!!"
                    hasmod n = case getMapping "Exported-Modules" n >>=
