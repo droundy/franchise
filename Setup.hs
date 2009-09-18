@@ -65,6 +65,7 @@ buildDoc =
                            (concatMap fst alltests)
              hadd <- withProgram "haddock" [] $ const $ return ["haddock"]
              addDependencies "html" ("manual/index.html":hadd++htmls)
+      addDependencies "html" ["markdown.sh"] -- this test generates docs!
       addDependencies "manual" ["html"]
       addDependencies "webpage" ["manual","index.html"]
       withProgram "markdown" ["hsmarkdown"] $ const $

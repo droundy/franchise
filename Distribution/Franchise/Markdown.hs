@@ -41,13 +41,10 @@ import Distribution.Franchise.Program ( withProgram )
 import Distribution.Franchise.SplitFile ( splitFile )
 import Distribution.Franchise.ListUtils ( stripSuffix )
 
--- | splitMarkdown reads its first argument, which is presumed to be
--- marked-up markdown, and generates any files indicated in the contents.
--- It also outputs a cleaned version of the file that is standard markdown
--- and can be processed by markdown (or pandoc).
---
--- If the output filename is an empty string, then the output filename is
--- generated from the input filename.
+-- | see <../16-markdown.html> for an explanation of how and when to
+-- use 'splitMarkdown'.  Briefly, its purpose is to generate an html
+-- file and possibly some other files, as described by a single
+-- extended markdown file.
 
 splitMarkdown :: String -- ^ input filename
               -> String -- ^ name of output HTML file (or empty string)

@@ -1,0 +1,111 @@
+Markdown support
+================
+
+Franchise has built-in support for [markdown][].  This support is
+extended, so that you can embed files in your markdown.  The format of
+this "marked-up" markdown, is essentially that of markdown itself,
+only with an additional construct, which is roughly the same as
+[pandoc's delimited code blocks][delimited], only it has the
+side-effect of creating code files containing the contents of these
+code blocks.
+
+This can be used to create a literate test suite, for instance (as it
+is used in franchise to generate this documentation), or to generate
+figures to accompany the documentation text (see, e.g. [hvisual][], or
+verify that code examples actually compile (see also [hvisual][]).
+
+[markdown]: http://daringfireball.net/projects/markdown
+[delimited]: http://johnmacfarlane.net/pandoc/README.html#delimited-code-blocks
+[hvisual]: http://hvisual.abridgegame.org/manual.html
+
+The idea is that you can specify something like:
+
+~~~~~~~ tests/markdown/markdown.txt.in
+Example *extended* markdown file
+================================
+
+This is an example of an extended markdown file as supported by
+[franchise][].  Most of its contents are ordinary [markdown][], but
+there is one special feature added.  That extra feature is similar to
+the [delimited code blocks][delimited] provided by [pandoc][].  You
+begin a delimited code block with at least four consecutive ~'s
+beginning a line, followed by a space and a filename, and it ends with
+at least that many consecutive ~'s at the beginning of a line.
+
+~~~~~ demonstration.txt
+Markdown example-with-an-example
+================================
+
+This is a demonstration of franchise's *extended* version of the
+markdown syntax.  This source file will itself be called
+demonstration.txt, and when markdown is run on it, it will be
+demonstration.html.
+~~~~~
+
+The block is formatted as code, and franchise will also create a file
+with the specified filename that contains the contents of the code
+block.  Running markdown on that file yields
+[demonstration.html](demonstration.html).
+
+[franchise]: http://franchise.abrigegame.org
+[markdown]: http://daringfireball.net/projects/markdown
+[delimited]: http://johnmacfarlane.net/pandoc/README.html#delimited-code-blocks
+[pandoc]: http://johnmacfarlane.net/pandoc
+~~~~~~~
+
+The html output of this file is
+[here](../tests/markdown/markdown.html).
+
+Once you've created a markdown file, of course, you need to tell
+franchise how to build it.  To create the "pure" markdown file itself,
+and any files specified within the source, you use [splitMarkdown][].
+However, this only creates a cleaned markdown file, so you also need
+to use [mardownToHtml][] to create a rule to generate an html file
+from your markdown files.  This function allows you to specify a CSS
+file.
+
+[splitMarkdown]: haddock/Distribution-Franchise-V1.html#v%3AsplitMarkdown
+[mardownToHtml]: haddock/Distribution-Franchise-V1.html#v%3AmarkdownToHtml
+
+For either [splitMarkdown][] or [markdownToHtml][], you can either
+specify an output filename, or pass an empty string to allow franchise
+to select an output filename for you.
+
+In the following example, we define a Setup.hs file that splits the
+above 'markdown.txt.in', and then creates an html target that runs
+markdown on the resulting subfiles---which will be markdown.txt and
+demonstration.txt. We use the CSS file that is used for the franchise
+manual itself.
+
+~~~~ tests/markdown/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $ do mkdn:others <- splitMarkdown "markdown.txt.in" ""
+                     let mkhtml x = markdownToHtml "../../doc.css" x ""
+                     htmls <- mapM mkhtml (mkdn:others)
+                     addDependencies "html" htmls
+                     addDependencies "build" [mkdn]
+~~~~
+
+Testing it out
+--------------
+
+
+~~~~ tests/markdown/markdown.sh
+set -ev
+echo $HOME | grep doc/tests
+runghc Setup.hs build
+grep pandoc markdown.txt
+grep demonstration demonstration.txt
+
+if ! which markdown && ! which hsmarkdown; then
+  echo quitting early without markdown...
+  exit 0
+fi
+
+grep pandoc markdown.html && exit 1
+runghc Setup.hs html
+grep pandoc markdown.html
+
+grep demonstration demonstration.html
+~~~~

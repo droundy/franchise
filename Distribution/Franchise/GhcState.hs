@@ -94,8 +94,8 @@ setOutputDirectory odir =
          else putExtra "ghcFlags" $ ["-odir"++odir,"-hidir"++odir,
                                      "-stubdir"++odir,"-i"++odir]++fs'
 
--- | Add the specified flags to the list of flags passed to ghc for
--- compiling C files.
+-- | Add the specified flags to the list of flags to be passed to the
+-- C compiler for compiling C files.
 cFlags :: [String] -> C ()
 cFlags = addExtraUnique "cflags"
 
@@ -236,7 +236,7 @@ getBinDir :: C String
 getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
 
--- | Add the specified flags to the list of flags passed to ghc for
--- linking.
+-- | Add the specified flags to the list of flags to be passed to the
+-- linker.
 ldFlags :: [String] -> C ()
 ldFlags = addExtraUnique "ldflags"
