@@ -4,8 +4,8 @@ import Data.List ( sort, isSuffixOf, isPrefixOf )
 import System.Exit ( ExitCode(..) )
 
 main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
-  do copyright "Copyright 2008 David Roundy"
-     license "BSD3"
+  do "copyright" <<= "Copyright 2008 David Roundy"
+     "license" <<= "BSD3"
      "category" <<= "Distribution"
      "synopsis" <<= "A package for configuring and building Haskell software"
      "description" <<= (unlines

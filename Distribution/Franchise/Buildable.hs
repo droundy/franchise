@@ -115,9 +115,7 @@ buildName (d:<-_) = depName d
 -- | 'build' is at the heart of any Setup.hs build script, and drives
 -- the entire build process.  Its first argument is a list of flags
 -- you want the Setup.hs script to accept, and the second argument is
--- the actual function that configures and build, which itself returns
--- a list of targets that are built as part of the default build
--- target.
+-- the actual function that configures the build.
 
 build :: [C FranchiseFlag] -> C () -> IO ()
 build opts mkbuild =

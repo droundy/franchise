@@ -100,12 +100,12 @@ unlessC predicate job = do doit <- predicate
                            if doit then return mempty else job
 
 -- | 'whenC' is an improvement on the Prelude's 'when', which allows
--- you to return any monad type.  In fact, it has two distinct (and
+-- you to return any monoid type.  In fact, it has two distinct (and
 -- orthogonal) differences.  Firstly, its predicate is in the 'C'
 -- monad.  Secondly, the return value of the job can be any 'Monoid',
 -- which is usually either '()', '[a]', or 'Maybe a'.  If the
 -- predicate is 'False', then 'mempty' is returned.  This is commonly
--- useful for lists, if defaulting to an empty list is handy.
+-- useful for lists.
 whenC :: Monoid a => C Bool -> C a -> C a
 whenC predicate job = do doit <- predicate
                          if doit then job else return mempty

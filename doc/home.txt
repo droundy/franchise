@@ -3,16 +3,18 @@ Franchise
 
 Franchise is an easy-to use package for building Haskell software. Unlike
 Cabal, you aren't required to track every possible dependency in every
-possible build condition. In addition, you are not required to use an
+possible build condition. Nor are you required to use an
 external tool such as autoconf in order to configure the build based on
-which packages, libraries and tools are present.
+which packages, libraries and tools are present.  Instead, you need
+only provide the information that is needed in order to build your
+package.
 
 ## Manual and test suite
 
 For more information, see the [manual and test
 suite](doc/manual/index.html).
 
-In addition, there is now [haddock documentation of the franchise
+In addition, there is the [haddock documentation of the franchise
 API](doc/manual/haddock/index.html).
 
 ## Getting the code

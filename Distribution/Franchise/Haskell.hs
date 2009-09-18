@@ -103,7 +103,9 @@ findPackagesFor modul = withHc $ (hc "findPackagesFor") {
                           ghc = Ghc.findPackagesFor modul }
 
 -- | Build a Haskell executable, but do not install it when running
--- @.\/Setup.hs install@.
+-- @.\/Setup.hs install@.  The return value is the actual name of the
+-- executable, which may have an @.exe@ appended on Windows.  The
+-- arguments are the same as those of 'executable'.
 
 privateExecutable :: String -> String -> [String] -> C String
 privateExecutable  simpleexname src0 cfiles =
@@ -131,6 +133,11 @@ privateExecutable  simpleexname src0 cfiles =
 -- @
 --    \"haddock-directory\" <<= \"doc\/manual\/haddock\"
 -- @
+--
+-- Note, however, that the \"haddock\" target is not built by default.
+-- To build it, simply use 'addDependencies' to make either \"build\"
+-- or some other target depend on it.  Or, of course, the user may
+-- explicitly request that the haddock be built.
 
 package :: String -- ^ name of package to be generated
         -> [String] -- ^ list of modules to be exported
@@ -145,10 +152,17 @@ package pn modules cfiles =
 
 -- | Generate a cabal file describing a package.  The arguments are
 -- the same as those to 'package'.  The package properties which are
--- least important in 'package' (such as synopsis or description) are
--- important parts of the cabal file, since its contents are normally
--- exposed to the user, and should be defined using the '<<='
--- operator.
+-- least important in 'package' (anything other than package name and
+-- 'version') are important parts of the cabal file, since its contents
+-- are normally exposed to the user, and should be defined using the
+-- '<<=' operator.
+--
+-- Note that this cabal file will only approximately describe your
+-- package's dependencies.  It is impossible to either automatically
+-- or manually create a cabal file that accurately specifies a given
+-- package's dependencies, but the automatically-found dependencies
+-- are particularly simplistic, as they only describe what is needed
+-- to compile your package on one system.
 
 cabal :: String -> [String] -> C ()
 cabal pn modules =
@@ -161,7 +175,8 @@ cabal pn modules =
 
 -- | Install the specified package into a given ghc config file.  This
 -- is essentially only useful for test suites, when you want to test
--- a package by installing it, but without /really/ installing it.
+-- a package by installing it, but without /really/ installing it.  It
+-- is also specific to ghc.
 
 installPackageInto :: String -> String -> C ()
 installPackageInto pn libdir =

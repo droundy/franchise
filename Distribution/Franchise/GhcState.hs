@@ -34,7 +34,7 @@ module Distribution.Franchise.GhcState
       ldFlags, cFlags, addPackages, removePackages, packageName,
       rmGhcFlags,
       setOutputDirectory,
-      pkgFlags, copyright, license, version,
+      pkgFlags, version,
       getGhcFlags, getJhcFlags, getCFlags, getLdFlags,
       define, undefine, defineAs, needDefinitions,
       isDefined, getDefinitions,
@@ -154,12 +154,6 @@ defineAs :: String -> String -> C ()
 defineAs x y = do ds <- getDefinitions
                   putExtra "definitions" $ fromListT $ update x y ds
 
--- | Define the copyright field for a cabal file.
-copyright :: String -> C ()
-copyright = ("copyright" <<=)
--- | Define the license field for a cabal file.
-license :: String -> C ()
-license = ("license" <<=)
 -- | Define the version, which affects any package or cabal file that
 -- is generated.
 version :: String -> C ()
