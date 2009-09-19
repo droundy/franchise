@@ -1,8 +1,10 @@
 Using replace to generate source files
 ======================================
 
-Here we illustrate how you can use [replace][] and [createFile][] to
-generate files, much like `AC_SUBST` and `AC_CONFIG_FILES` in autoconf.
+You can use [replace][] and [createFile][] to generate files, much
+like `AC_SUBST` and `AC_CONFIG_FILES` in autoconf.  Your template file
+must be named `filename.in`, and franchise will generate a file named
+`filename` with your requested substitutions.
 
 In this example, we'll use the silly module name `Distribution.Simple` to
 illustrate that franchise (quire properly). prefers to use local source
@@ -11,30 +13,36 @@ code rather than modules located in a package.
 [replace]: haddock/Distribution-Franchise-V1.html#v%3Areplace
 [createFile]: haddock/Distribution-Franchise-V1.html#v%3AcreateFile
 
+~~~~ tests/replace/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $
+       do replace "@Foo@" "Foo message"
+          replace "@Bar@" True
+          createFile "Distribution/Simple.hs"
+          executable "simple" "simple.hs" []
+~~~~
+
+Here the module we want to use will just define a function, which will
+print something based on our [replace][].  Note that the `@Foo@` below
+does not contain extra quotes.  This is because [replace][] accepts a
+Haskell value (not just a string) and substitutes code for that
+Haskell value.
+
 ~~~~ tests/replace/Distribution/Simple.hs.in
 module Distribution.Simple where
-foo = putStrLn @Foo@
+import Control.Monad
+foo = when @Bar@ $ putStrLn @Foo@
 ~~~~
+
+As you can see, it's just a standard hello world.
 
 ~~~~ tests/replace/simple.hs
 import Distribution.Simple
 main = foo
 ~~~~
 
-As you can see, it's just a standard hello world.
 
-Setup.hs
---------
-
-
-~~~~ tests/replace/Setup.hs
-import Distribution.Franchise.V1
-
-main = build [] $
-       do replace "@Foo@" "Foo message"
-          createFile "Distribution/Simple.hs"
-          executable "simple" "simple.hs" []
-~~~~
 
 Testing it out
 --------------
