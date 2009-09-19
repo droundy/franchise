@@ -65,8 +65,15 @@ buildDoc =
                            (concatMap fst alltests)
              hadd <- withProgram "haddock" [] $ const $ return ["haddock"]
              addDependencies "html" ("manual/index.html":hadd++htmls)
-      addDependencies "html" ["markdown.sh"] -- this test generates docs!
       addDependencies "manual" ["html"]
+      -- The following is a hack to extract part of the test suite
+      -- into the documentation:
+      withDirectory "doc/manual" $
+          do cp "../tests/markdown/markdown-format.txt.in"
+                 "markdown-format.txt.in"
+             docs <- splitMarkdown "markdown-format.txt.in" ""
+             hs <- mapM (\x -> markdownToHtml "../doc.css" x "") docs
+             addDependencies "manual" hs
       addDependencies "webpage" ["manual","index.html"]
       withProgram "markdown" ["hsmarkdown"] $ const $
                   addDependencies "build" ["webpage"]
@@ -87,11 +94,21 @@ buildDoc =
             do let mklink mkdnf =
                        do title <- (head . filter (not . null) . lines)
                                    `fmap` cat mkdnf
-                          return $ '[':title++"]("++
-                                drop 7 (take (length mkdnf-4) mkdnf)++".html)\n"
+                          let htmlname =
+                                  drop 7 (take (length mkdnf-4) mkdnf)++".html"
+                          return ('[':title++"]("++htmlname++")", htmlname)
                rule ["manual/index.html"] ("manual.txt":inps) $
                    do indhead <- cat "manual.txt"
                       links <- mapM mklink $ sort inps
+                      let inps1 = filter ((`elem` words indhead) . snd) links
+                          inps2 = filter ((`notElem` words indhead) . snd) links
+                          fixhead [] x = x
+                          fixhead ((a,b):r) x = fixhead r $ repl a b x
+                          repl a b x | b `isPrefixOf` x =
+                                         a ++ drop (length b) x
+                          repl a b (x:xs) = x : repl a b xs
+                          repl _ _ "" = ""
                       html <- markdownStringToHtmlString "../doc.css" $
-                              indhead ++ "\n\n"++unlines links
+                              fixhead inps1 indhead ++ "\n\n"++
+                              unlines (map (++"\n") $ map fst inps2)
                       mkFile "manual/index.html" html

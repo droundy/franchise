@@ -7,8 +7,7 @@ backward compatible, meaning that you shouldn't need to change your
 Setup.hs file in order to compile with a new version of ghc, and if you
 *do* need to make a change in your Setup.hs file, it shouldn't force users
 who have an older version of franchise and/or ghc to upgrade either their
-compiler or their copy of franchise.  The latter goal is really only going
-to be realized when a stable version of franchise is released.
+compiler or their copy of franchise.
 
 One goal of franchise is to not require developers to provide redundant
 information.  For instance, you've already listed all the modules you use,
@@ -21,9 +20,8 @@ but that's not the common case.
 
 Perhaps also worth mentioning is that franchise supports parallel
 builds similar to make -j, with the same interface, in fact, which is
-./Setup.hs -j.  Franchise is currently ghc-specific, but it does run
-on Windows.  Patches to add jhc support (for instance) would be
-welcome.
+./Setup.hs -j.  Franchise currently only works with ghc and jhc, but
+it does run on Windows, and supports cross-compiling with jhc.
 
 The package name "franchise" stands for "Fun, relaxing and calming Haskell
 into Saturday evening."  It is also something of an antonym of "cabal,"

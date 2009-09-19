@@ -88,7 +88,7 @@ maketixdir = whenC (("-fhpc" `elem`) `fmap` getGhcFlags) $
 -- | The 'executable' function creates a haskell executable target.
 --
 -- For a tutorial in the use of 'executables', see
--- <../01-simple-executable.html>.
+-- <../simple.html>.
 
 executable :: String -- ^ name of executable to be generated
            -> String -- ^ name of main file

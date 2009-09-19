@@ -20,7 +20,7 @@ verify that code examples actually compile (see also [hvisual][]).
 
 The idea is that you can specify something like:
 
-~~~~~~~ tests/markdown/markdown.txt.in
+~~~~~~~ tests/markdown/markdown-format.txt.in
 Example *extended* markdown file
 ================================
 
@@ -54,7 +54,7 @@ block.  Running markdown on that file yields
 ~~~~~~~
 
 The html output of this file is
-[here](../tests/markdown/markdown.html).
+[here](markdown-format.html).
 
 Once you've created a markdown file, of course, you need to tell
 franchise how to build it.  To create the "pure" markdown file itself,
@@ -80,7 +80,7 @@ manual itself.
 ~~~~ tests/markdown/Setup.hs
 import Distribution.Franchise.V1
 
-main = build [] $ do mkdn:others <- splitMarkdown "markdown.txt.in" ""
+main = build [] $ do mkdn:others <- splitMarkdown "markdown-format.txt.in" ""
                      let mkhtml x = markdownToHtml "../../doc.css" x ""
                      htmls <- mapM mkhtml (mkdn:others)
                      addDependencies "html" htmls
@@ -94,8 +94,9 @@ Testing it out
 ~~~~ tests/markdown/markdown.sh
 set -ev
 echo $HOME | grep doc/tests
-runghc Setup.hs build
-grep pandoc markdown.txt
+
+runghc Setup.hs build --debug
+grep pandoc markdown-format.txt
 grep demonstration demonstration.txt
 
 if ! which markdown && ! which hsmarkdown; then
@@ -103,9 +104,8 @@ if ! which markdown && ! which hsmarkdown; then
   exit 0
 fi
 
-grep pandoc markdown.html && exit 1
 runghc Setup.hs html
-grep pandoc markdown.html
+grep pandoc markdown-format.html
 
 grep demonstration demonstration.html
 ~~~~
