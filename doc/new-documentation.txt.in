@@ -1,0 +1,6 @@
+Adding new documentation to franchise
+=====================================
+
+To add new tests (or equivalently, new documentation), just add a new file
+`doc/filename.text.in`.  In order to place it in the table of
+contents, just add `filename.html` to `doc/manual.txt`.

@@ -1,23 +1,6 @@
 Using franchise
 ===============
 
-This is the beginning of a manual for franchise.  It consists of several
-small pages describing certain aspects of franchise, each of which doubles
-as a test in the test suite.
-
-Adding new documentation
-------------------------
-
-To add new tests (or equivalently, new documentation), just add a new file
-`doc/filename.text.in`, and when the documentation is rebuilt, it will
-appear in this index.  The documentation is generated in the lexigraphic
-order according to file names.  To this end, I've prefixed the files with
-two-digit sequences.  Please try to arrange it so the more readable docs
-are at the beginning of the list.
-
-Links to the actual documentation
----------------------------------
-
 Franchise itself is a library for writing configure/build scripts.
 This manual is goal-oriented, rather than API-oriented, meaning that
 we discuss how to achieve goals you might have, introducing functions
@@ -60,4 +43,4 @@ makefile.
 7. Sundry tests that aren't such good documentation
   - 99-minimal-recompile.html
   - 99-no-reconfigure.html
-
+  - new-documentation.html
