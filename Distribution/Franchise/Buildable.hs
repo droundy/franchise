@@ -428,6 +428,14 @@ getTarget :: String -> C (Maybe Target)
 getTarget t = do allts <- getTargets
                  return $ lookupT t allts `mplus` lookupT (phony t) allts
 
+clarifyTarget :: String -> C (Maybe String)
+clarifyTarget t = do allts <- getTargets
+                     case lookupT t allts of
+                       Just _ -> return $ Just t
+                       _ -> case lookupT (phony t) allts of
+                              Just _ -> return $ Just (phony t)
+                              _ -> return Nothing
+
 sloppyTarget :: String -> C [String]
 sloppyTarget "configure" = return []
 sloppyTarget t =
@@ -530,7 +538,7 @@ addDependencies t ds =
     do ots <- maybe [] (toListS . fellowTargets) `fmap` getTarget t
        ds0 <- maybe emptyS dependencies `fmap` getTarget t
        rul <- maybe (return ()) buildrule `fmap` getTarget t
-       t' <- maybe (phony t) (const t) `fmap` getTarget t
+       t' <- maybe (phony t) id `fmap` clarifyTarget t
        ds' <- fromListS `fmap` mapM processFilePathOrTarget ds
        let ds'' = ds0 `unionS` ds'
            fixt tar = (tar, delS tar allts)
