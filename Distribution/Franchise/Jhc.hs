@@ -96,6 +96,7 @@ privateExecutable  simpleexname src [] =
        hscs <- getHscs
        othersrc <- (lines `fmap` io (readFile depend))
                    `catchC` \_ -> return [src]
+       seekModules $ (>>= id) $ jhc systemErr ["-c", src]
        buildit <- jhc system [src, "-o", exname]
        -- buildit <- jhc system [src, "--dependencies", depend, "-o", exname]
        rule (depend:targets)
@@ -126,6 +127,7 @@ package pn modules [] =
               `catchC` \_ -> return []
        needDefinitions
        hscs <- getHscs
+       seekModules $ (>>= id) $ jhc systemErr ["-c", "--build-hl",pn++".config"]
        buildit <- jhc system ["--dependencies", depend,
                               "--build-hl",pn++".config"]
        rule [xpn++".hl", phony (pn++"-package"), pn++".config"]
@@ -229,6 +231,42 @@ tryModule m imports code =
        e <- jhc systemErr ["-c",fn] >>= id
        mapM_ rm [fn]
        return e
+
+mungeError :: String -> Maybe String
+mungeError "" = Nothing
+mungeError x = case stripPrefix "Module not found: " x of
+                 Just x' -> Just $ takeWhile (`notElem` "\n\r ") x'
+                 Nothing -> mungeError (drop 1 x)
+
+seekModules :: C (ExitCode, String) -> C ()
+seekModules b = 
+    do putV "Checking to see if we need any libraries..."
+       x <- b
+       case x of
+         (ExitSuccess, _) -> return ()
+         (_, e) ->
+            do putV e
+               case mungeError e of
+                 Just m ->
+                     do ps <- seekModuleInLibraries m
+                        if null ps
+                            then fail $ "No library found for module "++m
+                            else do putV $ unwords ("looking for":m:
+                                                    " in packages":ps)
+                                    tryPackages ps
+                 Nothing -> -- Allow this to pass - compile will fail anyhow.
+                            putV "Doesn't look like a missing module!"
+    where tryPackages [] = fail "no package found!"
+          tryPackages (p:ps) =
+              do addPackages [p]
+                 putV $ "looking in package "++p++" ... "
+                 x <- b
+                 case x of
+                   (ExitSuccess, _) -> putS ("using package "++p)
+                   (_, e) -> do putV e
+                                removePackages [p]
+                                tryPackages ps
+
 
 -- | 'addHsc' will be used when we add module tracking, so that we can
 -- easily add rules to build source from hsc.
