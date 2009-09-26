@@ -678,15 +678,7 @@ seekPackages runghcErr = runghcErr >>= lookForPackages
                              Just rulename -> do putV $ "found "++rulename
                                                  runghcErr >>= lookForPackages
                              Nothing ->
-                              fail $ "we don't seem to have any source for "++m,
-                    case mungePackage e of
-                      Nothing -> fail e
-                      Just p -> do addPackages [p]
-                                   x2 <- runghcErr
-                                   if x2 == x
-                                      then fail e
-                                      else do ps2 <- lookForPackages x2
-                                              return (p:ps2)
+                              fail $ "we don't seem to have any source for "++m
                    ,case mungeMissingModule e of
                       Nothing -> fail e
                       Just m -> seekPackageForModule m]
