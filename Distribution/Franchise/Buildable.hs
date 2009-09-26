@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, buildTarget,
-      bin, install,
+      bin, etc, install,
       defaultRule, buildName, build', rm,
       clean, distclean,
       addToRule, addDependencies, addTarget,
@@ -52,7 +52,7 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
-import Distribution.Franchise.GhcState ( getBinDir )
+import Distribution.Franchise.GhcState ( getBinDir, getEtcDir )
 import Distribution.Franchise.Flags ( FranchiseFlag, handleArgs )
 
 data Dependency = [String] :< [String]
@@ -152,6 +152,12 @@ install x y = do x' <- processFilePath x
                  addDependencies (phony "build") [x]
                  destdir <- maybe "" id `fmap` getExtraData "destdir"
                  addExtraUnique "to-install" [(x',destdir</>y)]
+
+-- | request that the given file be installed in the sysconfdir.
+
+etc :: FilePath -> C ()
+etc x = do etcd <- getEtcDir
+           install x (etcd++"/"++x)
 
 -- | request that the given file be installed in the bindir.
 

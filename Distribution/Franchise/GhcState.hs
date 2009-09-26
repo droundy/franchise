@@ -38,7 +38,7 @@ module Distribution.Franchise.GhcState
       getGhcFlags, getJhcFlags, getCFlags, getLdFlags,
       define, undefine, defineAs, needDefinitions,
       isDefined, getDefinitions,
-      getLibDir, getBinDir,
+      getLibDir, getBinDir, getEtcDir,
       getVersion, packages, getPackageVersion,
       getPkgFlags, getMaintainer )
         where
@@ -235,6 +235,15 @@ getLibDir = do prefix <- getPrefix
 getBinDir :: C String
 getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
+
+getEtcDir :: C String
+getEtcDir = do metc <- getExtraData "bindir"
+               case metc of
+                 Just etc -> return etc
+                 Nothing -> do prefix <- getPrefix
+                               case prefix of
+                                 "/usr" -> return "/etc"
+                                 _ -> return (prefix++"/etc")
 
 -- | Add the specified flags to the list of flags to be passed to the
 -- linker.

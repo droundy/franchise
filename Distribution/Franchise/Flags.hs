@@ -126,6 +126,7 @@ handleArgs optsc =
        withEnv "DESTDIR" ("destdir" <<=)
        withEnv "LIBDIR" ("libdir" <<=)
        withEnv "BINDIR" ("bindir" <<=)
+       withEnv "SYSCONFDIR" ("sysconfdir" <<=)
        withEnv "PREFIX" ("prefix" <<=)
        whenC amConfiguring $ addHook "disable-optimize" $ ghcFlags ["-O2"]
        opts <- map unFF `fmap` sequence optsc
@@ -156,6 +157,9 @@ handleArgs optsc =
                         Option [] ["bindir"]
                           (ReqArg ("bindir" <<=) "PATH")
                           "install in bindir",
+                        Option [] ["sysconfdir"]
+                          (ReqArg ("sysconfdir" <<=) "PATH")
+                          "install config files in sysconfdir",
                         Option [] ["libdir"]
                           (ReqArg ("libdir" <<=) "PATH")
                           "install in libdir",

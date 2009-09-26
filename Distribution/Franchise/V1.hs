@@ -49,7 +49,7 @@ module Distribution.Franchise.V1
       -- ** Defining your own build rules and phony targets
       rule, addToRule, addDependencies,
       -- ** Specifying the install target
-      install, bin,
+      install, bin, etc,
       -- * Tools to configure your build
       -- ** Setting compile parameters
       hcFlags, ghcFlags, jhcFlags,
