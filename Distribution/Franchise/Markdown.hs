@@ -108,7 +108,7 @@ markdownToHtml cssfile fin fout =
                                         unlines [htmlHead cssfile x,
                                                  html,htmlTail]
            htmlname = mkName fin fout "html"
-       addTarget $ [htmlname] :< [fin]
+       addTarget $ [htmlname] :< [fin,cssfile]
            |<- defaultRule { make = const makehtml }
        return htmlname
 
