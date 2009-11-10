@@ -101,8 +101,8 @@ markdownToHtml :: String -- ^ name of CSS file
 markdownToHtml cssfile fin fout =
     withProgram "markdown" ["hsmarkdown"] $ \markdown ->
     do withd <- rememberDirectory
-       x <- cat fin
-       let makehtml = withd $ do putS $ "["++markdown++"] "++fin
+       let makehtml = withd $ do x <- cat fin
+                                 putS $ "["++markdown++"] "++fin
                                  html <- systemOut markdown [fin]
                                  mkFile htmlname $
                                         unlines [htmlHead cssfile x,
