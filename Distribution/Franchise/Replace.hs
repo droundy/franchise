@@ -95,9 +95,10 @@ replaceLiteral a b = do r <- getExtra "replacements" :: C [(String, String)]
 
 createFile :: String -> C ()
 createFile fn =
-    rule [fn] [fn++".in"] $  do x <- cat (fn++".in")
-                                r <- getExtra "replacements"
-                                writeF fn $ repl r x
+    rule [fn] [fn++".in", "config.d/replacements"] $
+         do x <- cat (fn++".in")
+            r <- getExtra "replacements"
+            writeF fn $ repl r x
     where repl [] x = x
           repl ((a,b):rs) x = repl rs $ r1 a b x
           r1 a b x@(x1:xs) | a `isPrefixOf` x = b ++ r1 a b (drop (length a) x)
