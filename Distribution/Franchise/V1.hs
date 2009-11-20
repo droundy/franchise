@@ -45,7 +45,7 @@ module Distribution.Franchise.V1
       -- *** Creating cabal files
       cabal,
       -- ** Processing markdown files
-      splitMarkdown, markdownToHtml, markdownStringToHtmlString,
+      splitMarkdown, markdownToHtml, markdownToMan, markdownStringToHtmlString,
       -- ** Defining your own build rules and phony targets
       rule, addToRule, addDependencies,
       -- ** Specifying the install target
@@ -132,7 +132,8 @@ import Distribution.Franchise.HaskellPolicy
       enforceAllPrivacy, enforceModulePrivacy )
 import Distribution.Franchise.Test ( test, testScript, testSuite,
                                      setupTestEnvironment )
-import Distribution.Franchise.Markdown ( splitMarkdown, markdownToHtml,
-                                         markdownStringToHtmlString )
+import Distribution.Franchise.Markdown
+    ( splitMarkdown, markdownToHtml, markdownToMan,
+      markdownStringToHtmlString )
 import Distribution.Franchise.Persistency ( checkOnce )
 import Distribution.Franchise.GhcPkg ( addToGhcPath )

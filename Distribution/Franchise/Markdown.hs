@@ -31,7 +31,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 
 {-# OPTIONS_GHC -fomit-interface-pragmas #-}
 module Distribution.Franchise.Markdown
-    ( splitMarkdown, markdownToHtml, markdownStringToHtmlString )
+    ( splitMarkdown, markdownToHtml, markdownToMan,
+      markdownStringToHtmlString )
         where
 
 import Distribution.Franchise.Buildable
@@ -111,6 +112,15 @@ markdownToHtml cssfile fin fout =
        addTarget $ [htmlname] :< [fin,cssfile]
            |<- defaultRule { make = const makehtml }
        return htmlname
+
+-- | create a man page from a markdown file using pandoc.
+
+markdownToMan :: String -> String -> C String
+markdownToMan md out =
+    withProgram "pandoc" [] $ \pandoc ->
+    do rule [out] [md] $
+            system pandoc ["-s","-S","-r","markdown","-w","man",md,"-o",out]
+       return out
 
 -- | markdownStringToHtml accepts the actual markdown content as a string
 -- intput, rather than a filename, and it returns the html contents, rather
