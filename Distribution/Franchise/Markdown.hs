@@ -100,17 +100,14 @@ markdownToHtml :: String -- ^ name of CSS file
                -> String -- ^ name of HTML output file (or empty string)
                -> C String -- ^ returns name of output file
 markdownToHtml cssfile fin fout =
-    withProgram "markdown" ["hsmarkdown"] $ \markdown ->
-    do withd <- rememberDirectory
-       let makehtml = withd $ do x <- cat fin
-                                 putS $ "["++markdown++"] "++fin
-                                 html <- systemOut markdown [fin]
-                                 mkFile htmlname $
-                                        unlines [htmlHead cssfile x,
-                                                 html,htmlTail]
-           htmlname = mkName fin fout "html"
-       addTarget $ [htmlname] :< [fin,cssfile]
-           |<- defaultRule { make = const makehtml }
+    withProgram "pandoc" ["markdown", "hsmarkdown"] $ \markdown ->
+    do let htmlname = mkName fin fout "html"
+       rule [htmlname] [fin,cssfile] $  do x <- cat fin
+                                           putS $ "["++markdown++"] "++fin
+                                           html <- systemOut markdown [fin]
+                                           mkFile htmlname $
+                                                  unlines [htmlHead cssfile x,
+                                                           html,htmlTail]
        return htmlname
 
 -- | create a man page from a markdown file using pandoc.
@@ -130,7 +127,7 @@ markdownStringToHtmlString :: String -- ^ name of CSS file
                            -> String -- ^ markdown content
                            -> C String -- ^ HTML content
 markdownStringToHtmlString cssfile mkdn =
-    withProgram "markdown" ["hsmarkdown"] $ \markdown ->
+    withProgram "pandoc" ["markdown", "hsmarkdown"] $ \markdown ->
     do html <- systemInOut markdown [] mkdn
        return $ unlines [htmlHead cssfile mkdn,html,htmlTail]
 
