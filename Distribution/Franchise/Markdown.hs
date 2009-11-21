@@ -35,7 +35,7 @@ module Distribution.Franchise.Markdown
       markdownStringToHtmlString )
         where
 
-import Distribution.Franchise.Buildable
+import Distribution.Franchise.Buildable ( rule )
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.Util
 import Distribution.Franchise.Program ( withProgram )

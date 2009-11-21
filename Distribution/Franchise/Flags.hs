@@ -126,6 +126,10 @@ handleArgs optsc =
        withEnv "DESTDIR" ("destdir" <<=)
        withEnv "LIBDIR" ("libdir" <<=)
        withEnv "BINDIR" ("bindir" <<=)
+       withEnv "MANDIR" ("mandir" <<=)
+       withEnv "DOCDIR" ("docdir" <<=)
+       withEnv "DATADIR" ("datadir" <<=)
+       withEnv "HTMLDIR" ("htmldir" <<=)
        withEnv "SYSCONFDIR" ("sysconfdir" <<=)
        withEnv "PREFIX" ("prefix" <<=)
        whenC amConfiguring $ addHook "disable-optimize" $ ghcFlags ["-O2"]

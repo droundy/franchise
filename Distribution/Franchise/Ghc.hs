@@ -669,7 +669,7 @@ checkMinimumPackages = require "the compiler works" $
 seekPackages :: C (ExitCode, String) -> C [String]
 seekPackages runghcErr = runghcErr >>= lookForPackages
     where lookForPackages (ExitSuccess,_) = return []
-          lookForPackages x@(_,e) =
+          lookForPackages (_,e) =
               csum [case mungeMissingModule e of
                       Nothing -> fail e
                       Just m ->

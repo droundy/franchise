@@ -33,7 +33,8 @@ POSSIBILITY OF SUCH DAMAGE. -}
 module Distribution.Franchise.Buildable
     ( Buildable(..), BuildRule(..), Dependency(..),
       build, buildWithArgs, buildTarget,
-      bin, etc, install,
+      bin, etc, man, install,
+      installDoc, installData, installHtml,
       defaultRule, buildName, build', rm,
       clean, distclean,
       addToRule, addDependencies, addTarget,
@@ -52,7 +53,8 @@ import Distribution.Franchise.Util
 import Distribution.Franchise.ConfigureState
 import Distribution.Franchise.StringSet
 import Distribution.Franchise.Trie
-import Distribution.Franchise.GhcState ( getBinDir, getEtcDir )
+import Distribution.Franchise.GhcState ( getBinDir, getEtcDir, getManDir,
+                                         getDataDir, getDocDir, getHtmlDir )
 import Distribution.Franchise.Flags ( FranchiseFlag, handleArgs )
 
 data Dependency = [String] :< [String]
@@ -153,17 +155,50 @@ install x y = do x' <- processFilePath x
                  destdir <- maybe "" id `fmap` getExtraData "destdir"
                  addExtraUnique "to-install" [(x',destdir</>y)]
 
--- | request that the given file be installed in the sysconfdir.
+installHelper :: C FilePath -> (FilePath -> FilePath) -> FilePath -> C ()
+installHelper getdir cleanp x = do dir <- getdir
+                                   install x (dir++"/"++cleanp x)
+
+-- | request that the given file be installed in the sysconfdir.  This
+-- location may be modified at configure time via the environment
+-- variable PREFIX or SYSCONFDIR.
 
 etc :: FilePath -> C ()
-etc x = do etcd <- getEtcDir
-           install x (etcd++"/"++x)
+etc = installHelper getEtcDir id
 
--- | request that the given file be installed in the bindir.
+-- | request that the given file be installed in the bindir.  This
+-- location may be modified at configure time via the environment
+-- variable PREFIX or BINDIR.
 
 bin :: FilePath -> C ()
-bin x = do bind <- getBinDir
-           install x (bind++"/"++x)
+bin = installHelper getBinDir basename
+
+-- | request that the given file be installed in the mandir in the
+-- specified section.  This location may be modified at configure time
+-- via the environment variable PREFIX, DATADIR or MANDIR.
+
+man :: Int -> FilePath -> C ()
+man section = installHelper (getManDir section) basename
+
+-- | install the specified HTML file in an appropriate place for
+-- documentation.  This location may be modified at configure time via
+-- the environment variables PREFIX, DATADIR, DOCDIR or HTMLDIR.
+
+installHtml :: FilePath -> C ()
+installHtml = installHelper getHtmlDir id
+
+-- | install the specified file in the documentation location.  This
+-- location may be modified at configure time via the environment
+-- variable PREFIX, DATADIR or DOCDIR.
+
+installDoc :: FilePath -> C ()
+installDoc = installHelper getDocDir id
+
+-- | install in the data path.  This location may be modified at
+-- configure time via the environment variable PREFIX or DATADIR.
+
+installData :: FilePath -> C ()
+installData = installHelper getDataDir id
 
 buildWithArgs :: [String] -> [C FranchiseFlag] -> C () -> IO ()
 buildWithArgs args opts mkbuild = runC $

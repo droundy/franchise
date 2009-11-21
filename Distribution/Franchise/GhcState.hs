@@ -39,6 +39,7 @@ module Distribution.Franchise.GhcState
       define, undefine, defineAs, needDefinitions,
       isDefined, getDefinitions,
       getLibDir, getBinDir, getEtcDir,
+      getDataDir, getDocDir, getHtmlDir, getManDir,
       getVersion, packages, getPackageVersion,
       getPkgFlags, getMaintainer )
         where
@@ -235,6 +236,25 @@ getLibDir = do prefix <- getPrefix
 getBinDir :: C String
 getBinDir = do prefix <- getPrefix
                maybe (prefix++"/bin") id `fmap` getExtraData "bindir"
+
+getDataDir :: C String
+getDataDir = do prefix <- getPrefix
+                maybe (prefix++"/share") id `fmap` getExtraData "datadir"
+
+getDocDir :: C String
+getDocDir = do dd <- getDataDir
+               pn <- maybe "" id `fmap` getPackageName
+               maybe (dd++"/doc/"++pn) id `fmap` getExtraData "docdir"
+
+getHtmlDir :: C String
+getHtmlDir = do dd <- getDocDir
+                maybe dd id `fmap` getExtraData "htmldir"
+
+getManDir :: Int -> C String
+getManDir section = do datadir <- getDataDir
+                       maybe (datadir++"/man/man"++show section)
+                             (++("/man"++show section))
+                             `fmap` getExtraData "mandir"
 
 getEtcDir :: C String
 getEtcDir = do metc <- getExtraData "bindir"
