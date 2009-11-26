@@ -1,0 +1,52 @@
+Using markdown for man pages
+============================
+
+You can use markdown to generate man pages, so long as you have
+[pandoc][] installed.
+
+[pandoc]: http://johnmacfarlane.net/pandoc
+
+~~~~~~~ tests/markdown-man/manpage.txt
+# Man page
+
+This is a stupid test.
+~~~~~~~
+
+[mardownToMan]: haddock/Distribution-Franchise-V1.html#v%3AmarkdownToMan
+[man]: haddock/Distribution-Franchise-V1.html#v%3Aman
+
+You just need to use [mardownToMan][].  We also in this test use
+[man][] to install the manpage in the appropriate place.
+
+~~~~ tests/markdown-man/Setup.hs
+import Distribution.Franchise.V1
+
+main = build [] $ markdownToMan "manpage.txt" "manpage.1" >>= man 1
+~~~~
+
+Testing it out
+--------------
+
+In this test we use `$DESTDIR` to test the install process.
+
+~~~~ tests/markdown-man/markdown-man.sh
+set -ev
+echo $HOME | grep doc/tests
+
+runghc Setup.hs configure --prefix=/usr
+runghc Setup.hs build
+
+if ! which pandoc; then
+  echo quitting early without pandoc...
+  exit 0
+fi
+
+grep stupid manpage.1
+
+mkdir `pwd`/test
+# FIXME: we shouldn't need to specify the --prefix again here!
+DESTDIR=`pwd`/test runghc Setup.hs --prefix=/usr install
+
+ls `pwd`/test/usr/share/
+grep stupid `pwd`/test/usr/share/man/man1/manpage.1
+~~~~
